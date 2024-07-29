@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" data-controller="tsunami.html#exec=appearOnLayerLoad" >
+
+<defs>
+<g id="p0">
+<circle cx="0" cy="0" r="6" fill="pink" stroke="blue" stroke-width="2" vector-effect="non-scaling-stroke"/>
+</g>
+<g id="purple">
+<circle cx="0" cy="0" r="10" fill="purple" stroke="gray" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</g>
+<g id="red">
+<circle cx="0" cy="0" r="8" fill="red" stroke="gray" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</g>
+<g id="yellow">
+<circle cx="0" cy="0" r="5" fill="yellow" stroke="gray" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</g>
+<g id="skyblue">
+<circle cx="0" cy="0" r="5" fill="skyblue" stroke="gray" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</g>
+<g id="eqc">
+<circle cx="0" cy="0" r="10" fill="red" stroke="none"/>
+</g>
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<g id="vectorGroup" stroke-linejoin="bevel"></g>
+</svg>

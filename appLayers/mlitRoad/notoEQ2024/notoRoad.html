@@ -1,0 +1,245 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
+<script type="text/javascript" src="./customShowPoiProperty.js"></script>
+
+<script>
+// 国交省の 令和６年能登半島地震　道路復旧見える化マップページ(https://www.mlit.go.jp/road/r6noto/index2.html)をSVGMapレイヤー化する
+// Programmed by Satoru Takagi 
+// Copyright 2024 by Satoru Takagi All Rights Reserved
+//
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var rootPage="https://www.mlit.go.jp/road/r6noto/map/index.html";
+var tlss = "var targetLayers";
+var layers={};
+onload=async function(){
+	layers=await getLayerInfo();
+	buildLGroup();
+	listLayers();
+	svgMap.setShowPoiProperty(customShowPoiProperty , layerID )
+	await makeMapLayers();
+}
+
+function buildLGroup(){
+	var lo = [];
+	for ( key in layers ){
+		lo.push([key, layers[key].zindex]);
+	}
+	lo.sort(function(a,b){
+		return (b[1] - a[1]);
+	})
+	console.log("buildLGroup:",lo);
+	for( var ln of lo){
+		var g = svgImage.createElement("g");
+		g.setAttribute("id",`l_${ln[0]}`);
+		svgImage.documentElement.appendChild(g);
+	}
+}
+
+function listLayers(){
+	for ( var lk in layers){
+		var layer = layers[lk];
+		var tr=`<tr id="tr_${lk}"><td><input type="checkbox" id="i_${lk}" ${layer.checked?"checked":""} onclick="setLayerVisibility(event)"></input></td>
+		<td><label for="i_${lk}">${lk}</label></td></tr>`;
+		indexTable.insertAdjacentHTML("beforeend", tr);
+	}
+}
+
+function setLayerVisibility(event){
+	var key = event.target.getAttribute("id");
+	key = key.substring(2);
+	if ( event.target.checked){
+		drawLayer(layers[key],key);
+	} else {
+		drawLayer(null,key);
+	}
+}
+
+async function makeMapLayers(){
+	for ( var lk in layers){
+		buildLayer(layers[lk],lk);
+	}
+}
+
+async function buildLayer(layerInf,lkey){
+	var gjres = await fetch(svgMap.getCORSURL( new URL(layerInf.geojson,rootPage).href));
+	var lastMod = gjres.headers.get("last-modified");
+//	console.log(lkey,": lastMod:",lastMod);
+	var gjs = await gjres.json();
+	var schema = getSchemaAndSetStyle(gjs);
+	//console.log(gjs);
+	layerInf.data=gjs;
+	layerInf.schema=schema;
+	try{
+		if (lastMod){
+			layerInf.lastModified=new Date(lastMod);
+			var ttr=document.getElementById(`tr_${lkey}`);
+			//console.log(ttr);
+			var ls=layerInf.lastModified.toLocaleString();
+			ls=ls.substring(0,ls.lastIndexOf(":"));
+			ls =ls.substring(0)+"更新";
+			var ttr=ttr.insertAdjacentHTML("beforeend",`<td style="font-size:8px">${ls}</td>`);
+		}
+	}catch(e){console.warn("更新日時取得失敗",e);}
+	setIcons();
+	if ( layerInf.checked ){
+		drawLayer(layerInf,lkey);
+	}
+}
+
+function setIcons(){
+	var idef = svgImage.getElementById("icons");
+	for ( var icid in icons){
+		var ig = svgImage.getElementById(icid);
+		if (!ig){
+			ig = svgImage.createElement("g");
+			ig.setAttribute("id",icid);
+			var img = svgImage.createElement("image");
+			img.setAttribute("xlink:href",icons[icid]);
+			img.setAttribute("preserveAspectRatio","none");
+			img.setAttribute("x","-8");
+			img.setAttribute("y","-8");
+			img.setAttribute("width","16");
+			img.setAttribute("height","16");
+			ig.appendChild(img);
+			idef.appendChild(ig);
+		}
+	}
+}
+
+function drawLayer(layerInf,lkey){
+	var tgrp = svgImage.getElementById(`l_${lkey}`);
+//	console.log(layerInf,lkey,tgrp);
+	removeChildren(tgrp);
+	if ( layerInf ){
+		tgrp.setAttribute("property",layerInf.schema.join());
+		svgMapGIStool.drawGeoJson(layerInf.data, layerID, "purple", 2, "purple", "p0",undefined,undefined,tgrp,layerInf.schema);
+	}
+	svgMap.refreshScreen();
+}
+
+function getSchemaAndSetStyle(gjs){
+	var sc={};
+	for ( var ft of gjs.features){
+		if ( ft.properties.name){
+			ft.properties.title = ft.properties.name;
+			delete ft.properties.name;
+		}
+		for ( var pn in ft.properties){
+			if ( pn.indexOf("_")==0){
+				transformStyle(pn,ft.properties);
+			} else {
+				sc[pn]=true;
+				var pv = ft.properties[pn];
+				if ( pv.indexOf("<img")>=0 ){
+					ft.properties[pn]=transformLink(pv);
+				}
+			}
+		}
+	}
+	return (Object.keys(sc));
+}
+
+function transformLink(val){
+	var link =val.substring(val.indexOf("src"));
+	link = link.substring(link.indexOf('"')+1);
+	link = link.substring(0,link.indexOf('"'));
+	link = new URL(link,rootPage).href;
+	//console.log(link);
+	return link;
+}
+
+var styleTable={
+	"_fillColor":"fill",
+	"_color" : "stroke",
+	"_fillOpacity" : "fill-opacity",
+	"_opacity" : "stroke-opacity",
+}
+
+var icons={};
+
+function transformStyle(pn, props){
+	if ( styleTable[pn]){
+		props[styleTable[pn]]=props[pn];
+	} else if ( pn =="_iconUrl"){
+		var iconUrl =props[pn];
+		var ikey =iconUrl;
+		ikey=ikey.substring(ikey.lastIndexOf("/")+1);
+		ikey=ikey.substring(0,ikey.lastIndexOf("."));
+		ikey="icon_"+ikey;
+		props["marker-symbol"]=ikey;
+		icons[ikey]=iconUrl;
+	}
+	delete props[pn];
+}
+
+async function getLayerInfo(){
+	var htext = await (await fetch(svgMap.getCORSURL(rootPage))).text();
+	var dom = new DOMParser().parseFromString(htext, "text/html");
+	var targetDiv = dom.querySelectorAll("script");
+	var tljs;
+	for ( var div of targetDiv){
+		var tli=div.innerText.indexOf(tlss);
+		if ( tli>0){
+			tljs=div.innerText.substring(tli);
+			break;
+		}
+	}
+	tljs = tljs.substring(tljs.indexOf("{"));
+	tljs = tljs.substring(0,tljs.indexOf(";"));
+	tljs = tljs.replaceAll("'",'"');
+	//console.log(tljs);
+	tl = JSON.parse(tljs);
+	//console.log(tl);
+	return tl;
+}
+
+function convertToCharset(sjisArray  ){ // charsetStr: sjis
+	var dc = Encoding.detect(sjisArray );
+	//console.log(sjisArray,dc);
+	var unicodeArray = Encoding.convert(sjisArray, {
+		to: 'UNICODE',
+		from:dc
+	});
+	var str = Encoding.codeToString(unicodeArray);
+        return ( str );
+}
+
+const sleep = msec => new Promise(resolve => setTimeout(resolve, msec));
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+</script>
+<body>
+<h3>令和６年能登半島地震　道路復旧レイヤー</h3>
+<div  style="font-size:11px">出典：<a href="https://www.mlit.go.jp/road/r6noto/index2.html" target="_blank">国交省 令和６年能登半島地震　道路復旧見える化マップ</a>
+<table style="font-size:11px;border: 1px solid #black;border-collapse: collapse;"  border=1 id="indexTable"></table>
+<div id="msgDiv"></div>
+<img src="imgs/usage_guideV.png" width="100%">
+<!--
+<div class="image-container" style="position: relative;overflow: hidden;width: 200px;">
+<img src="https://www.mlit.go.jp/road/r6noto/map/img/usage_guide.png" style="position:absolute;clip:rect(1464px 2694px 1584px 1527px);object-fit: cover;">
+</div>
+-->
+</body>
+</html>

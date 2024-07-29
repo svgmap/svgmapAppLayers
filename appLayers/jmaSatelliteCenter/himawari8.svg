@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="122.9800817, -45.398095, 21.97626, 21.0533039" data-controller="himawari8_ui.html">
+
+<script>
+	// Dynamic NowCast Layer for SVGMap Sample for SVGMapLevel0 > r10
+	// Programmed by Satoru Takagi
+	// Copyright (C) 2014 by Satoru Takagi @ KDDI CORPORATION
+	// 
+	// License:
+	//  This program is free software: you can redistribute it and/or modify
+	//  it under the terms of the GNU General Public License version 3 as
+	//  published by the Free Software Foundation.
+	//
+	//  This program is distributed in the hope that it will be useful,
+	//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+	//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	//  GNU General Public License for more details.
+	//
+	//  You should have received a copy of the GNU General Public License
+	//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
+	
+	// HIMAWARI8 on jma.go.jp
+	
+	var minStep = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10];
+	var contCat = ["b13","b03","b08","b07","arm","dnc","dms","tre","cve","ngt","dst","dsl","snd","vir","irv","trm"];
+	var guardTime = [1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000,1500000];
+	
+	var currentCat = 0; // 0:radar , 1:thunder , 2:tornado
+	
+	function onload(){ 
+		this.guardTime = guardTime;
+		this.minStep = minStep;
+		this.refreshTiles = refreshTiles;
+		var hParams = getHashParams(this.location.hash);
+		if ( hParams.content ){
+			currentCat = Number(hParams.content);
+		}
+		this.initCat = currentCat;
+//		console.log("Load JMA Radar scale", this.scale, this.CRS);
+//		console.log("geoViewBox:",geoViewBox," actualViewBox:",actualViewBox," geoViewBox:",geoViewBox," scale:",scale," CRS:",CRS," this.scale:",this.scale, "  this.CRS:",this.CRS, "   this:",this);
+		refreshTiles(this.scale, this.CRS, currentCat);
+	}
+	
+	lv1 = "detail";
+	lv0 = "top";
+	onzoom = function(){
+		if ( !this.noRefresh ){
+			console.log("Load JMA himawari8 onzoom, onscroll scale:", this.scale);
+			refreshTiles(this.scale, this.CRS, currentCat);
+		}
+	}
+	onscroll = onzoom;
+	
+	
+	function refreshTiles( scale , CRS , cat, sDate){
+		currentCat = cat;
+		var tiles = document.getElementsByTagName("image");
+//		console.log("tile:",tiles);
+		var date0 = new Date();
+		var date;
+		if ( sDate ){
+			date = sDate;
+		} else {
+			date = new Date(date0.getTime() - guardTime[cat] + date0.getTimezoneOffset() * 60 * 1000 ); // set guard time
+		}
+		console.log("called refresh Tiles JMA Radar HR    date:",date);
+		this.date = date;
+		
+		var mind = minStep[cat] * Math.floor(date.getMinutes() / minStep[cat]) ;
+		
+		var distMin = 10000000;
+		var ii=0;
+		var ilow = 0;
+		for ( var i = 0 ; i < tiles.length ; i++ ){
+			var telem = tiles[i];
+			
+			var tnum = telem.getAttribute("title").substring(0);
+			if ( tnum != "000" ){
+				var geoViewCX = geoViewBox.x + geoViewBox.width / 2.0;
+				var geoViewCY = geoViewBox.y + geoViewBox.height / 2.0;
+				var tileGeoCenter = getGeoTileCenter( telem , CRS);
+				var dist2 =   ( tileGeoCenter.x - geoViewCX ) * ( tileGeoCenter.x - geoViewCX ) + ( tileGeoCenter.y - geoViewCY ) * ( tileGeoCenter.y - geoViewCY ) ;
+				if ( dist2 < distMin ){
+					distMin = dist2;
+					ii = i;
+				}
+			} else {
+				ilow = i;
+			}
+			var req = "http://www.data.jma.go.jp/mscweb/data/himawari/img/" + tnum + "/" + tnum + "_" + contCat[cat] + "_" + pad(date.getHours()) + pad(mind) + ".jpg";
+//			console.log("REQ:",req);
+			telem.setAttribute("xlink:href", req);
+			telem.setAttribute("visibility","hidden");
+		}
+		
+//		tiles[ii].setAttribute("visibility","visible");
+		if ( scale && scale > 0 ){
+//			console.log("choice:",ii);
+			tiles[ii].setAttribute("visibility","visible");
+		} else {
+			tiles[ilow].setAttribute("visibility","visible");
+		}
+//		console.log( tiles, date.getFullYear(), pad(date.getMonth() + 1) , pad(date.getDate()) , pad(date.getHours()) , pad(date.getMinutes()) , req );
+	}
+	
+	function pad( inp ){
+		return ( ("0"+inp).slice(-2));
+	}
+	
+	function getGeoTileCenter( tileElem , CRS){
+		var x = Number(tileElem.getAttribute("x"));
+		var y = Number(tileElem.getAttribute("y"));
+		var w = Number(tileElem.getAttribute("width"));
+		var h = Number(tileElem.getAttribute("height"));
+		var cx = x + w / 2.0;
+		var cy = y + h / 2.0;
+		geoX = CRS.d * (CRS.a * CRS.d) * cx;
+		geoY = CRS.a * (CRS.a * CRS.d) * cy;
+		return { x: geoX , y: geoY }
+	}
+
+    function getHashParams( hash ){
+    	hash = hash.substring(1);
+    	hash = hash.split("&");
+		for ( var i = 0 ; i < hash.length ; i++ ){
+			hash[i] = hash[i].split("=");
+			if ( hash[i][1] ){
+				hash[hash[i][0]] = hash[i][1];
+			} else {
+				hash[hash[i][0]] = true;
+			}
+		}
+//    	console.log(hash);
+    	return ( hash );
+    }
+
+</script>
+
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)" />
+
+<!-- JMA all HIMAWARI8 area -->
+ <image xlink:href="img.png" x="110.01659493059336" y="10.00655551343745" width="44.9707024511286" height="35.00336017287121" preserveAspectRatio="none" title="aus" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="154.98908924998693" y="25.09324126369117" width="34.97247704365316" height="34.80328584873069" preserveAspectRatio="none" title="nzl" opacity="0.5" visibility="hidden"/>
+<!--
+ <image xlink:href="img.png" x="137.60397003620912" y="-45.06023736603463" width="7.328648722911197" height="4.705851423641036" preserveAspectRatio="none" title="pi1" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="137.48017390616778" y="-42.39660281531057" width="7.035236576525421" height="4.712829843781002" preserveAspectRatio="none" title="pi2" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="137.0596809158453" y="-40.48917264172304" width="6.843017356356171" height="4.730863755862586" preserveAspectRatio="none" title="pi3" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="136.6577883202719" y="-37.815426577532314" width="6.61183085677834" height="4.722038442253371" preserveAspectRatio="none" title="pi4" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="135.6341684875156" y="-38.31705888562935" width="6.656883924534441" height="4.717700582045708" preserveAspectRatio="none" title="pi5" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="135.6528080261928" y="-40.06804822233265" width="6.810503959303446" height="4.720477723339258" preserveAspectRatio="none" title="pi6" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="133.78776648674722" y="-38.81555251449649" width="6.693432540720863" height="4.717235943821329" preserveAspectRatio="none" title="pi7" opacity="0.5" visibility="hidden"/>
+ -->
+ <image xlink:href="img.png" x="114.98113236307528" y="-48.023283280903996" width="40.02718133366811" height="25.637225324061" preserveAspectRatio="none" title="jpn" opacity="0.5" visibility="hidden"/>
+ <!--
+ <image xlink:href="img.png" x="132.34417863961397" y="-37.15069156776035" width="6.562144004078078" height="4.7176491702721535" preserveAspectRatio="none" title="ca1" opacity="0.5" visibility="hidden"/>
+ -->
+ <image xlink:href="img.png" x="79.9422164053273" y="-29.98706537668758" width="35.13442733541851" height="29.989818637685232" preserveAspectRatio="none" title="se1" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="105.01361048355687" y="-30.066268235215098" width="34.93968793357095" height="30.126480653577257" preserveAspectRatio="none" title="se2" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="89.91978869118245" y="-10.07717498559618" width="55.09464814662391" height="25.083659934241435" preserveAspectRatio="none" title="se3" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="69.96658435256047" y="-30.055419608367142" width="30.051915488258274" height="30.04079472540099" preserveAspectRatio="none" title="se4" opacity="0.5" visibility="hidden"/>
+ <!--
+ <image xlink:href="img.png" x="126.85513459717254" y="-30.898760458720943" width="6.131775042744607" height="4.713524539562652" preserveAspectRatio="none" title="r2w" opacity="0.5" visibility="hidden"/>
+ <image xlink:href="img.png" x="125.40585756793843" y="-28.73088682804571" width="6.011637054425535" height="4.717682302014989" preserveAspectRatio="none" title="r5w" opacity="0.5" visibility="hidden"/>
+-->
+</svg>

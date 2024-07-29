@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>rent a car data parser</title>
+</head>
+
+<style>
+/* 奇数行のスタイル */
+table tr:nth-child(odd){
+  background-color:#c0c0ff;
+}
+ 
+/* 偶数行のスタイル */
+table tr:nth-child(even){
+  background-color:#e0e0e0;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description
+// 気象庁_2021 推計震度分布レイヤー
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+
+var suikeiImgBase = "https://www.jma.go.jp/bosai/estimated_intensity_map/data/";
+var proxyPath="https://www.jma.go.jp/bosai/";
+var suikeiSubPath = "estimated_intensity_map/data/";
+onload=function(){
+	updateIndex();
+}
+
+function updateIndex(){
+	loadJSON(showData,svgMap.getCORSURL(proxyPath+suikeiSubPath+"list.json?t="+((new Date()).getTime())));
+}
+
+var indexJson;
+function showData(json){
+	indexJson = json;
+	console.log("indexJson:",indexJson);
+	showEqList();
+	showEq(0);
+}
+
+function showEqList(){
+	for ( var i = 0 ; i < indexJson.length ; i++ ){
+		var ev = indexJson[i];
+		var eqname = ev.hypo.epi;
+		var eqdate = new Date(ev.hypo.at);
+		var eqds = datetostr(eqdate, 'Y/MM/DD(WW) hh:mm');
+		var eqmaxs = ev.hypo.maxi;
+		var eqmag = ev.hypo.mag;
+		var ltitle = eqds+" "+eqname+" 最大震度"+eqmaxs+" マグニチュード"+eqmag;
+		var opt = document.createElement("option");
+		opt.innerText=ltitle;
+		if ( i == 0 ){
+			opt.selected=true;
+		}
+		evList.appendChild(opt);
+	}
+}
+
+function evListClick(event){
+	var idx = event.target.selectedIndex;
+	showEq(idx);
+}
+
+function showEq(eqIndex){
+	var metaTmpl="[at],[epi],[dep],[mag]";
+	var ev = indexJson[eqIndex];
+	var hypo = ev.hypo;
+	for ( var key in hypo ){
+		var td = document.getElementById("t_"+key)
+		if ( td ){
+			td.innerText=hypo[key];
+		}
+		metaTmpl = metaTmpl.replace("["+key+"]",hypo[key]);
+	}
+	
+	var evPath = ev.url+"/";
+	var mesh1set = ev.mesh_num;
+	var tile_g=svgImage.getElementById("areas");
+	removeChildren(tile_g);
+	
+	
+	for ( var i = 0 ; i < mesh1set.length ; i++ ){
+		var path = suikeiImgBase + evPath + mesh1set[i] + ".png";
+		console.log("path:",path);
+		var imgTag = getImg(mesh1set[i],path);
+		tile_g.appendChild(imgTag);
+	}
+	var lng = hypo.lon;
+	var lat = hypo.lat;
+	setEqCenter(lng,lat,metaTmpl);
+	svgMap.refreshScreen();
+}
+
+function setEqCenter(lng,lat,meta){
+	var ec = svgImage.getElementById("eqCenter");
+	ec.setAttribute("transform","ref(svg,"+lng*100+","+(-lat*100)+")");
+	ec.setAttribute("content",meta);
+}
+
+function getImg(mesh , path ){
+	var img = svgImage.createElement("image");
+	img.setAttribute("xlink:href",path);
+	img.setAttribute("width",100);
+	img.setAttribute("height",100/1.5);
+	
+	var my = Number(mesh.substring(0,2))/1.5;
+	var mx = Number(mesh.substring(2))+100;
+	
+	img.setAttribute("x",100 * mx);
+	img.setAttribute("y",-100 * my - 100/1.5);
+	console.log(mx,my,img);
+	return(img);
+}
+
+
+
+function loadJSON(cbFunc, url, dataCat, postProcess){
+//	console.log("loadJSON : SRC: ", url);
+	var httpObj = new XMLHttpRequest();
+	if ( httpObj ) {
+		httpObj.onreadystatechange = function(){
+			loadJSON_ph2( this , cbFunc , dataCat , postProcess);
+		} ;
+		httpObj.open("GET", url , true );
+		httpObj.send(null);
+	}
+}
+
+function loadJSON_ph2( httpRes , cbFunc , dataCat , postProcess){
+	if ( httpRes.readyState == 4 ){
+		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
+			console.log( "loadJSON : File get failed : stat : ", httpRes.status);
+			return;
+		}
+		var jst = httpRes.responseText;
+		jst = unescape(jst);
+		if ( postProcess ){
+			jst = postProcess(jst);
+		}
+//		console.log("isCsv:",isCsv, "\nloadJSON_ph2:",jst);
+		if ( dataCat=="csv" ){
+			var csv = jst.split("\n");
+//			console.log("csv:",csv);
+			for ( var i = 0 ; i < csv.length ; i++ ){
+				csv[i] = csv[i].split(",");
+			}
+//			console.log("csv:",csv);
+			cbFunc ( csv );
+		} else if ( dataCat == "html" ){
+			var parser = new DOMParser();
+			var htmlDoc = parser.parseFromString(jst, 'text/html');
+			// var htmlDoc = parser.parseFromString(txt, 'text/xml');
+			cbFunc(htmlDoc);
+		} else {
+			var Json = JSON.parse(jst);
+			cbFunc(Json);
+		}
+	}
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function datetostr(date, format, is12hours) {
+    var weekday = ["日", "月", "火", "水", "木", "金", "土"];
+    if (!format) {
+        format = 'Y/MM/DD(WW) hh:mm:ss AP'
+    }
+    var year = date.getFullYear();
+    var month = (date.getMonth() + 1);
+    var day = date.getDate();
+    var weekday = weekday[date.getDay()];
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var secounds = date.getSeconds();
+
+    var ampm = hours < 12 ? 'AM' : 'PM';
+    if (is12hours) {
+        hours = hours % 12;
+        hours = (hours != 0) ? hours : 12; // 0時は12時と表示する
+    }
+
+    var replaceStrArray =
+        {
+            'YYYY': year,
+            'Y': year,
+            'MM': ('0' + (month)).slice(-2),
+            'M': month,
+            'DD': ('0' + (day)).slice(-2),
+            'D': day,
+            'WW': weekday,
+            'hh': ('0' + hours).slice(-2),
+            'h': hours,
+            'mm': ('0' + minutes).slice(-2),
+            'm': minutes,
+            'ss': ('0' + secounds).slice(-2),
+            's': secounds,
+            'AP': ampm,
+        };
+
+    var replaceStr = '(' + Object.keys(replaceStrArray).join('|') + ')';
+    var regex = new RegExp(replaceStr, 'g');
+
+    ret = format.replace(regex, function (str) {
+        return replaceStrArray[str];
+    });
+
+    return ret;
+}
+
+</script>
+<body>
+<h3>気象庁_2021 推計震度分布レイヤー</h3>
+<p><a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=estimated_intensity_map">推計震度分布</a>を表示します</p>
+<select id="evList" onchange="evListClick(event)"></select>
+<table>
+<tr><td>発生日時</td><td id="t_at"></td></tr>
+<tr><td>震央地名</td><td id="t_epi"></td></tr>
+<tr><td>深さ</td><td><span id="t_dep"></span>Km</td></tr>
+<tr><td>マグニチュード</td><td id="t_mag"></td></tr>
+<tr><td>最大震度?</td><td id="t_maxi"></td></tr>
+<!--<tr><td>発表日時</td><td id="t_it"></td></tr>-->
+</table>
+<img src="suikeiHanrei.jpg">
+</body>
+</html>

@@ -1,0 +1,480 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="./svgMapGeoJson_r2.js"></script>
+<script>
+
+// Description
+// 気象庁アメダスデータレイヤー
+//
+// Programmed by Satoru Takagi
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// HISTORY:
+// 2021/4/15
+
+var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
+
+var amedasIndex =[
+	{ "name": "10分間降水量", "enName": "Precipitation (10-min.)", "value": "precipitation10m" ,"legend":"r10m.png",scale:[0.001,1,3,5,10,15,20,30],"palette":"gen8"},
+	{ "name": "1時間降水量", "enName": "Precipitation (1-hour)", "value": "precipitation1h" ,"legend":"r1h.png",scale:[0.001,1,5,10,20,30,50,80],"palette":"gen8"},
+	{ "name": "3時間降水量", "enName": "Precipitation (3-hour)", "value": "precipitation3h" ,"legend":"r3h.png",scale:[0.001,20,40,60,80,100,120,150],"palette":"gen8"},
+	{ "name": "24時間降水量", "enName": "Precipitation (24-hour)", "value": "precipitation24h" ,"legend":"r24h.png",scale:[0.001,50,80,100,150,200,250,300],"palette":"gen8"},
+	{ "name": "風向・風速", "enName": "Wind direction/speed", "value": "wind" ,"legend":"wind.png",scale:[0,5,10,15,20,25],"palette":"win"},
+	{ "name": "気温", "enName": "Temperature", "value": "temp" ,"legend":"tmp.png",scale:[-50,-5,0,5,10,15,20,25,30,35],"palette":"tmp"},
+	{ "name": "日照時間", "enName": "Sunshine duration", "value": "sun1h" ,"legend":"sun.png",scale:[0,0.2,0.4,0.6,0.8,1.0],"palette":"sun"},
+	{ "name": "積雪深", "enName": "Snow depth", "value": "snow" ,"legend":"sd.png",scale:[0.001,1,5,20,50,100,150,200],"palette":"gen8"},
+	{ "name": "6時間降雪量", "enName": "Snow fall (6-hour)", "value": "snow6h" ,"legend":"s6.png",scale:[0.001,1,5,10,15,20,30,50],"palette":"gen8"},
+	{ "name": "12時間降雪量", "enName": "Snow fall (12-hour)", "value": "snow12h" ,"legend":"s12.png",scale:[0.001,1,5,10,20,30,50,70],"palette":"gen8"},
+	{ "name": "24時間降雪量", "enName": "Snow fall (24-hour)", "value": "snow24h" ,"legend":"s24.png",scale:[0.001,1,10,20,30,50,70,100],"palette":"gen8"},
+	{ "name": "湿度", "enName": "Humidity", "value": "humidity" ,"legend":"hum.png",scale:[0,10,20,30,40,50,60,70,80,90,100],"palette":"hum"},
+//	{ "name": "地点名", "enName": "Stations", "value": "obsStation" ,"legend":"cat.png"}
+];
+
+var palette={
+	"gen8":["#b40068","#ff2800","#ff9900","#faf500","#0041ff","#218cff","#a0d2ff","#f2f2ff"],
+	"hum" :["#011f7d","#004b96","#00729a","#1fc2d3","#80f8e7","#fffff0","#ffc846","#e78707","#ab4a01","#761100","#540600"],
+	"tmp" :["#f9fbff","#ff2800","#ff9900","#faf500","#ffff96","#fffff0","#b9ebff","#0096ff","#0041ff","#002080"],
+	"sun" :["#b40068","#ff2800","#ff9900","#faf500","#b9ebff","#0041ff"],
+	"win" :["#b40068","#ff2800","#ff9900","#faf500","#0041ff","#f2f2ff"],
+}
+
+onload=function(){
+	setTimeout(function(){
+		generateColorScale();
+		generateMetaSchemaL0();
+		buildCatMenu();
+		generateDirIcons();
+		loadJson("https://www.jma.go.jp/bosai/amedas/const/amedastable.json",initAmedas);
+	},100);
+}
+
+function initAmedas(json){
+	// 自動更新する起点もここです(json無しケース)
+	//console.log("init amedas:",json);
+	if ( json ){
+		amStatic = json;
+	}
+	loadJson("https://www.jma.go.jp/bosai/amedas/data/latest_time.txt",updateAmedas,true);
+}
+
+function generateColorScale(){
+	for ( var k = 0 ; k < amedasIndex.length ; k++ ){
+		var scale = amedasIndex[k].scale;
+		var pt = palette[amedasIndex[k].palette];
+		if ( !pt ){continue}
+		//console.log(pt);
+		var color=[];
+		for ( var i = 0 ; i < scale.length ; i++ ){
+			color.push(pt[pt.length-i-1]);
+		}
+		amedasIndex[k].color = color;
+	}
+	//console.log("amedasIndex:",amedasIndex);
+}
+
+function generateMetaSchemaL0(){
+	// amedasIndexからスキーマをまずは作るが・・・
+	metaSchema={};
+	metaSchema.keys=[];
+	metaSchema.titles=[];
+	for ( var i = 0 ; i < amedasIndex.length ; i++ ){
+		metaSchema.titles.push(amedasIndex[i].name);
+		metaSchema.keys.push(amedasIndex[i].value);
+	}
+	console.log("metaSchema:",metaSchema);
+	setMetaProp();
+	metaSchema.keys= metaSchema.keys.concat(["alt","elems","enName","kjName","knName","type"]);
+	metaSchema.titles = metaSchema.titles.concat(["高度","属性","英名","名称","カナ","タイプ"]);
+}
+
+var schemaL1build=false;
+function generateMetaSchemaL1(){
+	schemaL1build = true;
+	//console.log("generateMetaSchemaL1 selectedJson:",selectedJson);
+	// 実データからもっとまともなスキーマを作ってみます・・
+	for ( var stkey in selectedJson){
+		var obj=selectedJson[stkey];
+		for ( var key in obj ){
+			if ( metaSchema.keys.indexOf(key) ==-1){
+				metaSchema.keys.push(key);
+				metaSchema.titles.push(key);
+			}
+		}
+	}
+	
+	// 風向特殊処理を入れる
+	var wi = metaSchema.keys.indexOf("wind");
+	metaSchema.titles[wi]="風速";
+	var wd = metaSchema.keys.indexOf("windDirection");
+	metaSchema.titles[wd]="風向";
+	
+	console.log("metaSchema:",metaSchema);
+	setMetaProp();
+}
+
+function generateDirIcons(){
+	var defs = svgImage.getElementsByTagName("defs")[0];
+	var dp = svgImage.getElementById("d0path");
+	// console.log(defs,dp);
+	var p= (dp.getAttribute("d")).split(" ");
+	// console.log("p:",p);
+	for ( var i = 1 ; i < 16 ; i++ ){
+		var th = 2 * Math.PI * (i / 16);
+		var g = svgImage.createElement("g");
+		g.setAttribute("id","d"+i);
+		var d="M";
+		for ( var j = 1 ; j < p.length-1 ; j++){
+			var xy = p[j].split(",");
+			var px=Number(xy[0]);
+			var py=Number(xy[1]);
+			var nx = Math.cos(th)*px-Math.sin(th)*py;
+			var ny = Math.sin(th)*px+Math.cos(th)*py;
+			d+= nx + "," + ny + " ";
+		}
+		d+="Z";
+		//console.log("d:",d,p.length);
+		var pte = svgImage.createElement("path");
+		pte.setAttribute("d",d);
+		pte.setAttribute("stroke-width","1");
+		pte.setAttribute("stroke","#505050");
+		pte.setAttribute("vector-effect","non-scaling-stroke");
+		g.appendChild(pte);
+		defs.appendChild(g);
+	}
+}
+
+
+var amStatic; // [key].{alt,elems,enName,kjName,knName,lat[d,m],lon[d.,m],type}
+var lastUpdateTime;
+var metaSchema;
+
+
+function buildCatMenu(){
+	for ( var i = 0 ; i < amedasIndex.length ; i++ ){
+		var opt = document.createElement("option");
+		opt.innerText=amedasIndex[i].name;
+		if ( i == 0 ){
+			opt.selected = true;
+		}
+		catSel.appendChild(opt);
+	}
+}
+
+function updateAmedas(txt){
+	lastUpdateTime = new Date(txt.trim());
+	console.log("updateAmedas:",txt,lastUpdateTime);
+	buildTimeMenu();
+	changeTime();
+}
+
+function buildTimeMenu(){
+	while (timeSel.firstChild) timeSel.removeChild(timeSel.firstChild);
+	for ( var i = 0 ; i < ( 24 * 6 ) ; i++ ){ // 10分単位
+		var msec = i * 10 * 60 * 1000;
+		var lt = new Date(lastUpdateTime.getTime()-msec);
+		//console.log(lastUpdateTime.getTime(),msec);
+		var tTxt = lt.toLocaleString();
+		tTxt = tTxt.substring(0,tTxt.length-3);
+		var opt = document.createElement("option");
+		opt.innerText=tTxt;
+		if ( i == 0 ){
+			opt.selected = true;
+		}
+		timeSel.appendChild(opt);
+	}
+	lastupdatetimespan.innerText="更新:"+lastUpdateTime.toLocaleString();
+}
+
+var selectedCatIndex, selectedTimeStr;
+
+function changeCat(){
+	selectedCatIndex = catSel.selectedIndex;
+	var selectedCatKey = getCatKey(selectedCatIndex);
+	console.log("cat:",selectedCatIndex,selectedCatKey);
+	showMap();
+	hanrei.src="amdsHanrei/"+amedasIndex[selectedCatIndex].legend;
+}
+
+function getCatKey(catIndex){
+	var selectedCatKey = amedasIndex[selectedCatIndex].value;
+	return ( selectedCatKey );
+}
+
+function changeTime(){
+	selectedCatIndex = catSel.selectedIndex;
+	var selectedCatKey = getCatKey(selectedCatIndex);
+	hanrei.src="amdsHanrei/"+amedasIndex[selectedCatIndex].legend;
+	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	console.log("cat:",selectedCatIndex,selectedCatKey," time:",timeIndex);
+	var viewTime = new Date(timeSel.options[timeIndex].innerText);
+	console.log(viewTime);
+	var fileTime = viewTime.getFullYear()+zPad(viewTime.getMonth()+1,2)+zPad(viewTime.getDate(),2)+zPad(viewTime.getHours(),2)+zPad(viewTime.getMinutes(),2)+"00";
+	//console.log("fileTime:",fileTime);
+	var selectedTimeStr = fileTime;
+	loadJson("https://www.jma.go.jp/bosai/amedas/data/map/"+fileTime+".json",changeTimePh2);
+}
+var selectedJson;
+function changeTimePh2(json){
+	selectedJson = json;
+	if ( !schemaL1build ){
+		// 実データからもっとまともなスキーマ作るかな
+		generateMetaSchemaL1();
+	}
+	//console.log("changeTimePh2:",json);
+	showMap();
+}
+
+function showMap(){
+	// uses global selectedJson, amStatic, selectedCatIndex
+	var geojson={type:"FeatureCollection",features:[]}; // あえてgeoJsonを動作確認のため使ってみるね
+	//console.log("showMap:",selectedJson);
+	var selectedCatKey = getCatKey(selectedCatIndex);
+	var selectedCatKey2=null;
+	if ( selectedCatKey == "wind"){
+		selectedCatKey2 = "windDirection";
+	}
+	for ( var key in selectedJson ){
+		var stStatic,lat,lon,stData,viewVal,viewVal2=null;
+		try{
+			stStatic = amStatic[key];
+			lat = stStatic.lat[0]+stStatic.lat[1]/60;
+			lon = stStatic.lon[0]+stStatic.lon[1]/60;
+			stData = selectedJson[key];
+			viewVal = stData[selectedCatKey][0];
+			if ( selectedCatKey2 ){
+				viewVal2 = stData[selectedCatKey2][0];
+			}
+		} catch ( e ){
+			continue;
+		}
+		var istyle=getStyle(selectedCatIndex,viewVal,viewVal2);
+		//console.log(key,stStatic.kjName,lat,lon,viewVal, istyle);
+		var feature = getGeoJsonFeature(lat,lon,istyle);
+		setMeta(feature,stData,stStatic);
+		geojson.features.push(feature);
+	}
+	//console.log(geojson);
+	var areaParentElm = svgImage.getElementById("areas");
+	removeChildren(areaParentElm);
+	var defColor="red";
+	svgMapGeoJsonRenderer.setSvgMap(svgMap);
+	svgMapGeoJsonRenderer.drawGeoJson(geojson,layerID,defColor,1,defColor, "p0", "poi", "", areaParentElm,metaSchema.keys);
+//	svgMapGIStool.drawGeoJson(geojson,layerID,defColor,1,defColor, "p0", "poi", "", areaParentElm,metaSchema.keys);
+	//console.log(svgImage);
+	svgMap.refreshScreen();
+}
+
+function setMeta(feature,stData,stStatic){
+	for ( var key in stData ){
+		if ( stData[key].length ){
+			feature.properties[key]=stData[key][0];
+		} else {
+			feature.properties[key]=stData[key];
+		}
+	}
+	for ( var key in stStatic ){
+		feature.properties[key]=stStatic[key];
+	}
+}
+
+function getGeoJsonFeature(lat,lon,istyle){
+	var ft = {
+		type:"Feature",
+		geometry:{
+			type:"Point",
+			coordinates:[lon,lat]
+		},
+		properties:{
+			title:istyle.title,
+			"marker-symbol":istyle.icon
+		}
+	};
+	
+	if ( istyle.color != null ){
+		ft.properties.fill=istyle.color;
+	}
+	return ft;
+}
+
+function getStyle(selectedCatIndex,viewVal,viewVal2){
+	var color = null;
+	for ( var i = amedasIndex[selectedCatIndex].scale.length - 1 ; i >= 0 ; i-- ){
+		if ( viewVal >= amedasIndex[selectedCatIndex].scale[i]){
+			color = amedasIndex[selectedCatIndex].color[i];
+			break;
+		}
+	}
+	if ( color ){
+		icon = "p0";
+	} else {
+		icon = "pN";
+	}
+	titleStr = viewVal;
+//	console.log(selectedCatIndex,viewVal,viewVal2,color,icon);
+	if (viewVal2 != null){ // 風向特化処理
+		var dn = viewVal2 % 16;
+		icon="d"+dn;
+//		titleStr+=","+viewVal2;
+	}
+	return {
+		color:color,
+		icon:icon,
+		title:titleStr
+	};
+}
+
+function loadJson(url,callback,isPlaneText){
+	var xhr = new XMLHttpRequest();
+	var tq="?";
+	if ( url.indexOf("?")>=0){
+		tq="&";
+	}
+	xhr.open("GET",url + tq + "t="+(new Date()).getTime(),true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			if ( ! isPlaneText ){
+				json = JSON.parse(xhr.responseText);
+				callback(json);
+			} else {
+				callback(xhr.responseText);
+			}
+		}
+	}
+	xhr.send();
+	
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+function setMetaProp(){
+	var metaSchemaStr =metaSchema.titles[0];
+	for ( var i = 1 ; i < metaSchema.titles.length ; i++ ){
+		metaSchemaStr+=","+metaSchema.titles[i];
+	}
+	console.log("metaSchemaStr:",metaSchemaStr);
+	var svgMapRootElm = svgImage.documentElement;
+	svgMapRootElm.setAttribute("property",metaSchemaStr);
+}
+
+/**
+onload=function(){
+	setTimeout(changeMap,100);
+	setTimeout(function(){
+		setDefaultParams();
+		prepCatSel();
+	},20);
+}
+
+function setDefaultParams(){
+	var hashs;
+	if ( location.hash!=""){
+		hashs = location.hash.split("&");
+	} else {
+		var nhash=svgImageProps.controller.split("#")[1];
+		hashs = nhash.split("&");
+	}
+	// まずサーバのタイプを決める
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("type")==0){
+			try{
+				var typeNum = Number((hashs[i].split("="))[1]);
+				if ( typeNum < 3 ){
+					svType = typeNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		}
+	}
+	console.log("svType:",svType);
+	setServerType(svType);
+	
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("cat")==0){
+			try{
+				var catNum = Number((hashs[i].split("="))[1]);
+				if ( catNum < cats0.length ){
+					defaultCat = catNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		} else if ( hashs[i].indexOf("autoupdate")==0){
+			console.log("autoupdate enabled on startup");
+			realtime_checked.checked=true;
+			setTimeout(changeRealTimeUpdate,updateCheckInterval);
+		}
+	}
+	console.log("defaultCat:",defaultCat);
+}
+
+
+function setServerType(numb){
+	console.log(numb);
+	if (numb == 0) { // 気象庁ホムペ2021
+		for ( var key in jmaHpSv){
+			window[key]=jmaHpSv[key];
+		}
+	}
+	console.log(baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy);
+	pageDesc.innerHTML=pdesc;
+}
+
+**/
+
+
+var realTimeUpdateFlag=false;
+function changeRealTimeUpdate(){
+	var rt = document.getElementById("realtime_checked").checked;
+	console.log("realTime?:",rt);
+	realTimeUpdateFlag = rt;
+	if ( realTimeUpdateFlag && !checkLoopRunning){
+		checkLoop();
+	}
+}
+
+var checkLoopRunning=false;
+function checkLoop(){
+	if ( realTimeUpdateFlag ){
+		checkLoopRunning=true;
+		initAmedas();
+		setTimeout(checkLoop,updateCheckInterval);
+	} else {
+		checkLoopRunning=false;
+	}
+}
+
+
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+</script>
+<body>
+<h3><a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&contents=amedas">気象庁アメダス</a>データレイヤー</h3>
+<p id="pageDesc">出典:<a href="https://www.jma.go.jp/bosai/map.html#contents=amedas" target="_blank">気象庁地図サイト</a>データ<br>source:<a href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&contents=amedas" target="_blank">Japan Meteorological Agency</a></p>
+<select id="catSel" onchange="changeCat()"></select> 
+<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
+<label for="realtime_checked">自動更新</label>
+<br>
+<select id="timeSel" onchange="changeTime()"></select>(JST) <span id="lastupdatetimespan" style="font-size:11px"></span><br>
+<img id="hanrei" style="display:true">
+</body>
+</html>

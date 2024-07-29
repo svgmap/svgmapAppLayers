@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="jma_pbf.html#exec=appearOnLayerLoad&amp;requiredHeight=100" property="code,nameJ,nameE,description,PDF">
+
+<defs>
+<g id="pN">
+	<circle cx="0" cy="0" r="2" fill="#ffffff"/>
+</g>
+<g id="p0">
+	<circle cx="0" cy="0" r="6" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke" fill="#3030FF"/>
+<!--   <image xlink:href="volcano_green.png" preserveAspectRatio="none" x="-10" y="-10" width="20" height="20"/>-->
+</g>
+<g id="p1">
+<!--<circle cx="0" cy="0" r="6" fill="pink" stroke="none"/>-->
+   <image xlink:href="volcano_yellow.png" preserveAspectRatio="none" x="-10" y="-10" width="20" height="20"/>
+</g>
+<g id="p2">
+<!--<circle cx="0" cy="0" r="6" fill="blue" stroke="none"/>-->
+   <image xlink:href="volcano_red.png" preserveAspectRatio="none" x="-15" y="-15" width="30" height="30"/>
+</g>
+
+<g id="l0">
+   <path d="M-5,-5 5,-5 5,5 -5,5z" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>
+</g>
+
+<g id="l1">
+<!--   <path d="M-5,-5 0,-2 5,-5 2,0 5,5 0,2 -5,5 -2,0z" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>-->
+   <path d="M-6,-4 -4,-6 0,-2 4,-6 6,-4 2,0 6,4 4,6 0,2 -4,6 -6,4 -2,0z" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>
+</g>
+
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100.0,0.0,0.0,-100.0,0.0,0.0)" />
+
+<g id="areas"></g>
+<g id="icons"></g>
+</svg>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<title>Client-side Quad Tree Composite Tiling System</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+var prefBaseURL="https://www.river.go.jp/kawabou/file/gjson/obs/[[datetime]]/stg/[[prefID]].json";
+var pixelColor=[100,100,255,255];
+</script>
+
+<script type="module" src="./damMain.js"></script>
+<body>
+<h2>川の防災情報　STG?レイヤー</h2>
+<p><a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>の水位計情報をマッシュアップしています</p>
+<div id="prg"></div>
+<div id="poiInfoDiv" style="display:true;font-size:10px">--</div>
+</body>
+</html>

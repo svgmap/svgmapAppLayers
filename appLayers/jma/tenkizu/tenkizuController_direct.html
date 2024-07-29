@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>rent a car data parser</title>
+</head>
+
+<style>
+/* 奇数行のスタイル */
+table tr:nth-child(odd){
+  background-color:#c0c0ff;
+}
+ 
+/* 偶数行のスタイル */
+table tr:nth-child(even){
+  background-color:#e0e0e0;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 気象庁天気図を表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var proxyPath="https://www.jma.go.jp/bosai/";
+var tenkizuInfoSubPath="weather_map/data/list.json";
+var tenkizuPngSubPath="weather_map/data/png/";
+
+onload=function(){
+	console.log("tenkizuController:onload: caller:",onload.caller);
+	loadJSON(showTenkizu, proxyPath + tenkizuInfoSubPath);
+}
+
+var tenkiInfo;
+function showTenkizu(json){
+	console.log(json);
+	tenkiInfo=json.near.now;
+	tenki = tenkiInfo[tenkiInfo.length-1];
+	console.log(tenki);
+	changeTenki(proxyPath + tenkizuPngSubPath + tenki);
+	if ( typeof(svgImageProps)=="object" && svgImageProps.Path.indexOf("noforecast")>0){
+		console.log("予報表示を抑制します・・");
+	} else {
+		buildOptions(json.near.ft48,"48時間");
+		buildOptions(json.near.ft24,"24時間");
+	}
+	buildOptions(tenkiInfo);
+}
+
+function buildOptions(js,isFuture){
+	var isFirst=true;
+	for ( var i = js.length-1 ; i >= 0 ; i--){
+		var oi =js[i];
+		var opt = document.createElement("option");
+		opt.value=oi;
+		var di;
+		if ( !isFuture){
+			var ts = oi.split("_")[6];
+			var ds=new Date(Date.UTC(ts.substring(0,4),(Number(ts.substring(4,6))-1),ts.substring(6,8),ts.substring(8,10)));
+			di = ds.toLocaleString();
+			di = di.substring(0,di.length - 6)+"時";
+			if (isFirst){
+				opt.selected=true;
+				isFirst=false;
+			}
+		} else {
+			di = isFuture;
+		}
+		opt.innerText=di;
+		tenkiSelect.appendChild(opt);
+	}
+}
+
+function changeTime(event){
+	console.log(event.target.selectedIndex,event.target);
+	var fn = proxyPath + tenkizuPngSubPath + (event.target.options[event.target.selectedIndex]).value;
+	changeTenki(fn);
+}
+
+function changeTenki(path){
+	var op = svgImage.getElementById("tenkiPng");
+	op.parentNode.removeChild(op);
+	
+	var im= svgImage.createElement("image");
+	im.setAttribute("x",0);
+	im.setAttribute("y",0);
+	im.setAttribute("width",600);
+	im.setAttribute("height",581);
+	im.setAttribute("xlink:href",path);
+	im.setAttribute("opacity",0.5);
+	im.setAttribute("id","tenkiPng");
+	svgImage.documentElement.appendChild(im);
+	svgMap.refreshScreen();
+}
+
+
+
+function loadJSON(cbFunc, url, dataCat, postProcess){
+//	console.log("loadJSON : SRC: ", url);
+	var httpObj = new XMLHttpRequest();
+	if ( httpObj ) {
+		httpObj.onreadystatechange = function(){
+			loadJSON_ph2( this , cbFunc , dataCat , postProcess);
+		} ;
+		httpObj.open("GET", url , true );
+		httpObj.send(null);
+	}
+}
+
+function loadJSON_ph2( httpRes , cbFunc , dataCat , postProcess){
+	if ( httpRes.readyState == 4 ){
+		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
+			console.log( "loadJSON : File get failed : stat : ", httpRes.status);
+			return;
+		}
+		var jst = httpRes.responseText;
+		jst = unescape(jst);
+		if ( postProcess ){
+			jst = postProcess(jst);
+		}
+//		console.log("isCsv:",isCsv, "\nloadJSON_ph2:",jst);
+		if ( dataCat=="csv" ){
+			var csv = jst.split("\n");
+//			console.log("csv:",csv);
+			for ( var i = 0 ; i < csv.length ; i++ ){
+				csv[i] = csv[i].split(",");
+			}
+//			console.log("csv:",csv);
+			cbFunc ( csv );
+		} else if ( dataCat == "html" ){
+			var parser = new DOMParser();
+			var htmlDoc = parser.parseFromString(jst, 'text/html');
+			// var htmlDoc = parser.parseFromString(txt, 'text/xml');
+			cbFunc(htmlDoc);
+		} else {
+			var Json = JSON.parse(jst);
+			cbFunc(Json);
+		}
+	}
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+</script>
+<body>
+<h3>気象庁天気図レイヤー</h3>
+<p>出典:<a target="_blank" href="https://www.jma.go.jp/bosai/weather_map/">気象庁ウェブサイトの天気図情報</a><br>
+source:<a target="_blank" href="https://www.jma.go.jp/bosai/weather_map/">Japan Meteorological Agency</a></p>
+
+
+<select id="tenkiSelect" onChange="changeTime(event)"></select>
+</body>
+</html>

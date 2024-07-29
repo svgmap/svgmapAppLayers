@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+<title>Client-side Quad Tree Composite Tiling System</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+var baseURL="https://www.river.go.jp/kawabou/file/gjson/overobs/stg/[[datetime]]/over-obs-create.json";
+
+// 色を変える機能のためのオブジェクト
+var pixelColor = {
+	evaluator:function(rawData){
+		var meta = rawData[2][this.colorEvaluatorCol];
+		var ans = 4; // 水防団待機水位超過
+		if ( meta == 30){ // 氾濫注意水位超過
+			ans = 3;
+		}else if ( meta == 60){ // 避難判断水位超過
+			ans = 2;
+		} else if (meta > 60){ //  氾濫危険水位超過
+			ans = 1;
+		}
+		//console.log("pixelColor eval:", ans);
+		return ( ans );
+	} ,
+	table:[[80,0,0,255],[128,0,128,255],[255,0,0,255],[230,120,0,255],[140,255,180,255]], // 茶, 紫, 赤, 黄, 緑
+	colorEvaluatorKey:"stg_ovlvl",
+	colorEvaluatorCol:-1
+}
+
+var statDict={
+	10:["水防団待機水位超過","#p3"],
+	30:["氾濫注意水位超過","#p2"],
+	60:["避難判断水位超過","#p1"],
+	80:["氾濫危険水位超過","#p0"],
+	90:["氾濫危険水位超過","#p0"], // 90はないのかも・・
+}
+</script>
+
+<script type="module" src="./damMain.js"></script>
+<body>
+<h2>川の防災情報　警戒水位レイヤー</h2>
+<p><a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>の水位計情報をマッシュアップしています</p>
+<div id="prg"></div>
+<div id="poiInfoDiv" style="display:true;font-size:10px">--</div>
+</body>
+</html>

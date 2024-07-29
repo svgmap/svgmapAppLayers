@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>気象庁地震震度データベース</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="quakeRecord.js"></script>
+<body>
+<h4>気象庁 震度データベースレイヤー</h4>
+<a href="https://www.data.jma.go.jp/svd/eqdb/data/shindo/index.html" target="_blank">気象庁のこちらのページ</a>をSVGMapレイヤーとして可視化します</a>
+<div id="timeUI">
+<select id="maxiSel"></select>
+<select id="yearSel"></select>
+<select id="monthSel"></select>
+<input type="button" id="searchDB" value="検索"></input>
+</div>
+<div id="eqUI">
+<select id="eqSel"></select>
+</div>
+<div id="messageDiv" style="font-size:10px"><span id="mspan0"></span><br><span id="mspan1">-</span><br><span id="mspan2">-</span></div>
+</body>
+</html>

@@ -1,0 +1,535 @@
+<!doctype html>
+<html>
+<head>
+	<title>気象庁早期注意情報可視化レイヤー</title>
+	<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// 気象庁早期注意情報可視化
+// Programmed by Satoru Takagi
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var  hasDatOnly = true; // 情報があるエリアのみ表示
+
+var urls={
+	mainSrcData:"https://www.jma.go.jp/bosai/probability/data/probability/map.json",//　本体データ
+	catDict:"https://www.jma.go.jp/bosai/const/selectorinfos/probability.json",//　名称辞書？
+	mapData:"https://www.jma.go.jp/bosai/common/const/geojson/class10s.json",// 地図データ？
+	areaStruct:"https://www.jma.go.jp/bosai/forecast/const/week_area05.json",// 週予報時にエリアが包含される？
+	areaNames:"https://www.jma.go.jp/bosai/common/const/area.json",//　エリアの名称辞書？
+}
+
+
+var mainSrcData,catDict,mapData,areaStruct,areaNames;
+
+var mainData;
+
+addEventListener("load",init);
+
+async function init(){
+	if ( location.hash.indexOf("hasDatOnly")>=0 ){
+		hasDatOnly = true;
+	}
+	for ( var vn in urls){
+		window[vn] = await fetchJson(urls[vn]);
+	}
+	console.log({mainSrcData,catDict,mapData,areaStruct,areaNames});
+	mainData = buildProbabilityTable(mainSrcData);
+	if ( hasDatOnly ){
+		hasDatOnlySpan.innerText=" (情報があるエリアのみ表示)";
+	}
+	console.log(mainData);
+	probTbl.style.fontSize="10px";
+	printProbabilityTable(mainData, hasDatOnly);
+	if ( typeof svgMap =="object" ){
+		drawMap();
+	}
+}
+
+function drawMap(filterObj){
+	var metaSchema = ["title","code","filteredLevel"];
+	svgImage.documentElement.setAttribute("property",metaSchema.join());
+	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+	var geojs = getPolygon(mainData, filterObj);
+	console.log(geojs);
+	var grp = svgImage.getElementById("vectorData");
+	removeChildren(grp);
+	svgMapGIStool.drawGeoJson(geojs,layerID,"red",2,"orange","p0","title",null,grp,metaSchema);
+	svgMap.refreshScreen();
+}
+
+function getPolygon(pt,filterObj){
+	var geojs ={
+		type:"FeatureCollection",
+		features:[]
+	}
+	var valueColors =[null,"orange","red"];
+	var dateConditions = null;
+	var typeConditions = null;
+	if ( filterObj ){
+		if (filterObj.typeConditions){
+			typeConditions = filterObj.typeConditions;
+		}
+		if (filterObj.dateConditions){
+			dateConditions = filterObj.dateConditions;
+		}
+		if (filterObj.valueColors){
+			valueColors = filterObj.valueColors;
+		}
+	}
+	var polyRelations = getFeatureRelations();
+	for ( var code in pt.probabilityTable){
+		var areaData = pt.probabilityTable[code];
+		var prob=areaData.probabilities;
+		var fts = polyRelations[code];
+		if ( fts ){
+			for ( var ft of fts){
+				ft = filterFeature(ft, prob, typeConditions , dateConditions, valueColors);
+				if ( ft ){
+					var areaName=areaData.office.name;
+					if ( areaData.area){
+						areaName+=" " +areaData.area.name
+					}
+					ft.properties.title = areaName;
+//					ft.properties.probabilities = JSON.stringify(prob);
+					geojs.features.push(ft);
+				}
+			}
+		} else {
+			console.warn ("NO feature for code:",code);
+		}
+	}
+	return geojs;
+}
+
+function filterFeature(feature, prob, typeConditions, dateConditions, valueColors){
+	var valueTable=["-","中","高"];
+	if ( typeConditions ){
+		typeConditions = typeConditions.join();
+	}
+	if ( dateConditions ){
+		dateConditions = dateConditions.join();
+	}
+	if (!valueColors){
+		valueColors = [null,"orange","red"]; // 値 -,中,高 に対応する色 nullでオブジェクトつくらない
+	}
+	//console.log(typeConditions, dateConditions, valueColors);
+	var val = -1;
+	topLoop: for ( var type in prob){
+		if ( !typeConditions || typeConditions.indexOf(type)>=0){
+			var probts = prob[type];
+			//console.log(  Object.values(probts).join() )
+			for ( var probt in probts ){
+				//console.log( probt , probts )
+				if ( !dateConditions || dateConditions.indexOf(probt)>=0){
+					if ( probts[probt] == "高" ){
+						val = 2;
+						break topLoop;
+					} else if ( probts[probt] == "中" ){
+						val = 1;
+					} else if ( val <1){
+						val = 0;
+					}
+				}
+			}
+		}
+	}
+	if ( val == -1 ){
+		return null;
+	} else {
+		var color = valueColors[val];
+		if ( color == null ){
+			return null;
+		} else {
+			feature.properties.fill = color;
+			feature.properties.filteredLevel=valueTable[val];
+			return feature;
+		}
+	}
+}
+
+function getFeatureRelations(){
+	//mapDataとIDの紐づけ情報を得る
+	var rel ={};
+	for ( var ft of mapData.features){
+		var code = ft.properties.code;
+		if ( !rel[code]){
+			rel[code]=[];
+		}
+		rel[code].push(ft);
+	}
+	return rel;
+}
+
+async function fetchJson(url){
+	var res = await fetch(`${url}?t=${new Date().getTime()}`);
+	var json = await res.json();
+	return json;
+}
+
+
+function removeChildren(elm){
+	while (elm.firstChild) {
+		elm.removeChild(elm.firstChild);
+	}
+}
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+function buildProbabilityTable(dat){
+	// 横軸に時間枠　縦軸に、エリア＋警報種別　のテーブルを生成する
+	// 縦軸はエリア.種別の連想配列とする
+	
+	var pt = {};
+	
+	var reportDatetime;
+	
+	var mergeAreaCodes = [];
+	var mergeOfficeCodes =[];
+	
+	var probCats={};
+	var probTimes={};
+	var types={};
+	
+	for ( var superArea of dat){
+		for ( var timeBlock of superArea ){
+			var reportDatetimeSub = timeBlock.reportDatetime;
+			// timestamp
+			if ( ! reportDatetime ){
+				reportDatetime = reportDatetimeSub;
+			} else {
+				if ( reportDatetime != reportDatetimeSub){
+					console.warn("リポート時間が不一致:", {reportDatetimeSub,reportDatetime,timeBlock});
+				}
+			}
+			
+			for ( var timeSeries of timeBlock.timeSeries){
+				var pData = timeSeries.areas;
+				var times = timeSeries.timeDefines;
+				
+				var timeSpan=-1;
+				var timeSpans=[];
+				var prevT=-1;
+				var difTime;
+				for ( var i = 0 ; i < times.length ; i++ ){
+					var time = new Date(times[i]).getTime();
+					if ( prevT !=-1){
+						difTime = (time - prevT)/1000 / 60 / 60;
+//						difTime = (time - prevT);
+						timeSpans.push(difTime);
+						if ( timeSpan != -1){
+							if (difTime != timeSpan){
+								//console.warn("時間間隔が異なる : ", difTime, timeSpan);
+							}
+						}
+						timeSpan = difTime;
+					}
+					prevT = time;
+				}
+				timeSpans.push(difTime);
+				
+				//console.log("timeSpan:",timeSpan,"  times:",times);
+				
+				for ( var areaData of pData){
+					var areaCode = areaData.code;
+					for ( var eachData of areaData.properties){
+						var pType = eachData.type;
+						var probs = eachData.probabilities;
+						if ( probs ){
+							if ( probs.length == times.length ){
+								types[pType]=true;
+								if ( !pt[areaCode]){ 
+									pt[areaCode]={
+										probabilities:{},
+									}
+								}
+								var area = areaNames.class10s[areaCode];
+								if (  area ){
+									pt[areaCode].area=area;
+									pt[areaCode].office = areaNames.offices[area.parent];
+								} else if (  areaNames.offices[areaCode] ){
+									pt[areaCode].office = areaNames.offices[areaCode];
+									mergeOfficeCodes.push(areaCode);
+								} else {
+									mergeAreaCodes.push(areaCode);
+								}
+								
+								
+								if ( !pt[areaCode].probabilities[pType]){
+									pt[areaCode].probabilities[pType]={};
+								}
+								for ( var i = 0 ; i < times.length ; i++ ){
+									var time = `${times[i]} ${timeSpans[i]}`;
+									if ( !probTimes[time]){
+										probTimes[time] = 1;
+									} else {
+										++probTimes[time];
+									}
+									probs[i]=probs[i].trim();
+									if ( probs[i]=="なし"){
+										//console.log("なしを'-'に修正");
+										probs[i] = "-";
+									} else if ( probs[i]==""){
+										probs[i] = "-";
+									}
+									
+									if ( !probCats[probs[i]]){
+										probCats[probs[i]] = 1;
+									} else {
+										++probCats[probs[i]];
+									}
+									pt[areaCode].probabilities[pType][time]=probs[i];
+								}
+							} else {
+								console.warn("時間ブロックの数が合わない・・:",probs.length , times.length);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for ( var mergeAreaCode of mergeAreaCodes){
+		var areas = getAltAreaCodes(mergeAreaCode);
+		var srcData = pt[mergeAreaCode];
+		for ( var area of areas ){
+			var targetData = pt[area];
+			mergeData(targetData,srcData);
+		}
+	}
+	for ( var mergeAreaCode of mergeAreaCodes){
+		delete  pt[mergeAreaCode];
+	}
+	
+	for ( var mergeAreaCode of mergeOfficeCodes){
+		var areas = areaNames.offices[mergeAreaCode].children;
+		var srcData = pt[mergeAreaCode];
+		for ( var area of areas ){
+			var targetData = pt[area];
+			mergeData(targetData,srcData);
+		}
+	}
+	for ( var mergeAreaCode of mergeOfficeCodes){
+		delete  pt[mergeAreaCode];
+	}
+	
+	
+	
+	console.log("probCats:",probCats,"  probTimes:",probTimes);
+	var timeCols = Object.keys(probTimes).sort()
+	console.log("timeCols:",timeCols);
+	// console.log(pt);
+	return {probabilityTable:pt,timeCols,types};
+	
+}
+
+function mergeData(tgt, src ){
+	for ( var cat in src.probabilities){
+		var srcProbs = src.probabilities[cat]
+		if ( !tgt.probabilities[cat] ){
+			tgt.probabilities[cat]=srcProbs;
+		} else {
+			for ( var dt in srcProbs){
+				if ( tgt.probabilities[cat][dt] ){
+					//console.log ("マージ先に同じ時間の情報が存在");
+					if ( tgt.probabilities[cat][dt]  == srcProbs[dt]){
+					} else {
+						console.log ("マージ先に同じ時間で異なる情報が存在 : skip", tgt.probabilities[cat][dt], srcProbs[dt]);
+					}
+				} else {
+					tgt.probabilities[cat][dt] = srcProbs[dt];
+					//console.log("merged");
+				}
+			}
+		}
+	}
+}
+
+
+var altAreaDict;
+function getAltAreaCodes(code){
+	// areaStructを使って、代替エリアを得る
+	if (!altAreaDict){
+		altAreaDict={};
+		for ( var ak in areaStruct){
+			var subAreas = areaStruct[ak];
+			for ( subAreaCode of subAreas ){
+				if ( !altAreaDict[subAreaCode] ){
+					altAreaDict[subAreaCode] =[];
+				}
+				altAreaDict[subAreaCode].push(ak);
+			}
+		}
+	}
+	var altCodes = altAreaDict[code];
+	return altCodes;
+}
+
+function getTimeSpanStr(str){
+	var tts = str.split(" ")
+	var startTime = new Date(tts[0]);
+	var span = Number(tts[1]);
+	var endTime = new Date( startTime.getTime() + span * 60 * 60 * 1000);
+	var sd = startTime.toLocaleDateString().substring(5);
+	var ed = endTime.toLocaleDateString().substring(5);
+	if (sd==ed){
+		ed ="";
+	}
+	ans = `${sd} ${startTime.getHours()}時 - ${ed} ${endTime.getHours()}時`;
+	return ans;
+}
+
+function printProbabilityTable(pt, hasDatOnly, targetTableElement, options){
+	if (!options){options={}}
+	var timeCols = pt.timeCols;
+	var tableData = pt.probabilityTable;
+	if ( !targetTableElement ){
+		targetTableElement = document.getElementById("probTbl");
+	}
+	
+	var hd="<tr><th>エリア <span id='areaRecords'></span></th><th>種別</th>";
+	for ( var ts of timeCols){
+		if ( !options.dateConditions || (options.dateConditions && options.dateConditions.indexOf(ts)>=0) ){
+			var tsstr = getTimeSpanStr(ts);
+			hd+= `<th>${tsstr}</th>`;
+		}
+	}
+	hd+="</tr>";
+	targetTableElement. insertAdjacentHTML("beforeend",hd);
+	printedAreas = 0;
+	for ( var areaCode in tableData){
+		var areaData = tableData[areaCode];
+		var areaName=areaData.office.name;
+		if ( areaData.area){
+			areaName+=" " +areaData.area.name
+		}
+		var probs = areaData.probabilities;
+		for ( var probName in probs){
+			var hasDat=false;
+			hd = `<tr><td>${areaName}</td><td>${probName}</td>`;
+			var pdats = probs[probName];
+			for ( var ts of timeCols){
+				if (options.dateConditions && options.dateConditions.indexOf(ts)<0){continue}
+				var dat = pdats[ts];
+				var bg ="";
+				if (!dat){
+					dat = "";
+				} else if ( dat=="中"){
+					bg ='style="background-color:orange"';
+					if ( !options.valueColors || (options.valueColors && options.valueColors[1])){
+						hasDat = true;
+					}
+				} else if ( dat=="高"){
+					bg ='style="background-color:red"';
+					if ( !options.valueColors || (options.valueColors && options.valueColors[2])){
+						hasDat = true;
+					}
+				}
+				hd +=`<td ${bg}>${dat}</td>`;
+			}
+			hd+="</tr>";
+			if ( hasDatOnly){
+				if(hasDat ){
+					targetTableElement. insertAdjacentHTML("beforeend",hd);
+					++ printedAreas;
+				}
+			} else {
+				targetTableElement. insertAdjacentHTML("beforeend",hd);
+				++ printedAreas;
+			}
+		}
+	}
+	areaRecords.innerText=`(計${printedAreas}レコード)`;
+}
+
+
+function customShowPoiProperty(target){
+	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(","); // debug 2013.8.27
+	var message="<table border='1' style='word-break: break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse: collapse'>";
+	var titleAndLayerName = target.getAttribute("data-title") + "/" + target.getAttribute("data-layername") + "\n";
+	
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	message += "<tr><th style='width=25%'>name</th><th>value</th></tr>";
+	message += "<tr><td>title/Layer</td><td> " + titleAndLayerName + "</td></tr>";
+	for ( var i = 0 ; i < metaSchema.length ; i++ ){
+		if ( metaSchema[i]=="code"){
+			var probData = mainData.probabilityTable[metaData[i]].probabilities;
+			console.log(metaData[i],probData);
+			for ( var catName in probData){
+				message+=`<tr><td colspan=2>${catName}</td></tr>`;
+				var probs = probData[catName];
+				for ( var dateStr in probs){
+					var prob = probs[dateStr];
+					message+=`<tr><td>　${getTimeSpanStr(dateStr)}</td><td>${prob}</td></tr>`;
+				}
+			}
+		} else {
+			message += `<tr><td>${metaSchema[i]}</td><td>${getHTMLval(metaData[i])}</td></tr>`;
+		}
+	}
+	message += "</table>";
+	//console.log(message);
+	svgMap.showModal(message,400,600);
+}
+
+function getHTMLval( val , embedImage){
+	var ans;
+	if ( val.toLowerCase().indexOf(".png")>=0 || val.toLowerCase().indexOf(".jpg")>=0 || val.toLowerCase().indexOf(".jpeg")>=0 || val.toLowerCase().indexOf(".gif")>=0 || val.toLowerCase().indexOf(".svg")>=0 || embedImage ){
+		var cors = "";
+		var imgSrc = val;
+		if ( val.indexOf("http:")==0 ){
+			imgSrc = svgMap.getCORSURL(val);
+			cors="crossorigin='anonymous'";
+		}
+		ans =`<a target="img" href="${val}"><img style="opacity:1" src="${imgSrc}" width="100%" ${cors}/></a>`;
+	} else if ( val.indexOf("http://")==0 || val.indexOf("https://")==0 || val.toLowerCase().indexOf(".html")>=0 || val.indexOf(".htm")>=0){
+		ans =`<a target="htmlContent" href="${val}" >${val}</a>`;
+	} else {
+		ans = val;
+	}
+	return ( ans );
+}
+
+function mapFilter(event){
+	var timeFilter = null;
+	if ( latestFilterCheck.checked ){
+		timeFilter = [];
+		for ( var fv of mainData.timeCols){
+			if (fv.split(" ")[1].indexOf("24")==-1){
+				timeFilter.push(fv);
+			}
+		}
+	}
+	var levelFilter = [null,"orange","red"];
+	if ( highFilterCheck.checked ){
+		levelFilter = [null,null,"red"];
+	}
+	console.log({levelFilter,timeFilter})
+	var filter = {typeConditions:null , dateConditions:timeFilter, valueColors:levelFilter};
+	var targetTableElement = document.getElementById("probTbl");
+	removeChildren(targetTableElement);
+	printProbabilityTable(mainData, hasDatOnly,targetTableElement,filter);
+	drawMap(filter);
+}
+
+</script>
+<body>
+<h4>早期注意情報レイヤー <span id="hasDatOnlySpan"></span></h4>
+出典 <a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&elem=all&contents=probability">気象庁　早期注意情報(警報級の可能性)</a> <span style="font-size:11px"><input type="checkbox" id="highFilterCheck" onchange="mapFilter(event)"></input><label for="highFilterCheck">高のみ表示</label>　<input type="checkbox" id="latestFilterCheck" onchange="mapFilter(event)"></input><label for="latestFilterCheck">短期のみ表示</label></span>
+<table border="1" id="probTbl">
+</table>
+</body>
+</html>

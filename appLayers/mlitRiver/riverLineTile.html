@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>OpenStreerMap Compatible Generic Mercator Tile Pyramid Map Data Layer</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./dynamicWebTile.js"></script>
+<script>
+addEventListener("load",function(){
+	dynamicWebTile.init(
+		"https://www.river.go.jp/kawabou/file/tile/rvrline/[[zoom]]/[[tx]]/[[rty]].png",
+		11,7
+	);
+});
+</script>
+<body>
+<h3 id="titleH">DynamicWebTile webAppLayer</h3>
+<p id="commentP"></p>
+<div id="legendDiv"></div>
+</body>
+</html>

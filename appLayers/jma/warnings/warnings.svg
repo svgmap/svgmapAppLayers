@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" data-controller="warnings.html#exec=appearOnLayerLoad&amp;hasDatOnly&amp;requiredHeight=300&amp;requiredWidth=450" property="title,code">
+
+<defs>
+<g id="p0">
+	<circle cx="0" cy="0" r="7" fill="red" stroke="none"/>
+</g>
+</defs>
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100.0,0.0,0.0,-100.0,0.0,0.0)" />
+<g id="vectorData"></g>
+</svg>

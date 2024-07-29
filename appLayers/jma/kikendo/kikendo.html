@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>rent a car data parser</title>
+</head>
+
+<style>
+/* 奇数行のスタイル */
+table tr:nth-child(odd){
+  background-color:#c0c0ff;
+}
+ 
+/* 偶数行のスタイル */
+table tr:nth-child(even){
+  background-color:#e0e0e0;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 気象庁大雨危険度を表示するSVGMapレイヤー
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var mapJson;
+var areaMapDict;
+var areaStruct;
+onload=async function(){
+	showHanrei();
+	svgImage.documentElement.setAttribute("property",metaDict.join(","));
+	areaStruct = await loadAreaStruct();
+	mapJson = await loadMapJson();
+	areaMapDict = buildAreaDict(mapJson);
+	//svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue");
+	console.log(mapJson);
+	await changeCat();
+}
+
+var levelDict =[
+	["今後の情報等に留意","#c8c8cb"],
+	["警戒レベル１（心構えを高める）","#fff"],
+	["警戒レベル２（避難行動の確認）","#f2e700"],
+	["警戒レベル３（高齢者等は避難）相当","#ff2800"],
+	["警戒レベル４（避難）相当","#a0a"],
+	["警戒レベル５（災害切迫）相当","#0c000c"],
+];
+
+var metaDict = ["土砂災害","浸水","洪水","name","enName","code"];
+
+async function loadAreaStruct(){
+	var as = await loadJSON("https://www.jma.go.jp/bosai/common/const/landslide_area.json");
+	console.log("loadAreaStruct:",as);
+	return ( as.landslides );
+}
+
+function getAreaValue( kikendoData){
+	var doshaJs=[]
+	var kdict = {}
+	for ( var kd of kikendoData.areaTypes[1].areas){
+		kdict[kd.code]=kd;
+		if ( !kd.inundation || !kd.flood){
+			doshaJs.push(kd);
+		}
+	}
+	for ( var doshaJ of doshaJs){
+		var parentInfo = kdict[areaStruct[doshaJ.code].parent];
+		if ( parentInfo ){
+			doshaJ.inundation = parentInfo.inundation;
+			doshaJ.flood = parentInfo.flood;
+		}
+	}
+}
+
+async function updateKikendoMap(cat){
+	var kds = await loadJSON(`https://www.jma.go.jp/bosai/warning_level/data/warning_level.json?dt=${new Date().getTime()}`);
+	getAreaValue( kds)
+	console.log(kds);
+	clearFill(mapJson);
+	var dt = new Date(kds.reportDatetime);
+	messageDiv.innerText=dt.toLocaleDateString() + " " + dt.toTimeString();
+	for ( var kd of kds.areaTypes[1].areas){
+		//console.log(areaMapDict[kd.code], kd.code);
+		if ( areaMapDict[kd.code] ){
+			var dl;
+			var ll = Math.floor(Number(kd.landslide)/10); // 土砂災害
+			var il = Math.floor(Number(kd.inundation)/10); // 浸水
+			var fl = Math.floor(Number(kd.flood)/10); // 洪水
+			areaMapDict[kd.code].properties.土砂災害 = levelDict[ll][0];
+			areaMapDict[kd.code].properties.浸水 = levelDict[il][0];
+			areaMapDict[kd.code].properties.洪水 = levelDict[fl][0];
+			if ( cat == "all"){
+				dl = Math.max(ll,il,fl);
+				
+			} else {
+				dl = Math.floor(Number(kd[cat])/10);
+			}
+			//console.log(dl)
+			if(!isNaN(dl)){
+				areaMapDict[kd.code].properties.fill=levelDict[dl][1];
+			} else {
+				areaMapDict[kd.code].properties.fill="";
+			}
+		}
+	}
+	console.log("levelDict:",levelDict);
+	
+	var tgtParent=(svgImage.getElementById("areas"));
+	removeChildren(tgtParent);
+	svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue","p0","poi","",tgtParent,metaDict);//
+	svgMap.refreshScreen();
+}
+
+function changeCat(){
+	var tgt = document.getElementById("catSel");
+	var cat = tgt.options[tgt.selectedIndex].value
+	console.log(cat);
+	updateKikendoMap(cat);
+}
+
+function clearFill(mapJson){
+	for ( var ft of mapJson.features){
+		delete ft.properties.fill;
+	}
+}
+
+async function loadMapJson(){
+	var jss = [];
+	for ( var i = 0 ; i < 10 ; i++ ){
+		var js = loadJSON(`https://www.jma.go.jp/bosai/common/const/geojson/wards_${i}.json`);
+		jss.push(js);
+	}
+	jss = await Promise.all(jss);
+	var fcs ={
+		type:"FeatureCollection",
+		features: []
+	}
+	for ( var fc of jss){
+		fcs.features = fcs.features.concat(fc.features);
+	}
+	return (fcs);
+}
+
+function buildAreaDict(mapJson){
+	var dict ={};
+	for ( var ft of mapJson.features){
+		if ( !dict[ft.properties.code] ){
+			dict[ft.properties.code]=ft;
+		} else {
+			console.log("DUP!!!!!!!!!!!!!!");
+		}
+	}
+	return dict;
+}
+
+async function loadJSON(url){
+	var res = await fetch(url);
+	var json = await res.json();
+	return ( json );
+}
+
+
+function showHanrei(){
+	var hdv=document.getElementById("hanreiDiv");
+	for ( var hr of levelDict){
+		//console.log("showHanrei:",hr);
+		hdv.insertAdjacentHTML("beforeend",`<span style="color:${hr[1]}">■</span><span>${hr[0]}</span><br>`);
+	}
+	//console.log(document.getElementById("hanreiDiv"));
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+</script>
+<body>
+<h3>気象庁大雨危険度</h3>
+<p>出典：<a href="https://www.jma.go.jp/bosai/map.html#elem=all&contents=warning_level" target="_blank">気象庁　大雨危険度情報</a></p>
+<div id="messageDiv"></div>
+<select id="catSel" onchange="changeCat(event)">
+	<option value="all" selected>全て</option>
+	<option value="inundation" >浸水</option>
+	<option value="landslide" >土砂災害</option>
+	<option value="flood" >洪水</option>
+</select>
+<input type="button" onclick="changeCat()" value="更新"></input>
+<div id="hanreiDiv" style="font-size:10px"></div>
+</body>
+</html>

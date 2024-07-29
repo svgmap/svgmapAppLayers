@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="magnitude,max intensity,depth[Km],occurrence time[JST],place,id" data-controller="quakeRecord.html#exec=appearOnLayerLoad">
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<defs>
+<g id="p0">
+	<circle cx="0" cy="0" r="4" ></circle>
+</g>
+<g id="q1" ><image xlink:href="quake_level01.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q2" ><image xlink:href="quake_level02.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q3" ><image xlink:href="quake_level03.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q4" ><image xlink:href="quake_level04.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q5m" ><image xlink:href="quake_level05_m.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q5p" ><image xlink:href="quake_level05_p.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q6m" ><image xlink:href="quake_level06_m.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q6p" ><image xlink:href="quake_level06_p.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="q7" ><image xlink:href="quake_level07.png" preserveAspectRatio="none" x="-5" y="-5" width="10" height="10"/></g>
+<g id="qc" > 
+	<image xlink:href="quake_center.png" preserveAspectRatio="none" x="-12" y="-12" width="20" height="20"/>
+</g>
+
+
+<g id="q1v" ><circle cx="0" cy="0" r="5" fill="#f2f2ff" stroke="black" stroke-width="0.5"/></g>
+<g id="q2v" ><circle cx="0" cy="0" r="5" fill="#00aaff" stroke="black" stroke-width="0.5"/></g>
+<g id="q3v" ><circle cx="0" cy="0" r="5" fill="#0041ff" stroke="black" stroke-width="0.5"/></g>
+<g id="q4v" ><circle cx="0" cy="0" r="5" fill="#fae696" stroke="black" stroke-width="0.5"/></g>
+<g id="q5mv" ><circle cx="0" cy="0" r="5" fill="#ffe600" stroke="black" stroke-width="0.5"/></g>
+<g id="q5pv" ><circle cx="0" cy="0" r="5" fill="#ff9900" stroke="black" stroke-width="0.5"/></g>
+<g id="q6mv" ><circle cx="0" cy="0" r="5" fill="#ff2800" stroke="black" stroke-width="0.5"/></g>
+<g id="q6pv" ><circle cx="0" cy="0" r="5" fill="#a50021" stroke="black" stroke-width="0.5"/></g>
+<g id="q7v" ><circle cx="0" cy="0" r="5" fill="#b40068" stroke="black" stroke-width="0.5"/></g>
+
+</defs>
+
+<g id="imgg" opacity="1">
+</g>
+
+<g id="poig" opacity="0.5">
+</g>
+
+<g id="dmys" opacity="0.25">
+</g>
+
+<g id="obst">
+</g>
+
+<g id="quakes">
+</g>
+</svg>

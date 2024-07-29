@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+<title>Client-side Quad Tree Composite Tiling System</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+var baseURL="https://www.river.go.jp/kawabou/file/gjson/overobs/dam/[[datetime]]/over-obs-create.json";
+
+// 色を変える機能のためのオブジェクト
+var pixelColor = {
+	evaluator:function(rawData){
+		var meta = rawData[2][this.colorEvaluatorCol];
+		var ans = 3; // default
+		if ( meta == 50){ // 洪水調節実施中
+			ans = 2;
+		} else if (meta > 50){ //  氾濫危険水位超過
+			ans = 1;
+		}
+		//console.log("pixelColor eval:", ans);
+		return ( ans );
+	} ,
+	table:[[80,0,0,255],[128,0,128,255],[0,0,100,255],[60,60,60,255]], // 茶, 紫, 青, 灰
+	colorEvaluatorKey:"damdsch_lvl",
+	colorEvaluatorCol:-1
+}
+
+var statDict={
+	50:["洪水調節実施中","#p1"],
+	80:["緊急放流","#p0"],
+}
+</script>
+
+<script type="module" src="damMain.js"></script>
+<body>
+<h2>川の防災情報　警戒水位ダムレイヤー</h2>
+<p><a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>のダム情報をマッシュアップしています</p>
+<div id="prg"></div>
+<div id="poiInfoDiv" style="display:true;font-size:10px">--</div>
+</body>
+</html>

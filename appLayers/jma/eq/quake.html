@@ -1,0 +1,500 @@
+<!doctype html>
+<head>
+<title>JMA earth quake information layer</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./indexDBpromise.js"></script><!--indexDBをasyncで使う-->
+<script src="./meshLib2.js"></script><!--地域基準メッシュ-->
+<script src="./japanMesh_r2.js"></script><!--自治体(コード)の3次メッシュDB-->
+<script src="./lgMeshLister.js"></script><!--市町村(コード)の3次メッシュデータを使用した、メッシュ生成、ジオコードオブジェクト-->
+
+<script src="./ColoringLib.js"></script><!--塗分け-->
+<script src="./jpn_lg_m.js"></script><!-- このレイヤのメインルーチン-->
+
+<script type="module" >
+// 気象庁地震情報の表示レイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// history
+// 2022/06/08 rev1
+// 2022/06/20 rev2
+// 2023/02/17 ビットイメージからベクタに変更し少し高速化
+// 2023/02/17 震央クリックで、震度分布へ遷移(quakeRecordと同等機能化)
+
+var quakeFeedURL="https://www.jma.go.jp/bosai/quake/data/list.json";
+var latestShowThMin = 4*60;
+var updateIntervalMin = 30;
+var displayEvenWithoutEpicenter = true; // 震央情報がなくても表示させる
+var quakes = [];
+var quakeDetailPromise;
+
+var showAllListInfo=false; // 地震のID+発表IDをIDということにして、(全部の発表を表示するデバッグ用)
+	
+var updateTimerId;
+
+window.addEventListener("load",async function(){
+	var sel = document.getElementById("eqSel");
+	sel.addEventListener("change",showEq);
+	
+	var fuBtn = document.getElementById("forceUpdate");
+	fuBtn.addEventListener("click",updateInfo);
+	
+	document.getElementById("showObsBtn").addEventListener("click",showObs);
+
+	
+	window.quakes = quakes;
+	showLegend();
+	updateInfo();
+});
+
+async function updateInfo(){
+	console.log("updateInfo : ", new Date().toLocaleTimeString() );
+	if ( updateTimerId ){
+		clearTimeout(updateTimerId);
+	}
+	await getEqInfo();
+	setEqSel();
+	showDefaultMap();
+	document.getElementById("updateMsg").innerText=(new Date().toLocaleTimeString() +" update");
+	updateTimerId = setTimeout(updateInfo, updateIntervalMin * 60 * 1000 );
+}
+
+function showDefaultMap(){
+	// 過去[latestShowThMin]分以内に震度がある地震が起きているときは、その地震を表示。それ以外は全部の震央表示表示。
+	var latestEq = quakes[0];
+	//console.log((new Date().getTime() - latestEq.time.getTime() )/( 60 * 1000 ), latestEq.maxi);
+	if (new Date().getTime() - latestEq.time.getTime() < latestShowThMin  * 60 * 1000 && latestEq.maxi !=""){
+		showIntensity(latestEq.id);
+		selectEq(latestEq.id);
+	} else {
+		showAllEqs();
+	}
+	
+}
+
+
+async function getEqInfo(){
+	var eqSrc=await fetchJson(quakeFeedURL,true);
+	//console.log(eqSrc);
+	
+	var eqs ={};
+	for (var eq of eqSrc){
+		var eqi = gsiEqParser(eq);
+		var aeq = eqs[eqi.id];
+		if ( eqi.int && eqi.int.length > 0 ){
+			if ( !aeq ){
+				eqs[eqi.id] = eqi;
+			} else {
+				if ( Number(aeq.ctt)<Number(eqi.ctt)){
+					eqs[eqi.id] = eqi;
+				}
+			}
+		}
+	}
+	quakes = [];
+	for ( var eid in eqs ){
+		quakes.push(eqs[eid]);
+	}
+	quakes.sort(function(a,b){
+		return (b.time.getTime() - a.time.getTime());
+	}); // 最新のものが若いインデックスに入る
+	console.log(quakes);
+};
+
+function showAllEqs(){
+	// global var quakes
+	console.log("showAllEqs:");
+	removeChildren(window.svgImage.getElementById("imgg"));
+	removeChildren(window.svgImage.getElementById("quakes"));
+	removeChildren(window.svgImage.getElementById("obst"));
+	quakeDetailPromise=null;
+	window.eqMsgDiv.innerText="";
+	
+	//  disable intensity meshmap
+	window.currentContent="";
+	window.drawData();
+	
+	//var pcrs = window.svgImage.getElementsByTagName("circle");
+	var latestQki =0;
+	
+	for ( var i = 0 ; i < quakes.length ; i++){
+		if ( quakes[i].latitude){
+			latestQki = i;
+			break;
+		}
+	}
+	console.log(latestQki);
+	for ( var i = quakes.length -1 ; i >= 0 ; i-- ){
+		var qk = quakes[i];
+		//console.log(qk,i);
+		var color="blue";
+		if ( i == latestQki){
+			color="red";
+		}
+		if ( qk.latitude ){
+			var cr = window.svgImage.createElement("circle");
+			cr.setAttribute("cy",0);
+			cr.setAttribute("cx",0);
+			cr.setAttribute("transform",`ref(svg,${qk.longitude * 100},${ -qk.latitude * 100})`);
+			cr.setAttribute("r",qk.mag*2);
+			cr.setAttribute("fill",color);
+			cr.setAttribute("content", getContent(qk));
+			cr.setAttribute("data-eventID",qk.id);
+			window.svgImage.getElementById("quakes").appendChild(cr);
+		}
+	}
+	window.svgMap.refreshScreen();
+}
+
+
+function gsiEqParser(eq){
+	var pos=eq.cod.match(/[-+][0-9.]+/g); // ISO8602だ～^^
+	//console.log(pos);
+	var lat,lng,depth;
+	if (pos && pos.length ==3){
+		lat = Number(pos[0]);
+		lng = Number(pos[1]);
+		depth = -Number(pos[2]);
+	}
+	
+	var int =[];
+	if ( eq.int ){
+		for ( var prf of eq.int ){
+			if (prf.city.length > 0){
+				for ( var cty of prf.city ){
+					int.push({
+						code: cty.code,
+						maxi: cty.maxi
+					});
+				}
+			} else {
+				int.push({
+					code: prf.code,
+					maxi: prf.maxi
+				});
+			}
+		}
+	}
+	
+	var eid = eq.eid;
+	if ( showAllListInfo){ // 地震のID+発表IDをIDということにして、(全部の発表を表示するデバッグ用)
+		eid = eq.eid+"_"+eq.ctt;
+	}
+	
+	return{
+		maxi: (eq.maxi), // 最大震度(強とか弱というのがあるので文字列にしています・・)
+		mag: Number(eq.mag), // マグニチュード
+		latitude: lat,
+		longitude: lng,
+		depth: depth, // 震度[m]
+		time: new Date(eq.at), // 発生時間
+		ctt : eq.ctt, // 参考情報:発表時間
+		id: eid, // 地震のID
+		int:int, // [{ code:県コード || 市町村コード, maxi:震度 }...]
+		place:eq.anm, // 
+		cat:eq.ttl, // 情報カテゴリ
+		json:eq.json, // 詳細情報ファイル名
+	}
+}
+
+async function fetchJson(url,forrceLatest){ // テキストデータをfetchで読み込む
+	if ( forrceLatest ){
+		var dto = "t="+new Date().getTime();
+		if ( new URL(url).search){
+			url+="&"+dto;
+		} else {
+			url+="?"+dto;
+		}
+	}
+	var response = await fetch(url);
+	var json = await response.json();
+	return ( json );
+}
+
+// ISSUE 震度5弱,6弱は判明　5強,6強がまだ判明していないので検索できないかも
+var intLegend=[
+	["1","#e0e0ef","#q1","1"],
+	["2","#80baff","#q2","2"],
+	["3","#80a1ff","#q3","3"],
+	["4","#fae696","#q4","4"],
+	["5-","#ffe600","#q5m","5弱"],
+	["5+","#ff9900","#q5p","5強"],
+	["6-","#ff2800","#q6m","6弱"],
+	["6+","#a50021","#q6p","6強"],
+	["7","#b40068","#q7","7"]
+]
+
+function getIntColor(int,byIcon){
+	if ( !int ){return ( null)}
+	for ( var ld of intLegend ){
+		if ( ld[0]==int){
+			if ( byIcon){
+				return ( ld[2] );
+			} else {
+				return ( ld[1] );
+			}
+		}
+	}
+	if ( byIcon){
+		return ( "#q5p" ); // 震度5強,6強の時が不明なので　とりあえず５強のアイコンを
+	} else {
+		return ( "#ff0000" ); // 震度5強,6強の時が不明なので　とりあえず赤にしている
+	}
+}
+
+function showLegend(){
+	var tbl = document.getElementById("legendTable");
+	tbl.innerHTML="<td style='font-size:12px'>自治体の最大震度</td>";
+	for ( var leg of intLegend){
+		var td = document.createElement("td");
+		td.style.backgroundColor=leg[1];
+		td.style.width="20px";
+		td.style.fontSize="12px";
+		td.innerText=leg[3];
+		console.log(td);
+		tbl.appendChild(td);
+	}
+}
+
+function selectEq(id){
+	var sel = document.getElementById("eqSel");
+	for ( var i = 0 ; i < sel.options.length ; i++ ){
+		if ( sel.options[i].value == id ){
+			console.log( "select:",i, sel.options[i]);
+			sel.options[i].selected=true;
+			break;
+		}
+	}
+}
+
+window.selectEq = selectEq;
+
+function setEqSel(){
+	var sel = document.getElementById("eqSel");
+	removeChildren(sel);
+	var opt = document.createElement("option");
+	opt.value="";
+	opt.innerText="近頃の地震の震央をすべて表示　最近:赤●";
+	sel.appendChild(opt);
+	for ( var eq of quakes){
+		if ( eq.latitude || displayEvenWithoutEpicenter  ){ 
+			var opt = document.createElement("option");
+			opt.style.backgroundColor=getIntColor(eq.maxi);
+			opt.value=`${eq.id}`;
+			opt.innerText=`${eq.time.toLocaleDateString()} ${eq.time.toLocaleTimeString()} mag.${eq.mag} max.int.${eq.maxi} ${eq.place} ${eq.cat}`;
+			sel.appendChild(opt);
+		}
+	}
+}
+
+function showEq(evevt){
+	var idx = event.target.selectedIndex;
+	var eqId = event.target.options[idx].value;
+	console.log(idx, eqId);
+	if (eqId){
+		// 個別の地震・震度の表示
+		showIntensity(eqId);
+	} else {
+		// 全部の震央表示
+		showAllEqs();
+	}
+}
+
+var stationSchema = ["intensity","area","city","station","code"];
+
+var selectedEvID;
+async function altShowPoiProperty(ans){
+	var evID = ans.getAttribute("data-eventID");
+	console.log("altShowPoiProperty:",ans, " cat:",ans.parentElement.id, " evID :",evID );
+	var schema=window.svgImage.documentElement.getAttribute("property").split(",");
+	var mdata = ans.getAttribute("content").split(",");
+	var message;
+	if (schema.length == mdata.length ){
+		message ="<div>epicenter information</div><table border='1' width='100%'>";
+	} else {
+		message ="<div>observation point</div><table border='1' width='100%'>";
+		schema = stationSchema;
+	}
+	for ( var i = 0 ; i < schema.length ; i++){
+		message+= `<tr><td>${schema[i]}</td><td>${mdata[i]}</td></tr>`;
+	}
+	if (schema.length == mdata.length && quakeDetailPromise){
+		var quakeDetail = await quakeDetailPromise;
+		message+= `<tr><td>headline</td><td>${quakeDetail.headline}</td></tr>`;
+		message+= `<tr><td>comment</td><td>${quakeDetail.comment}</td></tr>`;
+	}
+	message+="</table>";
+	if ( !evID ){
+		selectedEvID = null;
+		svgMap.showModal(message,400,600);
+	} else {
+		selectedEvID = evID;
+		svgMap.setCustomModal(message.replace("width='100%'","width='380px'"),["震度分布表示","CLOSE"],dialogProcessCB);
+	}
+}
+window.altShowPoiProperty=altShowPoiProperty;
+
+function getQuake(eqId){
+	var quake;
+	for ( quake of quakes ){
+		if ( quake.id==eqId){
+			break;
+		}
+	}
+	return ( quake );
+}
+
+function showIntensity(eqId){
+	quakeDetailPromise = getDetail(eqId);
+	removeChildren(window.svgImage.getElementById("imgg"));
+	removeChildren(window.svgImage.getElementById("quakes"));
+	removeChildren(window.svgImage.getElementById("obst"));
+	window.eqMsgDiv.innerText="";
+	showHeadline();
+	
+	var quake = getQuake(eqId);
+	
+	var qcUse = window.svgImage.createElement("use");
+	qcUse.setAttribute("xlink:href","#qc");
+	qcUse.setAttribute("transform",`ref(svg,${quake.longitude*100},${-quake.latitude*100})`);
+	qcUse.setAttribute("content",getContent(quake));
+	window.svgImage.getElementById("quakes").appendChild(qcUse);
+	
+	
+	var csv ="key,color,max intensity\n";
+	console.log(quake.int);
+	for ( var maxi of quake.int){
+		var color = getIntColor(maxi.maxi);
+		csv += maxi.code.substring(0,5) +","+color+","+maxi.maxi+"\n";
+	}
+	window.currentContent=csv;
+	console.log("csv:",csv);
+	window.drawData();
+}
+
+function getContent( quake ){
+	return (`${quake.mag},${quake.maxi},${quake.depth/1000},${quake.time.toLocaleDateString()} ${quake.time.toLocaleTimeString()},${quake.place},${quake.cat}`);
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+	  ele.removeChild( ele.firstChild );
+	}
+	console.log(ele);
+}
+
+async function getDetail(eqId){
+	// quakeDetail=null;
+	var eq = getQuake(eqId);
+	console.log(eq);
+//	var jsonURL=`https://www.jma.go.jp/bosai/quake/data/${eq.ctt}_${eq.id}_VXSE5k_1.json`;
+	var jsonURL=`https://www.jma.go.jp/bosai/quake/data/${eq.json}`;
+	var dj = await fetchJson(jsonURL);
+	var headline = dj.Head.Headline.Text
+	var comment = dj.Body.Comments.ForecastComment.Text;
+	var ints = getObs(dj.Body.Intensity.Observation);
+	// quakeDetail = ints;
+	console.log(dj,ints);
+	return {
+		sites:ints,
+		headline:headline,
+		comment:comment
+	};
+}
+
+function getObs(obst){
+	var ans=[];
+	for ( var pr of obst.Pref){
+		var pNm = pr.Name;
+		for ( var ar of pr.Area){
+			var aNm = ar.Name;
+			if ( ar.City ){
+				for ( var ct of ar.City){
+					var cNm = ct.Name;
+					for ( var is of ct.IntensityStation){
+						var sNm = is.Name;
+						ans.push({
+							int:is.Int,
+							latitude:is.latlon.lat,
+							longitude:is.latlon.lon,
+							name:`${aNm},${cNm},${sNm}`,
+							code:is.Code
+						});
+					}
+				}
+			}
+		}
+	}
+	return ( ans );
+}
+
+async function showObs(){
+	var quakeDetail = await quakeDetailPromise;
+	// if ( !quakeDetail ){return}
+	var obg = window.svgImage.getElementById("obst");
+	for ( var obs of quakeDetail.sites){
+		var qcUse = window.svgImage.createElement("use");
+//		qcUse.setAttribute("xlink:href",getIntColor(obs.int,true)+"v"); // 残念・・仕様上これをすると順番が・・
+		qcUse.setAttribute("xlink:href",getIntColor(obs.int,true));
+		qcUse.setAttribute("transform",`ref(svg,${obs.longitude*100},${-obs.latitude*100})`);
+		qcUse.setAttribute("content",`${obs.int},${obs.name},${obs.code}`);
+		obg.appendChild(qcUse);
+	}
+	window.svgMap.refreshScreen();
+}
+
+async function showHeadline(){
+	var quakeDetail = await quakeDetailPromise;
+	window.eqMsgDiv.innerText=quakeDetail.headline+"　"+quakeDetail.comment;
+}
+
+function dialogProcessCB(idx){
+	console.log("dialogProcessCB:",idx, selectedEvID);
+ 	if ( idx == 0 && selectedEvID ){
+ 		selectEvOption(selectedEvID);
+		showIntensity(selectedEvID);
+	}
+}
+
+function selectEvOption(eqId){
+	for ( var i = 0 ; i < eqSel.options.length ; i++){
+		if ( eqSel.options[i].value==eqId){
+			eqSel.selectedIndex = i;
+			break;
+		}
+	}
+}
+
+</script>
+<body>
+<div>出典: <a target="_blank" href="https://www.data.jma.go.jp/multi/quake/index.html?lang=jp">気象庁 地震情報</a></div>
+<div><span id="updateMsg"></span> <input type="button" value="FORCE UPDATE" id="forceUpdate"></input></div>
+<div id="legend"><table><tr id="legendTable"></tr></table></div>
+<select id="eqSel">
+</select>
+<input type="button" onclick="testVisualize0()" value="test" style="display:none"></input>
+<input type="button" value="観測点表示" id="showObsBtn"></input>
+<!-- <div id="poiUI" style="display:none"></div> -->
+<div id="poiUI" style="display:none"></div>
+<div id="testDiv"></div>
+<div id="eqMsgDiv" style="font-size:11px"></div>
+<div id="msgDiv" style="font-size:11px"></div>
+</body>
+<body>

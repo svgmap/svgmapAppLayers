@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Layer Specific UI for NowCast</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="jmaHrRain_r3.js"></script>
+<script>
+// Description:
+// 過去の高分解能降水ナウキャストを表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2020 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var jireiDefault=2;
+var catDefault=0;
+//var minStep=5;
+
+
+var subLayersInfo;
+
+var jireiSelectUI, catSelectUI, timeSel;
+
+var selectedJirei, selectedCat;
+
+window.onload = async function(){
+	subLayersInfo = await ( await fetch("jmaPastDisasterOldSys.json")).json();
+	initUI();
+}
+
+function initUI(){
+	timeSel = document.getElementById("time");
+	jireiSelectUI = document.getElementById("jireiSelectUI");
+	var idx=0;
+	for ( var ev  of subLayersInfo.jirei){
+		var sel="";
+		if  (idx==jireiDefault){sel="selected"};
+		jireiSelectUI.insertAdjacentHTML("beforeend", `<option value="${idx}" ${sel}>${ev.title}</option>`);
+		++idx;
+	}
+	
+	catSelectUI = document.getElementById("catSelectUI");
+	idx=0;
+	for ( var cat  of subLayersInfo.category){
+		if ( cat.type!="tile"){continue} // tbd
+		var sel="";
+		if  (idx==catDefault){sel="selected"};
+		catSelectUI.insertAdjacentHTML("beforeend", `<option value="${idx}" ${sel}>${cat.name}</option>`);
+		++idx;
+	}
+	selectJireiCat();
+}
+
+var prevJirei;
+function selectJireiCat(){
+	var jireiIdx = jireiSelectUI.options[jireiSelectUI.selectedIndex].value;
+	var catIdx = catSelectUI.options[catSelectUI.selectedIndex].value;
+	var ev = subLayersInfo.jirei[jireiIdx];
+	var timeRevIdx =0.5;
+	if (ev.title == prevJirei){
+		// catの変更のみ
+		timeRevIdx = document.getElementById("time").selectedIndex / document.getElementById("time").options.length;
+		console.log("cat変更のみ:",timeRevIdx);
+	}
+	prevJirei = ev.title ;
+	var cat = subLayersInfo.category[catIdx];
+	datasetPath = ev.path + cat.path;
+	console.log(ev,cat, datasetPath);
+	minStep = cat.timeStepMin;
+	document.getElementById("legendImg").setAttribute("src",cat.legend);
+	initUI2(ev.timeSpan[0],ev.timeSpan[1],minStep, timeRevIdx);
+}
+	
+function initUI2(st,et,minStep, timeRevIdx){
+	console.log("initUI");
+	var rootLayerProps=svgMap.getRootLayersProps();
+	var layerProp;
+	for ( var i = 0 ; i < rootLayerProps.length ; i++ ){
+		if ( svgImageProps.rootLayer == rootLayerProps[i].id ){
+			layerProp = rootLayerProps[i];
+			break;
+		}
+	}
+	console.log(layerProp);
+	head1.innerHTML=layerProp.title;
+	var step = 1000 * 60 * futureStep;
+	
+	var timeSel= document.getElementById("time");
+	removeChildren(timeSel);
+	
+	startT=new Date(st).getTime();
+	endT=new Date(et).getTime();
+	console.log(startT,endT);
+	var idx=0;
+	for ( var t= endT ; t>= startT ; t-= minStep*60*1000){
+		var option = document.createElement('option');
+		option.setAttribute('value', t);
+		
+		var tt = new Date(t).toLocaleString();
+		option.innerHTML = tt ;
+		timeSel.appendChild(option);
+		++idx;
+	}
+	
+	if ( !timeRevIdx){
+		timeRevIdx = 0.5;
+	}
+	time.selectedIndex=Math.round(timeRevIdx * time.options.length);
+	
+	removeAllTiles();
+	setMapTime();
+}
+
+function setMapTime(){
+	noRefresh = false;
+	var idx = timeSel.selectedIndex;
+	var sval = Number(timeSel.options[idx].value);
+	var sDate = new Date(sval);
+	refreshTiles(svgImageProps.scale, svgImageProps.CRS, sDate);
+	
+	svgMap.refreshScreen();
+}
+
+animPlaying = true;
+function startAnim(){
+	var idx = timeSel.selectedIndex;
+	if ( idx > 0 && animPlaying){
+		timeSel.options[idx-1].selected = true;
+		setMapTime();
+		setTimeout(startAnim,500);
+	} else {
+		animPlaying = true;
+	}
+}
+
+function stopAnim(){
+	animPlaying = false;
+}
+
+function fwd(){
+	var idx = timeSel.selectedIndex;
+	if ( idx > 0 ){
+		document.getElementById("time").options[idx-1].selected = true;
+		setMapTime();
+	}
+}
+function rew(){
+	var idx = timeSel.selectedIndex;
+	if ( idx < timeSel.options.length ){
+		timeSel.options[idx+1].selected = true;
+		setMapTime();
+	}
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+</script>
+<body>
+<h3 id="head1">過去の気象災害の記録(~2020)</h3>
+<div style="font-size:12px"><a href="https://www.jma.go.jp/jma/kishou/know/bosai/riskmap.html#:~:text=%E3%81%AE%E5%AF%BE%E5%BF%9C%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6-,%E4%B8%BB%E3%81%AA%E7%81%BD%E5%AE%B3%E7%99%BA%E7%94%9F%E6%99%82%E3%81%AE%E3%82%AD%E3%82%AD%E3%82%AF%E3%83%AB%EF%BC%88%E5%8D%B1%E9%99%BA%E5%BA%A6%E5%88%86%E5%B8%83%EF%BC%89%E3%81%AE%E7%8A%B6%E6%B3%81,-%E9%81%8E%E5%8E%BB%E3%81%AE%E5%AE%9F%E9%9A%9B">気象庁 主な災害発生時のキキクル（危険度分布）の状況</a>
+<p>
+<select id="jireiSelectUI" onchange="selectJireiCat()"></select>
+<select id="catSelectUI" onchange="selectJireiCat()"></select>
+
+<select id="time" onChange="setMapTime()">
+</select>
+</p>
+
+
+<input type="button" onClick="rew()" value="&lt;" />
+<input type="button" onClick="fwd()" value="&gt;" />
+<input type="button" onClick="startAnim()" value="Animate" />
+<input type="button" onClick="stopAnim()" value="Stop" />
+
+<div>
+<img src="" id="legendImg">
+</div>
+</body>
+</html>

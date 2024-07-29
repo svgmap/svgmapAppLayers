@@ -1,0 +1,756 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>国交省道路情報 2023年　全国統一版</title>
+</head>
+<style>
+.blink {
+	animation: blinking 0.2s ease-in-out infinite alternate;
+} 
+@keyframes blinking {
+	0% {opacity: 0.3;}
+	100% {opacity: 1;}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="extendedShowPoiProperty.js"></script>
+<script>
+// 国交省道路情報 全国統一版(2023年4月更新) JSONデータをSVGMapに変換するロジックです
+// https://www.mlit.go.jp/road/roadinfo/ から、
+// http://www.road-info-prvs.mlit.go.jp/roadinfo/pc/ に更新されたもの(2023/4)
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+
+// License:
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
+//
+
+// 1次メッシュでデータがタイル化されている
+const jpMesh1=["3036","3622","3623","3624","3631","3641","3653","3724","3725","3741","3823","3824","3831","3841","3926","3927","3928","3942","4027","4028","4040","4042","4128","4129","4142","4229","4230","4328","4329","4429","4440","4529","4530","4531","4540","4629","4630","4631","4728","4729","4730","4731","4739","4740","4828","4829","4830","4831","4839","4928","4929","4930","4931","4932","4933","4934","4939","5029","5030","5031","5032","5033","5034","5035","5036","5038","5039","5129","5130","5131","5132","5133","5134","5135","5136","5137","5138","5139","5229","5231","5232","5233","5234","5235","5236","5237","5238","5239","5240","5332","5333","5334","5335","5336","5337","5338","5339","5340","5432","5433","5435","5436","5437","5438","5439","5440","5531","5536","5537","5538","5539","5540","5541","5636","5637","5638","5639","5640","5641","5738","5739","5740","5741","5839","5840","5841","5939","5940","5941","5942","6039","6040","6041","6139","6140","6141","6239","6240","6241","6243","6339","6340","6341","6342","6343","6439","6440","6441","6442","6443","6444","6445","6540","6541","6542","6543","6544","6545","6546","6641","6642","6643","6644","6645","6646","6647","6740","6741","6742","6747","6748","6840","6841","6842","6847","6848"];
+
+const cameraTiles=["81","82","83","84","85","86","87","88","89","90"];
+const weatherTiles = cameraTiles;
+
+const contents={
+	"通行規制":"https://www.road-info-prvs.mlit.go.jp/roadinfo/json/TukoKisei/",
+	"冬季通行規制":"https://www.road-info-prvs.mlit.go.jp/roadinfo/json/TokiTuko/",
+	"道の駅":"https://www.road-info-prvs.mlit.go.jp/roadinfo/json/MichiNoEki/"
+}
+
+const icons={
+	"icon_kisei_chain.png":[17,17],
+	"icon_kisei_idou.png":[20,20],
+	"icon_kisei_katagawa.png":[20,20],
+	"icon_kisei_other.png":[20,20],
+	"icon_kisei_shasen.png":[20,20],
+	"icon_shidou_chain.png":[17,17],
+	"icon_stop.png":[20,20],
+	"icon_stop_kouji.png":[20,20],
+	"icon_stop_ogata.png":[20,20],
+//	"icon_stop_winter.png":[19,19], // original size
+	"icon_stop_winter.png":[10,10],
+	"michinoeki.png":[20,21],
+	"icon_cam.png":[21,13]
+}
+
+const kisei_naiyo_cd_Dict={1:"通行止め",4:"車線規制",5:"片側交互通行",9:"移動規制",6:"チェーン"};
+
+const weatherIconColors=[
+	[0,1,"f2f2ff"],
+	[1,5,"9fd2ff"],
+	[5,10,"218bff"],
+	[10,20,"0115ff"],
+	[20,30,"faf601"],
+	[30,50,"fe9901"],
+	[50,80,"fe0000"],
+	[80,1000,"b6016a"],
+	[-1,-1,"666666"],
+];
+
+var data;
+var targetGroup,targetPathGroup; // POI,pathを入れるSVGのグループ
+var progressInfo={total:jpMesh1.length*2, current:0};
+var svgHash;
+onload=async function(){
+	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+	svgHash = new URL(svgImageProps.Path,location.href).hash;
+	console.log(svgHash);
+	targetGroup = svgImage.getElementById("pois");
+	targetPathGroup = svgImage.getElementById("paths");
+	registIcons();
+	await showMap();
+	
+}
+
+async function showMap(){
+	progressInfo.current=0;
+	showUpdateButton(false);
+	messageDiv.style.display="";
+	currentTime = new Date().getTime();
+	if ( svgHash.indexOf("station")>0){
+		await showStation();
+	}else if ( svgHash.indexOf("camera")>0){
+		await showCamera();
+		showUpdateButton();
+	}else if ( svgHash.indexOf("weather")>0){
+		registWeatherIcons();
+		showWeatherHanrei();
+		await showWeather();
+		showUpdateButton();
+	}else if ( svgHash.indexOf("jizenkisei")>0){
+		await showJizenkisei();
+	} else {
+		await showKisei();
+		showUpdateButton();
+	}
+}
+
+async function showJizenkisei(){
+	layerTitle.innerText="事前通行規制区間";
+	progressInfo.total=jpMesh1.length;
+	var rdata =[];
+	var rp=[];
+	for ( var mc of cameraTiles){
+		rp.push( fetchJson(svgMap.getCORSURL(`http://www.road-info-prvs.mlit.go.jp/roadinfo/json/JizenTukokisei/${mc}.json`) ));
+	}
+	rdata = await Promise.all(rp);
+	data = {};
+	for ( var i = 0 ; i < cameraTiles.length ; i++){
+		data["W"+cameraTiles[i]]=rdata[i];
+	}
+	messageDiv.style.display="none";
+	console.log(data);
+	removeChildren(targetPathGroup);
+	drawJizenkisei(data);
+	svgMap.refreshScreen();
+}
+
+
+async function showWeather(){
+	// http://www.road-info-prvs.mlit.go.jp/roadinfo/json/Kisho/83.json　本体
+	// http://www.road-info-prvs.mlit.go.jp/roadinfo/json/Kisho/83_R.json // これは国道キーで上と同じデータか
+	// http://www.road-info-prvs.mlit.go.jp/roadinfo/json/JizenTukokisei/83.json // 事前通行規制 : これは別レイヤーが良いと思うが
+	// http://www.road-info-prvs.mlit.go.jp/roadinfo/pc/pcKishoList_83_1.html
+	// http://www.road-info-prvs.mlit.go.jp/roadinfo/json/telopKokuchi/83.json
+	
+	layerTitle.innerText="気象情報";
+	progressInfo.total=jpMesh1.length;
+	var rdata =[];
+	var rp=[];
+	for ( var mc of cameraTiles){
+		rp.push( fetchJson(svgMap.getCORSURL(`http://www.road-info-prvs.mlit.go.jp/roadinfo/json/Kisho/${mc}.json`) , currentTime ));
+	}
+	rdata = await Promise.all(rp);
+	data = {};
+	for ( var i = 0 ; i < cameraTiles.length ; i++){
+		data["W"+cameraTiles[i]]=rdata[i];
+	}
+	messageDiv.style.display="none";
+	console.log(data);
+	removeChildren(targetGroup);
+	drawWeather(data);
+	svgMap.refreshScreen();
+}
+
+
+async function showCamera(){
+	layerTitle.innerText="道路ライブカメラ";
+	progressInfo.total=jpMesh1.length;
+	var rdata =[];
+	var rp=[];
+	for ( var mc of cameraTiles){
+		rp.push( fetchJson(svgMap.getCORSURL(`https://www.road-info-prvs.mlit.go.jp/roadinfo/json/ImageList/${mc}.json`) , currentTime ));
+	}
+	rdata = await Promise.all(rp);
+	data = {};
+	for ( var i = 0 ; i < cameraTiles.length ; i++){
+		data["C"+cameraTiles[i]]=rdata[i];
+	}
+	messageDiv.style.display="none";
+	console.log(data);
+	removeChildren(targetGroup);
+	drawCamera(data);
+	svgMap.refreshScreen();
+}
+
+
+async function showStation(){
+	layerTitle.innerText="道の駅";
+	progressInfo.total=jpMesh1.length;
+	var rdata =[];
+	var rp=[];
+	for ( var mc of jpMesh1){
+		rp.push( fetchOneRoadJson(`${contents["道の駅"]}${mc}.json`) );
+	}
+	rdata = await Promise.all(rp);
+	data = {};
+	for ( var i = 0 ; i < jpMesh1.length ; i++){
+		data["S"+jpMesh1[i]]=rdata[i];
+	}
+	messageDiv.style.display="none";
+	console.log(data);
+	removeChildren(targetGroup);
+	drawStation(data);
+	svgMap.refreshScreen();
+}
+
+async function showKisei(){
+	var rdata =[];
+	var rp=[];
+	for ( var mc of jpMesh1){
+		rp.push( fetchOneRoadJson(`${contents["通行規制"]}${mc}.json`, currentTime ) );
+//		rp.push( fetchOneRoadJson(`${contents["冬季通行規制"]}${mc}.json`) );
+	}
+	rdata = await Promise.all(rp);
+	data = {};
+	for ( var i = 0 ; i < jpMesh1.length ; i++){
+		data["K"+jpMesh1[i]]=rdata[i];
+	}
+	
+	rp=[];
+	for ( var mc of jpMesh1){
+//		rp.push( fetchOneRoadJson(`${contents["通行規制"]}${mc}.json`) );
+		rp.push( fetchOneRoadJson(`${contents["冬季通行規制"]}${mc}.json`, currentTime ) );
+	}
+	rdata = await Promise.all(rp);
+	for ( var i = 0 ; i < jpMesh1.length ; i++){
+		data["T"+jpMesh1[i]]=rdata[i];
+	}
+	messageDiv.style.display="none";
+	console.log(data);
+	removeChildren(targetPathGroup);
+	removeChildren(targetGroup);
+	drawKiseiInfo(data);
+	svgMap.refreshScreen();
+}
+
+
+async function fetchOneRoadJson(url, time){
+	if ( time ){
+		js = await fetchJson(svgMap.getCORSURL(url),time);
+	} else {
+		js = await fetchJson(svgMap.getCORSURL(url),false);
+	}
+	for ( var pj of js){
+		if(pj.geo_json){
+			var gjs = JSON.parse(pj.geo_json);
+			pj.geo_json =gjs;
+		}
+	}
+	progressInfo.current +=1;
+	progressMessage.innerText=` ${Math.floor(100*progressInfo.current/progressInfo.total)}%`;
+	return js
+}
+
+async function fetchJson(url,forrceLatest){ // テキストデータをfetchで読み込む
+	if ( forrceLatest ){
+		var dto;
+		if ( forrceLatest == true){
+			dto = "t="+new Date().getTime();
+		} else {
+			dto = "t="+forrceLatest;
+		}
+		if ( new URL(url).search){
+			url+="&"+dto;
+		} else {
+			url+="?"+dto;
+		}
+	}
+	var json;
+	try{
+		var response = await fetch(url);
+		json = await response.json();
+	} catch (e){
+		json = [];
+	}
+	return ( json );
+}
+
+function parseMetaSchema(dat){
+	var metaSchema={};
+	for ( var k in dat){ // dat:1次メッシュで分割されたデータ
+		for ( var oneDat of dat[k] ){
+			for ( var propName in oneDat){
+				if ( typeof oneDat[propName] == "string" || typeof oneDat[propName] == "number" ){
+					if ( !metaSchema[propName]){
+						metaSchema[propName]=true;
+					}
+				}
+			}
+		}
+	}
+	return Object.keys(metaSchema);
+}
+
+function xmlEscape(str){
+	if (typeof str =="string"){
+		str = str.replaceAll(",","&#44;");
+		str = str.replaceAll('"',"&quot;");
+		str = str.replaceAll("'","&apos;");
+		str = str.replaceAll("&","&amp;");
+	}
+	return ( str );
+}
+
+function drawJizenkisei(dat){
+	console.log("drawWeather",dat);
+	var geojs = {
+		"type":"FeatureCollection",
+		"features":[]
+	}
+	var propNames={};
+	for (var areak in dat){
+		var area = dat[areak];
+		for (var catk in area){
+			var cat=area[catk];
+			for ( var oneDat of cat){
+				if ( oneDat.geo_json ){
+					oneDat.geo_json = JSON.parse(oneDat.geo_json);
+				}
+				for ( var propName in oneDat ){
+					if ( !propNames[propName] && (typeof oneDat[propName]=="string" || typeof oneDat[propName]=="number" ) ){
+						propNames[propName]=true;
+					}
+				}
+			}
+		}
+	}
+	
+	propNames = Object.keys(propNames);
+	svgImage.documentElement.setAttribute("property",propNames.join(","));
+	//console.log(propNames);
+	
+	for (var areak in dat){
+		var area = dat[areak];
+		for (var catk in area){
+			var cat=area[catk];
+			var color="orange";
+			if ( catk.indexOf("特殊")>=0){
+				color="blue";
+			}
+			for ( var oneDat of cat){
+				if ( !oneDat.geo_json){
+					continue;
+				}
+				if ( oneDat["kijun_setsumei"]){
+					titleStr= "通行規制となる基準:"+oneDat["kijun_setsumei"] ;
+				}
+				oneDat.geo_json.properties.title=titleStr;
+				if ( oneDat.geo_json?.properties?.style?.color){ // オプショナルチェーン ES2020
+					oneDat.geo_json.properties.stroke=oneDat.geo_json?.properties?.style?.color;
+				} else {
+					oneDat.geo_json.properties.stroke=color;
+				}
+				for ( var propName of propNames){
+					if(oneDat[propName]){
+						oneDat.geo_json.properties[propName]=xmlEscape(oneDat[propName]);
+					} else {
+						oneDat.geo_json.properties[propName]="";
+					}
+				}
+				geojs.features.push(oneDat.geo_json);
+				
+			}
+		}
+	}
+	svgMapGIStool.drawGeoJson( geojs , layerID, "black", 3, "gray", "p0", "poi", null, targetPathGroup, propNames) 
+}
+
+function drawWeather(dat){
+	console.log("drawWeather",dat);
+	var propNames={};
+	for ( var k in dat){ // 県ごと
+		var oneArea=dat[k];
+		for ( var pk in oneArea ){
+		var onePref = oneArea[pk];
+		for ( var oneDat of onePref ){
+			if ( oneDat.gis_point ){
+				oneDat.gis_point = JSON.parse(oneDat.gis_point);
+			}
+			for ( var propName in oneDat ){
+				if ( !propNames[propName] && (typeof oneDat[propName]=="string" || typeof oneDat[propName]=="number" ) ){
+					propNames[propName]=true;
+				}
+			}
+		}
+		}
+	}
+	propNames = Object.keys(propNames);
+	svgImage.documentElement.setAttribute("property",propNames.join(","));
+	console.log(propNames);
+	var firstPoiElement;
+	for ( var k in dat){ // 県ごと
+		var oneArea=dat[k];
+		for ( var pk in oneArea ){
+		var onePref = oneArea[pk];
+		for ( var oneDat of onePref ){
+			var titleStr ="";
+			var lat,lng;
+			if ( oneDat.gis_point ){
+				//oneDat.gis_point = JSON.parse(oneDat.gis_point);
+				lat = oneDat.gis_point.coordinates[1];
+				lng = oneDat.gis_point.coordinates[0];
+			} else {
+				continue;
+			}
+			if ( oneDat["rainfall_amount"]){
+				titleStr= oneDat["rainfall_amount"];
+			}
+			if ( oneDat["rainfall_amount_unit"]){
+				titleStr+= oneDat["rainfall_amount_unit"];
+			}
+			if ( oneDat["pc_hyoji_meisho"]){
+				titleStr+= ": " + oneDat["pc_hyoji_meisho"];
+			}
+			
+			var insertTopFlag = true;
+			var icon
+			if (oneDat["jikan_uryo_flag"]==1){
+				icon="RainFall0";
+			} else {
+				icon="RainFall-1";
+			}
+			
+			if ( oneDat["rainfall_amount"] && isNaN(oneDat["rainfall_amount"])==false){
+				for ( rainLevel of weatherIconColors){
+					if ( Number(oneDat["rainfall_amount"])<rainLevel[1]){
+						icon="RainFall"+rainLevel[0];
+						insertTopFlag = false;
+						break;
+					}
+				}
+			}
+			
+			var meta =[];
+			
+			for ( var propName of propNames){
+				if(oneDat[propName]){
+					meta.push(xmlEscape(oneDat[propName]));
+				} else {
+					meta.push("");
+				}
+			}
+			
+			putPoint(
+				lng,
+				lat,
+				icon,
+				meta.join(","),
+				titleStr,
+				targetGroup,
+				insertTopFlag
+			)
+		}
+		}
+	}
+}
+
+function drawCamera(dat){
+	console.log("drawCamera",dat);
+	var propNames={};
+	for ( var k in dat){ 
+		for ( var oneDatKey in dat[k] ){
+		var road = dat[k][oneDatKey];
+		for ( var camSet of road ){
+		for ( var camSetKey in camSet){
+			var oneDat = camSet[camSetKey];
+			
+			for ( var propName in oneDat ){
+				if ( !propNames[propName] && (typeof oneDat[propName]=="string" || typeof oneDat[propName]=="number" ) ){
+					propNames[propName]=true;
+				}
+			}
+		}
+		}
+		}
+	}
+	propNames = Object.keys(propNames);
+	var metaNames =(["最新画像","同撮影時刻","最新画像の15分前","同撮影時刻","最新画像の30分前","同撮影時刻"]).concat(propNames);
+	svgImage.documentElement.setAttribute("property",metaNames.join(","));
+	console.log(propNames);
+	for ( var k in dat){ 
+		for ( var oneDatKey in dat[k] ){
+		var road = dat[k][oneDatKey];
+		for ( var camSet of road ){
+		for ( var camSetKey in camSet){
+			var oneDat = camSet[camSetKey];
+			var titleStr ="";
+			var lat,lng;
+			if ( oneDat.gis_point ){
+				lat = Number(oneDat.gis_point[1]);
+				lng = Number(oneDat.gis_point[0]);
+			} else {
+				continue;
+			}
+			if ( oneDat["image_name"]){
+				titleStr= oneDat["image_name"];
+			}
+			if ( oneDat["shozaichi"]){
+				titleStr+= ": " + oneDat["shozaichi"];
+			}
+			if ( oneDat["teikyo_rosen_mei"]){
+				titleStr+= ": " + oneDat["teikyo_rosen_mei"];
+			}
+			
+			var meta =[];
+			//http://www.road-info-prvs.mlit.go.jp/roadinfo/img/doro_gazo/pc/20230405120000/s_83C03100.jpeg
+			//http://www.road-info-prvs.mlit.go.jp/roadinfo/img/doro_gazo/pc/20230405120500/83C02856.jpeg
+			if ( oneDat.fileList){
+				var idx = 0;
+				for ( var imgFile of oneDat.fileList){
+					meta.push(`http://www.road-info-prvs.mlit.go.jp/roadinfo/img/doro_gazo/pc/${imgFile.file.replace("/s_","/")}`); // s_を取り除き大きい画像を出す
+					meta.push(imgFile.get_datetime)
+					++idx;
+					if ( idx ==3){
+						break;
+					}
+				}
+			} else {
+				for ( var i = 0 ; i < 6 ; i++){
+					meta.push("");
+				}
+			}
+			
+			for ( var propName of propNames){
+				if(oneDat[propName]){
+					meta.push(xmlEscape(oneDat[propName]));
+				} else {
+					meta.push("");
+				}
+			}
+			
+			putPoint(
+				lng,
+				lat,
+				"icon_cam.png",
+				meta.join(","),
+				titleStr,
+				targetGroup
+			)
+		}
+		}
+		}
+	}
+}
+
+function drawStation(dat){
+	console.log("drawStation",dat);
+	var propNames={};
+	for ( var k in dat){ // dat:1次メッシュで分割されたデータ
+		for ( var oneDat of dat[k] ){
+			for ( var propName in oneDat ){
+				if ( !propNames[propName] && (typeof oneDat[propName]=="string" || typeof oneDat[propName]=="number" ) ){
+					if ( propName !="ido" && propName !="keido"){
+						propNames[propName]=true;
+					}
+				}
+			}
+		}
+	}
+	propNames = Object.keys(propNames);
+	svgImage.documentElement.setAttribute("property",propNames.join(","));
+	console.log(propNames);
+	for ( var k in dat){ // dat:1次メッシュで分割されたデータ
+		for ( var oneDat of dat[k] ){
+			var meta =[];
+			var titleStr ="";
+			var lat,lng;
+			if ( oneDat.ido && oneDat.keido ){
+				lat = Number(oneDat.ido);
+				lng = Number(oneDat.keido);
+			} else {
+				continue;
+			}
+			if ( oneDat["michinoeki_mei"]){
+				titleStr= oneDat["michinoeki_mei"];
+			}
+			for ( var propName of propNames){
+				if(oneDat[propName]){
+					meta.push(xmlEscape(oneDat[propName]));
+				} else {
+					meta.push("");
+				}
+			}
+			putPoint(
+				lng,
+				lat,
+				"michinoeki.png",
+				meta.join(","),
+				titleStr,
+				targetGroup
+			)
+		}
+	}
+}
+
+function drawKiseiInfo(dat){
+	var geojs = {
+		"type":"FeatureCollection",
+		"features":[]
+	}
+	var propNames=parseMetaSchema(dat);
+	svgImage.documentElement.setAttribute("property",propNames.join(","));
+	console.log(propNames);
+	for ( var k in dat){ // dat:1次メッシュで分割されたデータ
+		for ( var oneDat of dat[k] ){
+			var meta =[];
+			var titleStr ="";
+			if ( oneDat["kisei_naiyo_shosai_meisho"]){
+				titleStr= oneDat["kisei_naiyo_shosai_meisho"];
+			}
+			if ( oneDat["rosen_name"]){
+				titleStr += " " +oneDat["rosen_name"];
+			}
+			for ( var propName of propNames){
+				if(oneDat[propName]){
+					if ( propName == "kisei_naiyo_cd"){
+						// この処理は要らないかも・・(kisei_naiyo_shosai_meishoにデコードされた情報あるので)
+						var code = Number(oneDat[propName]);
+						if ( kisei_naiyo_cd_Dict[code]){
+							meta.push(kisei_naiyo_cd_Dict[code]);
+						} else {
+							meta.push(code);
+						}
+					} else {
+						meta.push(xmlEscape(oneDat[propName]));
+					}
+				} else {
+					meta.push("");
+				}
+			}
+			if ( oneDat.iconData ){
+				putPoint(
+					oneDat.iconData.point[0],
+					oneDat.iconData.point[1],
+					oneDat.iconData.icon_name,
+					meta.join(","),
+					titleStr,
+					targetGroup
+				)
+			}
+			if ( oneDat.geo_json ){
+				geojs.features.push(oneDat.geo_json);
+			}
+		}
+	}
+	putLine(geojs);
+}
+
+function putPoint(lng,lat,icon,metadata,title, targetGroup, insertTopFlag){
+	var use = svgImage.createElement("use");
+	use.setAttribute("xlink:href", `#${icon}`);
+	use.setAttribute("x",0);
+	use.setAttribute("y",0);
+	use.setAttribute("transform",`ref(svg,${lng*100},${-lat*100})`);
+	use.setAttribute("content",metadata);
+	if ( title){
+		use.setAttribute("xlink:title",title);
+	}
+	if ( insertTopFlag && targetGroup.firstElementChild ){
+		//console.log("insertBefore",use);
+		targetGroup.insertBefore(use,targetGroup.firstElementChild );
+	} else {
+		targetGroup.appendChild(use);
+	}
+}
+
+function putLine(geojson){
+	var metaDictionary = null;
+	svgMapGIStool.drawGeoJson( geojson , layerID, "black", 1.5, "gray", "p0", "poi", "meta", targetPathGroup, metaDictionary) 
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function registIcons(){
+	var defs = svgImage.getElementsByTagName("defs")[0];
+	for ( var ik in icons){
+		var icong = svgImage.createElement("g");
+		icong.setAttribute("id",ik);
+		var img = svgImage.createElement("image");
+		img.setAttribute("xlink:href",`icons/${ik}`);
+		var size = icons[ik];
+		img.setAttribute("x",-Math.floor(size[0]/2));
+		img.setAttribute("y",-Math.floor(size[1]/2));
+		img.setAttribute("width",size[0]);
+		img.setAttribute("height",size[1]);
+		img.setAttribute("preserveAspectRatio","none")
+		icong.appendChild(img);
+		defs.appendChild(icong);
+	}
+}
+	
+function registWeatherIcons(){
+	var defs = svgImage.getElementsByTagName("defs")[0];
+	for ( var lvl of weatherIconColors){
+		var icong = svgImage.createElement("g");
+		icong.setAttribute("id","RainFall"+lvl[0]);
+		var circle=svgImage.createElement("circle");
+		circle.setAttribute("cx",0);
+		circle.setAttribute("cy",0);
+		if ( lvl[0] == -1){
+			circle.setAttribute("r",3);
+		} else{
+			circle.setAttribute("r",8);
+			circle.setAttribute("stroke-width",1);
+			circle.setAttribute("stroke","#303030");
+		}
+		circle.setAttribute("fill","#"+lvl[2]);
+		icong.appendChild(circle);
+		defs.appendChild(icong);
+	}
+}
+function showWeatherHanrei(){
+	removeChildren(commentDiv);
+	commentDiv.style.fontSize="12px";
+	commentDiv.style.lineHeight="12px";
+	var commentTbl=document.createElement("table");
+	commentTbl.style.backgroundColor="#a0a0a0";
+	for ( var lvl of weatherIconColors){
+		if(lvl[0]==-1){
+			commentTbl.insertAdjacentHTML("beforeend",`<tr><td><span style="color:#${lvl[2]}">●</span> データなし</td></tr>`);
+		} else {
+			commentTbl.insertAdjacentHTML("beforeend",`<tr><td><span style="color:#${lvl[2]}">●</span> ${lvl[0]}～${lvl[1]>100 ? "" : lvl[1] }mm/Hr</td></tr>`);
+		}
+	}
+	commentDiv.insertAdjacentHTML("beforeend","時間雨量");
+	commentDiv.appendChild(commentTbl);
+}
+	
+function showUpdateButton(show){
+	progressMessage.innerText="";
+	if ( show == false ){
+		updateButton.style.display="none";
+	} else {
+		updateButton.style.display="";
+	}
+}
+	
+function updateLatest(){
+	console.log("updateLatest");
+	showMap();
+}
+</script>
+<body>
+<h3>国交省　<span id="layerTitle">通行規制情報</span></h3>
+<ul>
+<li>出典: 国土交通省 全国版<a href="http://www.road-info-prvs.mlit.go.jp/roadinfo/pc/" target="_blank">道路情報提供システム</a>
+</ul>
+<div id="commentDiv"></div>
+<input id="updateButton" type="button"  style="display:none" onclick="updateLatest()" value="UPDATE"></input>
+<div id="messageDiv" class="blink" style="color:red">データ読み込み中 <span id="progressMessage"></span></div>
+</body>
+</html>

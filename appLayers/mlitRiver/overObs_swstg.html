@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<title>Client-side Quad Tree Composite Tiling System</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+var baseURL="https://www.river.go.jp/kawabou/file/gjson/overobs/swstg/[[datetime]]/over-obs-create.json";
+
+// 色を変える機能のためのオブジェクト
+var pixelColor = {
+	evaluator:function(rawData){
+		var meta = rawData[2][this.colorEvaluatorCol];
+		var ans = 3; // 計測中 : 30
+		if ( meta == 80){ // 危険水位超過
+			ans = 1;
+		}else if ( meta == 90){ // 氾濫開始水位超過　
+			ans = 0;
+		}
+		//console.log("pixelColor eval:", ans);
+		return ( ans );
+	} ,
+	table:[[80,0,0,255],[200,0,128,255],[255,0,0,255],[140,255,180,255]], // 茶, 紫, 赤, 黄, 緑
+	colorEvaluatorKey:"swstg_ovlvl",
+	colorEvaluatorCol:-1
+}
+
+var statDict={
+	30:["計測中","#p3"],
+	80:["危険水位超過","#p1"],
+	90:["氾濫開始水位超過","#p0"],
+}
+</script>
+
+<script type="module" src="./damMain.js"></script>
+<body>
+<h2>川の防災情報　警戒水位レイヤー</h2>
+<p><a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>の水位計情報をマッシュアップしています</p>
+<div id="prg"></div>
+<div id="poiInfoDiv" style="display:true;font-size:10px">--</div>
+</body>
+</html>

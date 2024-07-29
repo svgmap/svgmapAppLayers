@@ -1,0 +1,651 @@
+<!doctype html>
+<html>
+<head>
+	<title>気象庁ビットイメージタイルデータ可視化レイヤー</title>
+	<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="jma_bm_r2_dynamicTileSubLayer.js"></script>
+<script>
+// Description:
+// 気象庁ビットイメージタイルデータ可視化レイヤー
+// Programmed by Satoru Takagi
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// 2020/07/30 1st rev
+// 2020/11/16 rev2 data-controllerの　#オプションで、 cat=数字:その数字のカテゴリでデフォルト起動 , autoupdate:自動更新モードで起動
+// 2021/03/02- 海しるナウキャストレイヤーを更に拡張して、2021年2月更新の気象庁サイトのビットイメージタイルに全部対応するWebAppsを構築する
+// 2023/07/04 Rev2 webAppLayerに移行、ビットイメージタイルを子レイヤーに(線状降水帯ベクターを必ず上に描くため)、線状降水帯データ表示機能(ベクター)
+
+var baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy,pdesc;
+
+var prevJirei=[
+	{
+		dir:"jirei06",
+		title:"令和3年8月（12日～15日）の大雨"
+	}
+]; // TBD(事例データが複数ないと実装確認厳しいので・・) 複数の過去事例データを選べるようにしたいね
+
+
+var jmaHpSv = {
+	pdesc: '出典:<a href="https://www.jma.go.jp/jma/kishou/know/bosai/riskmap.html" target="_blank">気象庁 主な災害発生時のキキクル（危険度分布）の状況</a>データ',
+	baseURL :"https://www.data.jma.go.jp/yoho/meshjirei/jirei06/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/surf/[[category2]]/[[zoom]]/[[tx]]/[[ty]].png",
+	targetTimePxy : "https://www.data.jma.go.jp/yoho/meshjirei/jirei06/jmatile/data/",
+	cats0 : [
+		"nowc","nowc","nowc",
+		"risk","risk","risk",
+		"rasrf","rasrf","rasrf",
+		"snow","snow","snow","snow","snow","snow","snow",
+		"wdist","wdist","wdist","wdist","wdist","wdist",
+		"umimesh","umimesh","umimesh","umimesh","umimesh",
+	],
+	cats1 : [
+		"none","none","none",
+		"none","none","none",
+		"immed","immed","immed",
+		"none","none","none","none","none","none","none",
+		"none","none","none","none","none","none",
+		"none","none","none","none","none",
+	],
+	cats2 : [
+		"hrpns","thns","trns",
+		"land","inund","flood",
+		"rasrf","rasrf03h","rasrf24h",
+		"snowd","snowf03h","snowf06h","snowf12h","snowf24h","snowf48h","snowf72h",
+		"wm","r3","s3","temp","min_temp","max_temp",
+		"wm","icing","vis","wavh","ws",
+	],
+	zoomLimits : [
+		10,9,9,
+		10,10,10,
+		10,10,10,
+		10,10,10,10,10,10,10,
+		10,10,10,10,10,10,
+		8,8,8,8,8,
+	],
+	catsExp : [
+		"ナウキャスト-雨",
+		"ナウキャスト-雷",
+		"ナウキャスト-竜巻",
+		
+		"危険度分布-土砂災害",
+		"危険度分布-浸水害",
+		"危険度分布-洪水害",
+		
+		"今後の雨-1時間降水量",
+		"今後の雨-3時間降水量",
+		"今後の雨-24時間降水量",
+		
+		"雪-積雪深さ",
+		"雪-3時間降雪量",
+		"雪-6時間降雪量",
+		"雪-12時間降雪量",
+		"雪-24時間降雪量",
+		"雪-48時間降雪量",
+		"雪-72時間降雪量",
+		
+		"天気分布予報-天気",
+		"天気分布予報-3時間降水量",
+		"天気分布予報-3時間降雪量",
+		"天気分布予報-気温",
+		"天気分布予報-最低気温",
+		"天気分布予報-最高気温",
+		
+		"海上分布予報-天気",
+		"海上分布予報-着氷",
+		"海上分布予報-視程",
+		"海上分布予報-波高",
+		"海上分布予報-風速",
+	],
+	subps :[
+		// "nowc/targetTimes_N1.json",
+		[
+			"nowc/targetTimes_N2.json",
+			"nowc/targetTimes_N1.json",
+		],
+		"nowc/targetTimes_N3.json",
+		"nowc/targetTimes_N3.json",
+		
+		"risk/targetTimes.json",
+		"risk/targetTimes.json",
+		"risk/targetTimes.json",
+		
+		"rasrf/targetTimes.json",
+		"rasrf/targetTimes.json",
+		"rasrf/targetTimes.json",
+		
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		"snow/targetTimes.json",
+		
+		"wdist/targetTimes.json",
+		"wdist/targetTimes.json",
+		"wdist/targetTimes.json",
+		"wdist/targetTimes.json",
+		"wdist/targetTimes.json",
+		"wdist/targetTimes.json",
+		
+		"umimesh/targetTimes.json",
+		"umimesh/targetTimes.json",
+		"umimesh/targetTimes.json",
+		"umimesh/targetTimes.json",
+		"umimesh/targetTimes.json",
+	],
+	legends :[
+		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_deep_hrpns.svg",
+		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_deep_thns.svg",
+		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_deep_trns.svg",
+		
+		"https://www.jma.go.jp/bosai/risk/images/legend_jp_normal_land.svg",
+		"https://www.jma.go.jp/bosai/risk/images/legend_jp_normal_inund.svg",
+		"https://www.jma.go.jp/bosai/risk/images/legend_jp_flood_risk.svg",
+		
+		"https://www.jma.go.jp/bosai/kaikotan/images/legend_jp_deep_rasrf.svg",
+		"https://www.jma.go.jp/bosai/kaikotan/images/legend_jp_deep_rasrf03h.svg",
+		"https://www.jma.go.jp/bosai/kaikotan/images/legend_jp_deep_rasrf24h.svg",
+		
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowd.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf03h.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf06h.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf12h.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf24h.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf48h.svg",
+		"https://www.jma.go.jp/bosai/snow/images/legend_deep_snowf72h.svg",
+		
+		"https://www.jma.go.jp/bosai/wdist/images/legend_jp_deep_wm.svg",
+		"https://www.jma.go.jp/bosai/wdist/images/legend_deep_r3.svg",
+		"https://www.jma.go.jp/bosai/wdist/images/legend_deep_s3.svg",
+		"https://www.jma.go.jp/bosai/wdist/images/legend_deep_temp.svg",
+		"https://www.jma.go.jp/bosai/wdist/images/legend_deep_temp.svg",
+		"https://www.jma.go.jp/bosai/wdist/images/legend_deep_temp.svg",
+		
+		"https://www.jma.go.jp/bosai/umimesh/images/legend_jp_deep_wm.svg",
+		"https://www.jma.go.jp/bosai/umimesh/images/legend_jp_deep_icing.svg",
+		"https://www.jma.go.jp/bosai/umimesh/images/legend_jp_deep_vis.svg",
+		"https://www.jma.go.jp/bosai/umimesh/images/legend_deep_wavh.svg",
+		"https://www.jma.go.jp/bosai/umimesh/images/legend_deep_ws.svg",
+	],
+}
+
+
+
+
+var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
+
+
+var defaultCat = 1;
+var svType = 0;
+var noforecast = false;
+
+onload=function(){
+	setTimeout(changeMap,100);
+	setTimeout(function(){
+		setDefaultParams();
+		prepCatSel();
+		initSlmcs();
+	},20);
+}
+
+function setDefaultParams(){
+	var hashs;
+	var lhash = new URL(svgImageProps.Path,location).hash;
+	if ( lhash!=""){
+		lhash=lhash.substring(1);
+		hashs = lhash.split("&");
+	} else {
+		var nhash=svgImageProps.controller.split("#")[1];
+		hashs = nhash.split("&");
+	}
+	//console.log(hashs);
+	// まずサーバのタイプを決める
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("type")==0){
+			try{
+				var typeNum = Number((hashs[i].split("="))[1]);
+				if ( typeNum < 3 ){
+					svType = typeNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		}
+	}
+	//console.log("svType:",svType);
+	setServerType(svType);
+	
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("cat")==0){
+			try{
+				var catNum = Number((hashs[i].split("="))[1]);
+				if ( catNum < cats0.length ){
+					defaultCat = catNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		} else if ( hashs[i].indexOf("autoupdate")==0){
+			//console.log("autoupdate enabled on startup");
+			realtime_checked.checked=true;
+			setTimeout(changeRealTimeUpdate,updateCheckInterval);
+		} else if ( hashs[i].indexOf("noforecast")==0){
+			noforecast = true;
+		} else if ( hashs[i].indexOf("zmax")==0){
+			try{
+				var zmNum = Number((hashs[i].split("="))[1]);
+				if ( zmNum < 20 && zmNum>0 ){
+					zoomMax = zmNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		}
+	}
+	console.log("svType:",svType, "defaultCat:",defaultCat, " autoupdate:",realtime_checked.checked, "noforecast:",noforecast ,  " zoomMax:",zoomMax);
+}
+
+
+function setServerType(numb){
+	//console.log(numb);
+	if (numb == 0){ // 海しるデータ
+		for ( var key in jmaDataSv){
+			window[key]=jmaDataSv[key];
+		}
+	} else if (numb==1) { // 気象庁ホムペ2021
+		for ( var key in jmaHpSv){
+			window[key]=jmaHpSv[key];
+		}
+	}
+	//console.log(jmaHpSv,jmaDataSv);
+	//console.log(baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy);
+	pageDesc.innerHTML=pdesc;
+}
+
+function prepCatSel(){
+	for (var i = 0 ; i < cats2.length ; i++ ){
+		if ( noforecast && catsExp[i].indexOf("予報")>=0){
+			continue;
+		}
+		var opt = document.createElement("option");
+		opt.value=cats2[i];
+		opt.innerText=catsExp[i];
+		catSel.appendChild(opt);
+		if ( i==defaultCat){
+			opt.selected=true;
+		}
+	}
+}
+
+var timeData;
+var lastCat = -1; // 以前のカテゴリ
+var lastUpdateTime; // そのデータの最新更新日時
+
+function changeMap(){
+	var subPath = subps[catSel.selectedIndex];
+	document.getElementById("datanameHead").innerText=catsExp[catSel.selectedIndex];
+	if ( typeof(subPath)=="string"){
+		loadJson(targetTimePxy + subPath , changeMapPh2);
+	} else {
+		loadJsons(targetTimePxy,subPath,changeMapPh2);
+	}
+}
+
+function loadJsons(comPath, subPath, cbf, stp , ans){
+	if(!stp){
+		stp = 0;
+		ans=[];
+	}
+	if ( stp < subPath.length ){
+		loadJson(comPath + subPath[stp], function(json){
+			ans = ans.concat(json);
+			loadJsons(comPath, subPath, cbf, stp+1, ans);
+		});
+	} else {
+		//console.log("complete..:",ans);
+		cbf(ans);
+	}
+}
+
+function changeMapPh2(tData){
+	timeData = tData;
+	timeData.sort(function(a,b){
+		return (Number(a.validtime) - Number(b.validtime));
+	});
+	
+	var catstr = cats2[catSel.selectedIndex];
+	//console.log("catstr:",catstr);
+	var timeData2 = [];
+	for ( var i = 0 ; i < timeData.length ; i++ ){
+		if ( timeData[i].elements){
+			if( timeData[i].elements.indexOf(catstr)>=0){
+				timeData2.push(timeData[i]);
+			}
+		} else {
+			timeData2.push(timeData[i]);
+		}
+	}
+	timeData = timeData2;
+	//console.log("timeData:",timeData);
+	
+	var latestBaseTime = getLastUpdate(timeData);
+	console.log("latestBaseTime:",latestBaseTime);
+	if ( lastCat == catSel.selectedIndex && latestBaseTime == lastUpdateTime ){
+		// カテゴリ変更がなく、更新もされてなければ変更する必要はない。
+		// changeMapがリアルタイム更新するために呼ばれるようになるためこのケースがでてくる。
+		console.log("no update.. skip");
+		return;
+	}
+	lastCat = catSel.selectedIndex;
+	lastUpdateTime = latestBaseTime;
+	
+	prepTimeSel(timeData);
+	hanrei.src=legends[catSel.selectedIndex];
+	
+	changeSlmcsUIvisibility(catstr);
+
+	change();
+}
+
+function getDateFromJmaJsonTime(vt){
+	var tTxt = vt.substring(0,4)+"-"+vt.substring(4,6)+"-"+vt.substring(6,8)+"T"+vt.substring(8,10)+":"+vt.substring(10,12)+":"+vt.substring(12,14)+"+0000";
+	var dt = (new Date(tTxt));
+	return dt;
+}
+
+function getLastUpdate(tData){
+	var bt = tData[tData.length-1].basetime;
+	var latestBaseTime = bt.substring(0,4)+"-"+bt.substring(4,6)+"-"+bt.substring(6,8)+"T"+bt.substring(8,10)+":"+bt.substring(10,12)+":"+bt.substring(12,14)+"+0000";
+	latestBaseTime = (new Date(latestBaseTime)).toLocaleString();
+	return ( latestBaseTime );// 文字列で出すのはちょっと手抜き・・
+}
+
+function prepTimeSel(tData){
+	while (timeSel.firstChild) timeSel.removeChild(timeSel.firstChild);
+	var initSel=false;
+	for (var i = tData.length-1 ; i >=0 ; i-- ){
+		var opt = document.createElement("option");
+		var vt = tData[i].validtime;
+		var bt = tData[i].basetime;
+		opt.value= vt;
+
+		var tTxt = vt.substring(0,4)+"-"+vt.substring(4,6)+"-"+vt.substring(6,8)+"T"+vt.substring(8,10)+":"+vt.substring(10,12)+":"+vt.substring(12,14)+"+0000";
+		tTxt = (new Date(tTxt)).toLocaleString();
+		tTxt = tTxt.substring(0,tTxt.length-3);
+		if ( bt == vt){
+			opt.innerText=tTxt;
+			if ( !initSel ){
+				opt.selected=true;
+				initSel=true;
+			}
+		} else {
+			opt.innerText=tTxt + " 予想";
+			if ( noforecast ){
+				continue;
+			}
+		}
+		timeSel.appendChild(opt);
+	}
+	lastupdatetimespan.innerText="更新:"+lastUpdateTime.substring(0,lastUpdateTime.length-3);
+}
+
+var guardMin = 30;
+async function change(){
+	var targetLayer = await getTargetSubLayer();
+	targetGroup = targetLayer.doc.documentElement;
+	
+	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	var trIndex = timeData.length - timeIndex -1;
+	var cat0 = cats0[catSel.selectedIndex];
+	var cat1 = cats1[catSel.selectedIndex];
+	var cat2 = cats2[catSel.selectedIndex];
+	var zoomLimit = zoomLimits[catSel.selectedIndex];
+	
+	
+	var newPath = baseURL.replace("[[category0]]",cat0);
+	newPath = newPath.replace("[[category1]]",cat1);
+	newPath = newPath.replace("[[category2]]",cat2);
+	newPath = newPath.replace("[[basetime]]",timeData[trIndex].basetime);
+	newPath = newPath.replace("[[validtime]]",timeData[trIndex].validtime);
+	
+	// console.log( newPath);
+	
+	setServerParams(newPath,zoomLimit,3, targetGroup);
+	//console.log(getServerParams());
+	svgMap.refreshScreen();
+	
+	if ( cat2 == jmaSlmcsProps.targetCat2){
+		showSlmcs(trIndex);
+	} else {
+		var grp = svgImage.getElementById(jmaSlmcsProps.targetG);
+		removeChildren(grp);
+	}
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+
+function loadJson(url,callback){
+	var xhr = new XMLHttpRequest();
+	var tq="?";
+	if ( url.indexOf("?")>=0){
+		tq="&";
+	}
+	xhr.open("GET",url + tq + "t="+(new Date()).getTime(),true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send();
+	
+}
+
+var realTimeUpdateFlag=false;
+function changeRealTimeUpdate(){
+	var rt = document.getElementById("realtime_checked").checked;
+	console.log("realTime?:",rt);
+	realTimeUpdateFlag = rt;
+	if ( realTimeUpdateFlag && !checkLoopRunning){
+		checkLoop();
+	}
+}
+
+var checkLoopRunning=false;
+function checkLoop(){
+	if ( realTimeUpdateFlag ){
+		checkLoopRunning=true;
+		changeMap();
+		setTimeout(checkLoop,updateCheckInterval);
+	} else {
+		checkLoopRunning=false;
+	}
+}
+
+
+
+// 線状降水帯特別実装 2023/7/3
+var jmaSlmcsProps={
+	active : "none",
+	targetCat2 : "hrpns",
+	cats2:["slmcs","slmcs_fcst","none"],
+	catsExp : ["線状降水帯（現在）","線状降水帯(10～30分先）","なし"],
+	legends:["https://www.jma.go.jp/bosai/kaikotan/images/legend_jp_slmcs_a.svg","https://www.jma.go.jp/bosai/kaikotan/images/legend_jp_slmcs_f.svg"],
+	baseURL :"https://www.jma.go.jp/bosai/jmatile/data/nowc/[[basetime]]/none/[[validtime]]/surf/[[category2]]/data.geojson?id=[[category2]]",
+	subps:"nowc/targetTimes_N3.json",
+	targetG: "vectorGroup",
+	test:false, // ダミーデータ(2023/7/3朝)を使ったテスト
+}
+
+var slmcsSubLayer
+
+
+function initSlmcs(){
+	slmcsUI.display="none";
+	for ( var i = 0 ; i < jmaSlmcsProps.cats2.length ; i++){
+		var opt = document.createElement("option");
+		opt.value=jmaSlmcsProps.cats2[i];
+		opt.innerText=jmaSlmcsProps.catsExp[i];
+		opt.setAttribute("data-txtmsg",jmaSlmcsProps.catsExp[i]);
+		slmcsSel.appendChild(opt);
+	}
+	jmaSlmcsProps.active = slmcsSel.options[slmcsSel.selectedIndex].value;
+}
+
+function changeSlmcsUIvisibility(cat2){
+	if ( cat2 != jmaSlmcsProps.targetCat2){
+		slmcsUI.style.display = "none";
+	} else {
+		slmcsUI.style.display = "";
+	}
+}
+
+function changeSlmcs(){
+	jmaSlmcsProps.active = slmcsSel.options[slmcsSel.selectedIndex].value;
+	lastCat = -1;
+	changeMap();
+}
+
+function updateSlmcsSelMsg(timeTxt){
+	slmcsSel.options[0].innerText = slmcsSel.options[0].getAttribute("data-txtmsg") + ` ${timeTxt}現在`;
+	slmcsSel.options[1].innerText = slmcsSel.options[1].getAttribute("data-txtmsg") + ` ${timeTxt}現在`;
+}
+
+async function showSlmcs(trIndex){
+	console.log("showSlmcs:",trIndex,  jmaSlmcsProps.active);
+	var grp = svgImage.getElementById(jmaSlmcsProps.targetG);
+	if ( jmaSlmcsProps.active =="none"){
+		removeChildren(grp);
+		svgMap.refreshScreen();
+		return
+	}
+	// var tt = getSlmcsTargetTime(jmaSlmcsProps.active,trIndex); // これだとうまく動かないのが謎
+	var tt = await getSlmcsTargetTime("slmcs",trIndex);
+	var surl = jmaSlmcsProps.baseURL.replaceAll("[[category2]]",jmaSlmcsProps.active);
+	surl = surl.replace("[[basetime]]",tt.basetime);
+	surl = surl.replace("[[validtime]]",tt.validtime);
+	var pubTime = getDateFromJmaJsonTime(tt.validtime);
+	var pubTimeStr = `${pubTime.getMonth()+1}/${pubTime.getDate()} ${pubTime.getHours()}:${pubTime.getMinutes()}`;
+	updateSlmcsSelMsg(pubTimeStr);
+	
+	//console.log(pubTimeStr, surl);
+	if ( jmaSlmcsProps.test ){
+		surl=`${jmaSlmcsProps.active}_sample.json`;
+	}
+	var gjs = await (await fetch((surl))).json();
+	//console.log(gjs);
+	
+	removeChildren(grp);
+	if ( gjs.features.length > 0 ){
+		svgMapGIStool.drawGeoJson(gjs,layerID,"red",3,"red", "p0", "poi", "", grp);
+		var paths=grp.getElementsByTagName("path");
+		for ( var path of paths){
+			path.setAttribute("fill","none");
+			path.setAttribute("stroke","red");
+			path.setAttribute("stroke-width","4");
+			if (  jmaSlmcsProps.active == "slmcs_fcst"){
+				path.setAttribute("stroke-dasharray","8");
+			}
+			path.setAttribute("vector-effect","non-scaing-stroke");
+		}
+		svgMap.refreshScreen();
+	}
+}
+
+
+async function getTargetSubLayer(){
+	var slidks = Object.keys(svgImageProps.childImages)
+	if ( slidks.length >0){
+		var slid = slidks[0];
+		var slDoc = svgMap.getSvgImages()[slid];
+		if ( !slDoc ){
+			await sleep(100);
+			return await getSlmcsSubLayer();
+		}
+		//console.log(slid,slDoc);
+		return {id:slid, doc:slDoc};
+	} else {
+		await sleep(100);
+		return await getSlmcsSubLayer();
+	}
+}
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+async function getSlmcsTargetTime(targetCat,trIndex){
+	var url = `${targetTimePxy + jmaSlmcsProps.subps}?t=${(new Date()).getTime()}`;
+	var ttjs = await (await fetch(url)).json();
+	//console.log(ttjs);
+	
+	var tts =[];
+	for ( var tt of ttjs){
+		if ( tt.elements.indexOf(targetCat)>=0){
+			tts.push(tt);
+		}
+	}
+	//console.log(tts,timeData[trIndex].basetime, timeData[trIndex].validtime);
+	
+	var minDif = 1e10;
+	var ti = 0;
+	for ( var i = 0 ; i < tts.length ; i++ ){
+		var dif = Math.abs(Number(tts[i].validtime) - Number(timeData[trIndex].validtime));
+		if ( dif < minDif ){
+			minDif = dif;
+			ti = i;
+		}
+	}
+	if ( ti == 0 ){
+		++ti; // これがないとダメな理由がわからない・・・
+	}
+	var ans = {
+		basetime:tts[ti].basetime,
+		validtime:tts[ti].validtime
+	}
+	//console.log(ti,ans);
+	return ans;
+}
+
+function removeChildren(elm){
+	while (elm.firstChild) {
+		elm.removeChild(elm.firstChild);
+	}
+}
+
+</script>
+<body>
+<h3>過去の災害時の気象情報(2021年～)</h3>
+<span style="font-weight:bold">過去の災害：</span>
+<select id="selectJirei">
+<option value="jirei06">令和3年8月（12日～15日）の大雨</option>
+</select>
+<div id="datanameHead" style="display:none">気象庁タイルデータ</span></div>
+<p id="pageDesc"></p>
+<select id="catSel" onchange="changeMap()"></select> 
+<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
+<label for="realtime_checked">自動更新</label>
+<br>
+<select id="timeSel" onchange="change()"></select>(JST) <span id="lastupdatetimespan" style="font-size:11px"></span><br>
+<div id="slmcsUI" style="font-size:9pt;display:none">線状降水帯表示:<select style="font-size:9pt;" id="slmcsSel" onchange="changeSlmcs()"></select></div>
+<img id="hanrei" style="display:true">
+</body>
+</html>

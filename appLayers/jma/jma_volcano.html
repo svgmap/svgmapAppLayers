@@ -1,0 +1,400 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>rent a car data parser</title>
+</head>
+
+<style>
+/* 奇数行のスタイル */
+table tr:nth-child(odd){
+  background-color:#c0c0ff;
+}
+ 
+/* 偶数行のスタイル */
+table tr:nth-child(even){
+  background-color:#e0e0e0;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description 
+// 気象庁火山レイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+var proxyPath="https://www.jma.go.jp/bosai/";
+var volcanoSubPath="volcano/const/volcano_list.json";
+var ashFallSubPath="ashfall/data/ashfall/";
+
+var pdfLinkHead="https://www.jma.go.jp/bosai/ashfall/data/ashfall/pdf/";
+
+var volcanos={}; // 火山リスト
+var afIndex={}; // 降灰(ashfall)火山リスト
+var afVolcanos={}; //
+
+onload=function(){
+	loadJSON(showVolcanos,proxyPath+volcanoSubPath);
+}
+
+function showVolcanos(json){
+	console.log(json);
+	volcanos=json;
+	loadJSON(getAfVolcanos,proxyPath+ashFallSubPath+"japan.json");
+}
+
+
+function getAfVolcanos(json){
+	console.log(json);
+	afIndex=json;
+	for ( var key in afIndex ){
+		loadJSON(processEachVolcanos,proxyPath+ashFallSubPath+key+".json");
+	}
+}
+
+function processEachVolcanos(json){
+	var code = json.scheduled.code;
+	afVolcanos[code]=json.scheduled;
+	console.log(json);
+	
+	
+	var allRead = true;
+	for ( var key in afIndex ){
+		if ( !afVolcanos[key] ){
+			allRead=false;
+		}
+	}
+	if (allRead){
+		showAshFalls();
+	}
+}
+
+function showAshFalls(){
+	console.log("Load completed asgfallingVolcanos:",afVolcanos);
+	 //setViewIcon(gx,gy,parentG,iconNumb,meta)
+	
+	printAshfalls();
+	
+	printVolcanos();
+	
+}
+
+function printVolcanos(){
+	var iconParentElm = svgImage.getElementById("icons");
+	removeChildren(iconParentElm);
+	for ( var i = 0 ; i < volcanos.length ; i++ ){
+		var vo = volcanos[i];
+		if ( vo.latlon){
+			var meta = vo.code + "," + vo.name_jp + "," + vo.name_en + "," + "none" + "," + "null";
+			if ( !afVolcanos[vo.code] ){
+				if ( !ashfallOnlyCheck.checked ){
+					setViewIcon(vo.latlon[1],vo.latlon[0],iconParentElm,0,meta);
+				}
+			} else {
+				afVolcanos[vo.code].name_en = vo.name_en;
+				afVolcanos[vo.code].latlon = vo.latlon;
+			}
+		}
+	}
+	for ( var key in afVolcanos ){
+		var vo = afVolcanos[key];
+		var meta = key + "," + vo.name + "," + vo.name_en + "," + vo.volcanoHeadline + "," + pdfLinkHead + vo.pdf;
+		setViewIcon(vo.latlon[1],vo.latlon[0],iconParentElm,2,meta);
+	}
+	svgMap.refreshScreen();
+}
+
+
+function setViewIcon(gx,gy,parentG,iconNumb,meta){
+	if ( iconNumb==undefined || iconNumb==null){
+		iconNumb = 0;
+	}
+	var u = svgImage.createElement("use");
+	u.setAttribute("x",0);
+	u.setAttribute("y",0);
+	u.setAttribute("xlink:href","#p"+iconNumb);
+	u.setAttribute("transform","ref(svg,"+gx*100+","+(-gy*100)+")");
+	if(meta){
+		u.setAttribute("content",meta);
+	}
+//	console.log("u:",u);
+	parentG.appendChild(u);
+}
+
+
+var ashCatTable={
+	70:"#808080",
+	75:"#FF0000",
+}
+
+function printAshfalls(){
+	var areaParentElm = svgImage.getElementById("areas");
+	for ( var key in afVolcanos ){
+		var vo = afVolcanos[key];
+		var polys = vo.ashinfos[vo.ashinfos.length-1].items;
+		for ( var i = 0 ; i < polys.length ; i++ ){
+			var mc = ashCatTable[polys[i].code];
+			var color = "#a09090";
+			if(mc){
+				color = mc;
+			}
+			for ( var j = 0 ; j < polys[i].polygons.length ; j++ ){
+				var poly = polys[i].polygons[j];
+				poly = poly.split("/"); // ISO6709
+				var polyPoints=[];
+				for ( var k = 0 ; k < poly.length ; k++ ){
+					if ( poly[k].length > 4){
+						var latlng = poly[k].split("+");
+						var pp =[Number(latlng[2]),Number(latlng[1])];
+						polyPoints.push(pp);
+					}
+				}
+				var geojs = {
+					type:"Feature",
+					geometry:{
+						type:"Polygon",
+						coordinates: [polyPoints]
+					}
+				}
+				console.log("polygon:",geojs," color:",color," layerID:",layerID);
+				svgMapGIStool.drawGeoJson(geojs,layerID,color,1,color, "p0", "poi", "", areaParentElm);
+				
+			}
+		}
+	}
+}
+
+
+
+
+var jsonSrc;
+function showData(json){
+	jsonSrc=json;
+	svgImage.documentElement.setAttribute("property","mesh");
+	
+	console.log("json:",json);
+	showMeta(json);
+	showMeta(json.data,"data");
+	var areaParentElm = svgImage.getElementById("areas");
+	removeChildren(areaParentElm);
+	var iconParentElm = svgImage.getElementById("icons");
+	removeChildren(iconParentElm);
+	var metadata=null;
+	svgMapGIStool.drawGeoJson(json.data.meshes,layerID,"red",1,"orange", "p0", "poi", metadata, areaParentElm);
+	var bb = getBBox(json);
+	console.log(bb);
+	setViewIcon(bb,iconParentElm);
+	svgMap.refreshScreen();
+	
+}
+
+
+function getBBox(json, area){
+	if ( !area ){
+		area = {};
+		area.xmin = 1e30;
+		area.xmax = -1e30;
+		area.ymin = 1e30;
+		area.ymax = -1e30;
+	}
+	for ( var key in json ){
+		if(json[0] && json[1] && typeof(json[0])=="number"&& typeof(json[1])=="number"){
+			if ( area.xmin > json[0]){
+				area.xmin = json[0];
+			}
+			if ( area.xmax < json[0]){
+				area.xmax = json[0];
+			}
+			if ( area.ymin > json[1]){
+				area.ymin = json[1];
+			}
+			if ( area.ymax < json[1]){
+				area.ymax = json[1];
+			}
+		} else if (typeof(json[key])=="object"){
+			area = getBBox(json[key],area);
+		}
+	}
+	return (area);
+}
+
+function getPoints(points, fpn, rally_point_start_point){
+	var rally_pois=[];
+	var wpPath=[];
+	var pois = [];
+	var poiColor = "red";
+	var lineColor ="purple";
+	if (rally_point_start_point){
+		wpPath.push({lat:rally_point_start_point.lat, lng:rally_point_start_point.lon});
+		poiColor="pink";
+		lineColor="orange";
+	}
+	for ( var i = 0 ; i < points.length ; i++ ){
+		var wp = points[i];
+		wpPath.push({lat:wp.lat,lng:wp.lon});
+		var icon = getIcon({
+			lat:wp.lat,
+			lng:wp.lon,
+			meta:fpn+","+wp.h+","+wp.v
+		}, poiColor);
+		pois.push(icon);
+//		console.log("wp.rally_point:",wp.rally_point);
+		if ( wp.rally_point && wp.rally_point.length > 0 ){
+			var rp = wp.rally_point;
+			var rpois = getPoints(rp,fpn,{lat:wp.lat,lon:wp.lon,h:wp.h});
+			rally_pois = rally_pois.concat(rpois);
+			
+		}
+	}
+	
+	var path = getPath(wpPath,lineColor)
+	pois.unshift(path);
+	
+	pois = rally_pois.concat(pois);
+	
+	return ( pois );
+}
+
+function drawElems(elems){
+	for (var i = 0 ; i < elems.length ; i++ ){
+		svgImage.documentElement.appendChild(elems[i]);
+	}
+}
+
+function showMeta(pd,prefix){
+	var mtbl = document.getElementById("areaMeta");
+	for ( var key in pd ){
+		if ( typeof(pd[key])=="string" || typeof(pd[key])=="number" || typeof(pd[key])=="boolean" ){
+			var tr = document.createElement("tr");
+			var tdk =document.createElement("td");
+			var tdv =document.createElement("td");
+			if ( prefix ){
+				tdk.innerText=prefix+":"+key;
+			} else {
+				tdk.innerText=key;
+			}
+			tdv.innerText=pd[key];
+			tr.appendChild(tdk);
+			tr.appendChild(tdv);
+			mtbl.appendChild(tr);
+		}
+//		console.log(typeof(pd[key]),pd[key]);
+	}
+}
+
+
+function getIcon(poi,color,size){ // .lat, lng, .meta(csv)
+	if ( !size ){
+		size = 6;
+	}
+	var icon = svgImage.createElement("circle");
+	icon.setAttribute("transform", "ref(svg," + (poi.lng*100) + "," + (-poi.lat*100) + ")");
+	icon.setAttribute("cx",0);
+	icon.setAttribute("cy",0);
+	icon.setAttribute("r",size);
+	icon.setAttribute("fill",color);
+	icon.setAttribute("content",poi.meta);
+	return ( icon );
+}
+
+function getPath(ps,color){
+	console.log("drawPath:",ps);
+	var path = svgImage.createElement("path");
+	path.setAttribute("vector-effect","non-scaling-stroke");
+	path.setAttribute("stroke-width","2");
+	path.setAttribute("fill","none");
+	path.setAttribute("stroke",color);
+	
+	var d = "M";
+	for ( var i = 0 ; i < ps.length ; i++ ){
+		var poi = ps[i];
+		d += (poi.lng*100) + "," + (-poi.lat*100)+" ";
+	}
+	
+	path.setAttribute("d",d);
+	console.log("d:",d);
+	return ( path );
+}
+
+
+function loadJSON(cbFunc, url, dataCat, postProcess){
+	url = svgMap.getCORSURL(url);
+//	console.log("loadJSON : SRC: ", url);
+	var httpObj = new XMLHttpRequest();
+	if ( httpObj ) {
+		httpObj.onreadystatechange = function(){
+			loadJSON_ph2( this , cbFunc , dataCat , postProcess);
+		} ;
+		httpObj.open("GET", url , true );
+		httpObj.send(null);
+	}
+}
+
+function loadJSON_ph2( httpRes , cbFunc , dataCat , postProcess){
+	if ( httpRes.readyState == 4 ){
+		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
+			console.log( "loadJSON : File get failed : stat : ", httpRes.status);
+			return;
+		}
+		var jst = httpRes.responseText;
+		jst = unescape(jst);
+		if ( postProcess ){
+			jst = postProcess(jst);
+		}
+//		console.log("isCsv:",isCsv, "\nloadJSON_ph2:",jst);
+		if ( dataCat=="csv" ){
+			var csv = jst.split("\n");
+//			console.log("csv:",csv);
+			for ( var i = 0 ; i < csv.length ; i++ ){
+				csv[i] = csv[i].split(",");
+			}
+//			console.log("csv:",csv);
+			cbFunc ( csv );
+		} else if ( dataCat == "html" ){
+			var parser = new DOMParser();
+			var htmlDoc = parser.parseFromString(jst, 'text/html');
+			// var htmlDoc = parser.parseFromString(txt, 'text/xml');
+			cbFunc(htmlDoc);
+		} else {
+			var Json = JSON.parse(jst);
+			cbFunc(Json);
+		}
+	}
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+</script>
+<body>
+<h3>気象庁火山レイヤー</h3>
+<p><a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=ashfall">気象庁ウェブサイトの火山情報</a>の可視化</p>
+<p>グレー：降灰<br>赤：噴石の落下</p>
+
+<input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()">降灰情報がある火山のみ表示</input>
+
+<!--
+<table id="areaMeta">
+<tr><th>Key</th><th>Val</th></tr>
+</table>
+-->
+</body>
+</html>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" data-controller="overObs_stg.html#exec=appearOnLayerLoad">
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+
+<defs>
+<g id="pin" > 
+<image xlink:href="obsPin.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p0" > 
+<image xlink:href="obsPin0.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p1" > 
+<image xlink:href="obsPin1.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p2" > 
+<image xlink:href="obsPin2.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p3" > 
+<image xlink:href="obsPin3.png" preserveAspectRatio="none" x="-6" y="-15" width="13" height="16"/>
+</g>
+</defs>
+<g id="tileImages"></g>
+<g id="meshRects"></g>
+</svg>

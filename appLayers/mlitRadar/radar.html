@@ -1,0 +1,322 @@
+<!doctype html>
+<html>
+<head>
+<title>Mlit C/Xband radar layerUI</title>
+<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./meshLib2.js"></script>
+<script type="module">
+// Description:
+// 国交省川の防災情報 レーダー雨量情報を表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var timeIndexURL="https://www.river.go.jp/kawabou/file/files/radar/rdtime.json";
+var meshIndexURLs=function(){
+	var ans={};
+	var bands=["x","c"];
+	var levels=["1","2","3"];
+	for ( var band of bands){
+		ans[band]={};
+		for ( var level of levels){
+			var meshURL=`https://www.river.go.jp/kawabou/file/files/master/radar/${band}rd/${level}.json`;
+			ans[band][level]=meshURL;
+		}
+	}
+	return ( ans );
+}();
+var meshIndex={};
+
+var legendData=[
+["dfe1e7",null],
+["cbfbff",0],
+["b3e3ff",1],
+["95ccff",5],
+["85a0ff",10],
+["f6f68c",20],
+["f9cd8c",30],
+["ee998c",50], // 50以上80未満
+["cb87c2",80], // [mm/h]以上
+]
+var updateIntervalMin = 1;
+
+console.log("meshIndexURLs:",meshIndexURLs," legendData:",legendData);
+
+var band = "x";
+var latestTime;
+var targetDateTimePath;
+
+onload=async function(){
+	console.log("ONLOAD");
+	showLegend();
+	await getMeshIndex();
+	console.log("meshIndex:",meshIndex);
+	latestTime = await getLatestTime(band);
+	targetDateTimePath = getDateTimePath(new Date(latestTime));
+	initTimeSel();
+	console.log("targetDateTimePath:",targetDateTimePath," latestTime:",latestTime);
+	initSel();
+	if ( window.svgMap ){
+		window.svgMap.refreshScreen();
+	}
+	setTimeout(refreshTime, updateIntervalMin * 60 * 1000);
+	window.refreshTime=refreshTime;
+}
+
+function initSel(){
+	document.getElementById("bandSel").addEventListener("change",changeBand);
+	document.getElementById("timeSel").addEventListener("change",changeTime);
+}
+
+
+async function changeBand(event){
+	band = event.target.options[event.target.selectedIndex].value;
+	latestTime = await getLatestTime(band);
+	targetDateTimePath = getDateTimePath(new Date(latestTime));
+	initTimeSel();
+	console.log("targetDateTimePath:",targetDateTimePath);
+	if ( window.svgMap ){
+		window.svgMap.refreshScreen();
+	}
+	
+}
+
+var updateTimerId;
+
+async function refreshTime(){
+	var tSel = document.getElementById("timeSel");
+	var prevLatestVal = tSel.options[0].value;
+	var prevSelectedVal = tSel.options[tSel.selectedIndex].value;
+	if ( updateTimerId ){
+		clearTimeout(updateTimerId);
+	}
+	updateTimerId = setTimeout(refreshTime, updateIntervalMin * 60 * 1000 );
+	
+	latestTime = await getLatestTime(band);
+	if ( getDateTimePath(new Date(latestTime)) == prevLatestVal){
+		console.log("refreshTime: not updated exit")
+		return;
+	}
+	console.log("refreshTime: Latest Time updated.")
+	document.getElementById("updatedT").innerText=latestTime+" updated";
+	var changeLatest = false;
+	if( tSel.selectedIndex == 0 ){
+		changeLatest = true;
+	}
+	initTimeSel();
+	for ( var opt of tSel.options){
+		if ( !changeLatest && opt.value == prevSelectedVal){
+			opt.selected = true;
+			console.log("keep selected time :", prevSelectedVal);
+			return;
+		}
+	}
+	
+	console.log("change to latest map");
+	targetDateTimePath = tSel.options[0].value;
+	if ( window.svgMap ){
+		window.svgMap.refreshScreen();
+	}
+}
+
+async function changeTime(event){
+	targetDateTimePath = event.target.options[event.target.selectedIndex].value;
+	console.log("changeTime Selection:",targetDateTimePath);
+	if ( window.svgMap ){
+		window.svgMap.refreshScreen();
+	}
+}
+
+
+function initTimeSel(){
+	var ct = new Date(latestTime).getTime();
+	var intvl;
+	if ( band == "x"){ // 1分おき
+		intvl = 1 * 60 * 1000; // msec
+	} else { // 5分おき
+		intvl = 5 * 60 * 1000; // msec
+	}
+	var tsel = document.getElementById("timeSel");
+	console.log(tsel);
+	removeChildren(tsel);
+	for ( var i = 0 ; i < 60 ; i++){
+		var pt = ct - intvl * i;
+		pt = new Date(pt);
+		var ds = pt.toLocaleDateString();
+		var ts = pt.toLocaleTimeString();
+		var dt = getDateTimePath(pt);
+		var opt = `<option value="${dt}">${ds} ${ts}</option>`;
+		tsel.insertAdjacentHTML("beforeend",opt);
+	}
+}
+
+function pad(num){
+	var ret = ( '00' + num ).slice( -2 );
+	return ret;
+}
+
+
+async function getLatestTime(band){
+	var ti = await getTimeIndex();
+	var latestTime= getLatestTimeSub(ti,band);
+	return ( latestTime );
+}
+
+window.preRenderFunction = function (){
+	showMap();
+	console.log(window.svgImage);
+}
+
+function getDateTimePath(dateObj){
+	return (dateObj.getFullYear()+pad(dateObj.getMonth()+1)+pad(dateObj.getDate())+"/"+pad(dateObj.getHours())+pad(dateObj.getMinutes()));
+}
+
+function getLatestTimeSub(timeJs, bandStr){
+	var tgtTime;
+	if (bandStr=="x"){
+		tgtTime = timeJs.xrainTime;
+	} else {
+		tgtTime = timeJs.cbandTime;
+	}
+	return ( tgtTime);
+}
+
+function showMap(){
+	console.log("showMap");
+//	var dt = "20220622/1920"
+	var dt = targetDateTimePath;
+	var qLevel = Math.floor( Math.LOG2E * Math.log(window.svgImageProps.scale) + 7.5);
+	console.log(qLevel);
+	var ma = getMeshArray(window.svgMap.getGeoViewBox() ,1);
+	var tia = getTilesIndex(ma, qLevel, band);
+	var tiles=[];
+	console.log("tileIndex:",tia);
+	for ( var tk in tia){
+		tiles.push(getTile(tia[tk],band,dt));
+	}
+	
+	var tileg = window.svgImage.getElementById("tiles");
+	removeChildren(tileg);
+	for ( var tile of tiles){
+		tileg.appendChild(tile);
+	}
+	
+	//console.log("tiles:",tiles);
+}
+
+function getTile(tileIndex,band,dt){
+	var ml = tileIndex.meshFrom;
+	var mr = tileIndex.meshTo;
+	var gWest=mesh2LatLng(tileIndex.meshFrom+"");
+	var gEast=mesh2LatLng( tileIndex.meshTo+"");
+	
+	var svgRect ={
+		x:gWest.longitude * 100,
+		y: - (gWest.latitude + gWest.latSpan ) * 100,
+		width:(gEast.longitude + gEast.lngSpan - gWest.longitude)*100,
+		height: (gWest.latSpan ) * 100, // これはちょっといい加減だけど常に1タイル横帯なので大丈夫みたいです
+	}
+	//console.log("getTile:",tileIndex,gWest,gEast,svgRect);
+	var URL=`https://www.river.go.jp/kawabou/file/radar/image/${band}rd/${tileIndex.areaCd}/${tileIndex.level}/${dt}/${tileIndex.seq}.png`;
+	
+	var img = window.svgImage.createElement("image");
+	img.setAttribute("x",svgRect.x);
+	img.setAttribute("y",svgRect.y);
+	img.setAttribute("width",svgRect.width);
+	img.setAttribute("height",svgRect.height);
+	img.setAttribute("xlink:href",URL);
+	//console.log(img);
+	return (img);
+}
+
+function getTilesIndex(ms, qLvl, band){
+	var lvl = 1;
+	if ( qLvl > 8 ){
+		lvl = 3;
+	} else if ( qLvl > 6 ){
+		lvl = 2;
+	}
+	var ans ={};
+	var mi = meshIndex[band][lvl];
+	if (!mi)return;
+	for ( var tileIdx of mi.areaInfo){
+		for ( var mc of ms){
+			mc = Number(mc);
+			if (tileIdx.meshFrom <= mc && mc <= tileIdx.meshTo){
+				tileIdx.level =lvl;
+				ans[tileIdx.areaCd+"_"+tileIdx.seq]=tileIdx;
+			}
+		}
+	}
+	return ( ans );
+}
+
+async function getMeshIndex(){
+	for ( var band in meshIndexURLs ){
+		var bu = meshIndexURLs[band];
+		console.log(band,bu);
+		meshIndex[band]={};
+		for ( var level in bu ){
+			var miu = bu[level];
+			meshIndex[band][level]= await getJson(svgMap.getCORSURL(miu));
+		}
+	}
+}
+
+async function getTimeIndex(){
+	var json = getJson(svgMap.getCORSURL( timeIndexURL + "?t=" + new Date().getTime()));
+	return ( json );
+}
+	
+async function getJson(url){
+	var response = await fetch(url);
+	var rtext = await response.json();
+	return rtext;
+}
+
+function showLegend(){
+	var ht = document.getElementById("hanreiTr");
+	for ( var lg of legendData){
+		var tds=`<td style="background-color:#${lg[0]}">${lg[1]!=null?(lg[1]+"<"):"欠測"}</td>`;
+		ht.insertAdjacentHTML("beforeend",tds);
+	}
+	ht.insertAdjacentHTML("beforeend","[mm/Hr]");
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+	  ele.removeChild( ele.firstChild );
+	}
+}
+
+</script>
+<body>
+<h4>国交省 Xバンド、Cバンド レーダー雨量レイヤー</h4>
+出典：国土交通省<a href="https://www.river.go.jp/kawabou/pc/rd" target="_blank">川の防災情報 レーダー雨量情報</a>
+</body>
+
+<div>BAND:<select id="bandSel"><option value="x">X</option><option value="c">C</option></select></div>
+<div>TIME:<select id="timeSel"></select></div>
+<div id="updatedT">-</div>
+
+<table id="hanrei"><tr id="hanreiTr"></tr>
+</table>
+</html>
+

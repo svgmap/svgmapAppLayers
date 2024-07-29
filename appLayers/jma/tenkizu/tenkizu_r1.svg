@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" data-controller="tenkizuController_direct.html#exec=appearOnLayerLoad&amp;requiredHeight=300" >
+
+<script>
+// Description:
+// 気象庁天気図を表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+function jmaPolarStereographic(){
+	
+	// based on https://www.itsonlyamodel.us/IMS-map-projections.html
+	var lat0 = deg2rad(60); // 60deg スケール１の緯線60°
+	var lon0 = deg2rad(140); // 140deg 中心経線140°
+//	var R = 6371200; // in meter
+	var R = 6371; // in km
+	var k0 = (1 + Math.sin(lat0)) / 2;
+	
+	var tf = calcTf();
+	console.log("tf:",tf);
+	function rad2deg(rad){
+		return( rad * 180 / Math.PI );
+	}
+	function deg2rad(deg){
+		return( deg * Math.PI / 180 );
+	}
+	
+	function lngLat2xy( lon, lat){
+		var x = 2 * R * k0 * Math.tan(Math.PI/4 - lat / 2 ) * Math.sin(lon - lon0);
+		var y = - 2 * R * k0 * Math.tan(Math.PI/4 - lat / 2 ) * Math.cos(lon - lon0);
+		return {
+			x: x,
+			y: y
+		}
+	}
+
+	function xy2lngLat(x,y){
+		var lon = lon0 + Math.atan(x / ( -y ));
+		var rw = Math.sqrt(x*x + y*y);
+		var c = 2 * Math.atan(rw / (2 * R * k0));
+		var lat = Math.asin(Math.cos(c));
+		return {
+			latitude:  lat,
+			longitude: lon
+		}
+	}
+	
+	function lngLat2sxy(lon,lat){ // この関数を使う(transform)
+		var xy = lngLat2xy(lon,lat);
+		var sxy = {
+			x: tf.a * xy.x + tf.e,
+			y: tf.d * xy.y + tf.f
+		}
+		return ( sxy );
+	}
+	function sxy2lngLat(sx,sy){ // この関数を使う(inverse)
+		var x = tf.ia * sx + tf.ie;
+		var y = tf.id * sy + tf.if;
+		var ll = xy2lngLat(x,y);
+		return ( ll );
+	}
+	
+	
+	function calcTf(){ // この関数でビットイメージの変換係数を更に載せる
+		var p1=[[90,435],[120,20]];
+		var p2=[[535,58],[170,50]];
+		
+		var xy1 = lngLat2xy(deg2rad(p1[1][0]), deg2rad(p1[1][1]));
+		var xy2 = lngLat2xy(deg2rad(p2[1][0]), deg2rad(p2[1][1]));
+		var a = (p2[0][0]-p1[0][0])/(xy2.x-xy1.x);
+		var d = (p2[0][1]-p1[0][1])/(xy2.y-xy1.y);
+		var e = p1[0][0] - a* xy1.x;
+		var f = p2[0][1] - d* xy2.y;
+		
+		// a,d,e,f: xy -> svgXY
+		// ia,id,ie,if: svgXY -> xy
+		return {
+			a:a,
+			d:d,
+			e:e,
+			f:f,
+			ia:(1/a),
+			id:1/d,
+			ie: -e/a,
+			if:-f/d
+		}
+	}
+	 
+	return{
+		transform:function(inp){
+			var xy = lngLat2sxy(deg2rad(inp.x), deg2rad(inp.y));
+			//console.log("jmaPolarStereographic:transform: in:",deg2rad(inp.x), deg2rad(inp.y)," out:",xy);
+			return{
+				x:xy.x,
+				y:xy.y
+			}
+		},
+		inverse:function(inp){
+			var clatlng = sxy2lngLat(inp.x, inp.y);
+			//console.log("jmaPolarStereographic:inverse: in:",inp," out:",rad2deg(clatlng.longitude),rad2deg(clatlng.latitude));
+			return{
+				x:rad2deg(clatlng.longitude),
+				y:rad2deg(clatlng.latitude)
+			}
+		},
+		scale: 1
+	}
+}
+
+
+</script>
+
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="jmaPolarStereographic" />
+
+<image id="tenkiPng" x="0" y="0" width="600" height="581" xlink:href=""  opacity="0.6"/>
+
+</svg>

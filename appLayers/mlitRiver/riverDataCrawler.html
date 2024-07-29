@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script>
+//川の防災情報サイトから、CCTVのリストを取得する
+// XHRをbunchSize分一気に行い高速化している
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var bunchSize = 10;
+var proxyPath = ""; 
+
+var camData={type:"FeatureCollection",features:[]};
+var damData={type:"FeatureCollection",features:[]};
+var damDict={};
+
+var townJson,prefJson;
+
+onload=async function(){
+	proxyPath = (new URL(location.href.replace("#","?"))).searchParams.get("proxy");
+	pxyInput.value= proxyPath;
+	console.log("start script");
+	if ( proxyPath ){
+		init();
+	}else{
+		getDataInput.style.display="none";
+		setPxyInput.disabled=false;
+	}
+}
+
+async function init(){
+	proxyPath = pxyInput.value;
+	var townUrl = "https://www.river.go.jp/kawabou/file/files/map/twn/twnarea.json";
+	var prefUrl="https://www.river.go.jp/kawabou/file/files/map/pref/prefarea.json";
+	document.getElementById("prg").innerText="getTownIndex";
+	townJson = await fetchJson(townUrl,null);
+	prefJson = await fetchJson(prefUrl,null);
+	console.log(townJson,prefJson);
+	if ( !townJson || !prefJson){
+		document.getElementById("prg").innerText="init failed";
+		setPxyInput.disabled=false;
+	} else {
+		document.getElementById("prg").innerText="init completed";
+		getDataInput.style.display="";
+		setPxyInput.disabled=true;
+		location.hash="proxy="+proxyPath;
+	}
+	/**
+	https://www.river.go.jp/kawabou/file/gjson/obs/20220426/1730/stg/901201.json
+	https://www.river.go.jp/kawabou/file/gjson/scam/901201.json
+	https://www.river.go.jp/kawabou/file/files/map/twn/pos/901201.json
+	https://www.river.go.jp/kawabou/file/files/overobs/twn/20220426/1730/901201.json
+	https://www.river.go.jp/kawabou/file/gjson/obs/20220426/1755/stg/801232.json
+	**/
+	
+}
+
+function btnAvail(onOff){
+	if ( onOff==true || onOff==false){
+		cctvbtn.disabled=!onOff;
+	}
+}
+
+async function getScamData(){
+	btnAvail(false);
+	var scamUrl="https://www.river.go.jp/kawabou/file/gjson/scam/";
+	var tjp =[];
+	for ( var i = 0 ; i < townJson.towns.length ; i++  ){
+		var town = townJson.towns[i];
+		if ( town.scamExistFlg==1){
+			
+			tjp.push( fetchJson(scamUrl+town.twnCd+".json",null) );
+			
+			if ( tjp.length == bunchSize ){
+				var camTowns = await Promise.all(tjp);
+				for ( var camTown of camTowns){
+					if ( camTown &&  camTown.features ){
+						camData.features=camData.features.concat(camTown.features);
+					}
+				}
+				tjp =[];
+				console.log(i + "/" + townJson.towns.length );
+				document.getElementById("prg").innerText=i + "/" + townJson.towns.length;
+			}
+		}
+	}
+	var camTowns = await Promise.all(tjp);
+	for ( var camTown of camTowns){
+		if ( camTown &&  camTown.features ){
+			camData.features=camData.features.concat(camTown.features);
+		}
+	}
+	console.log("Finished!");
+	document.getElementById("prg").innerText="Finished!";
+	printCsv(camData);
+	btnAvail(true);
+}
+
+function getDateTimeStr(dt){
+	var y = dt.getFullYear()+"";
+	var mo = pad(dt.getMonth()+1);
+	var d = pad(dt.getDate());
+	var h = pad(dt.getHours());
+	var mi =pad(dt.getMinutes());
+	return ( y+mo+d+"/"+h+mi);
+}
+
+function pad(num){
+	var ret = ( '00' + num ).slice( -2 );
+	return ret;
+}
+
+async function getDamData(){
+	var timeSt="https://www.river.go.jp/kawabou/file/system/rwCrntTime.json";
+	var timeStamp = (await fetchJson(timeSt,null)).crntRwTime;
+	timeStamp=new Date(timeStamp);
+	timeStamp = getDateTimeStr(timeStamp);
+	var damJsonBase="https://www.river.go.jp/kawabou/file/gjson/obs/[[datetime]]/dam/[[prefID]].json";
+	damJsonBase = damJsonBase.replace("[[datetime]]",timeStamp);
+	console.log(timeStamp,damJsonBase);
+	
+	var tjp =[];
+	for ( var i = 0 ; i < prefJson.prefs.length ; i++  ){
+		var pref = prefJson.prefs[i];
+		var damUrl=damJsonBase.replace("[[prefID]]",pref.prefCd);
+		tjp.push( fetchJson(damUrl,null) );
+		if ( tjp.length == bunchSize || i == prefJson.prefs.length-1){
+			var camTowns = await Promise.all(tjp);
+			for ( var camTown of camTowns){
+				if ( camTown &&  camTown.features ){
+					damData.features=damData.features.concat(camTown.features);
+				}
+			}
+			tjp =[];
+			console.log(i + "/" + prefJson.prefs.length );
+			document.getElementById("prg").innerText=i + "/" + prefJson.prefs.length;
+		}
+	}
+	console.log("Finished!",tjp);
+	document.getElementById("prg").innerText="Finished!";
+	printCsv(damData);
+}
+async function getStgData(){
+	var timeSt="https://www.river.go.jp/kawabou/file/system/rwCrntTime.json";
+	var timeStamp = (await fetchJson(timeSt,null)).crntRwTime;
+	timeStamp=new Date(timeStamp);
+	timeStamp = getDateTimeStr(timeStamp);
+	var damJsonBase="https://www.river.go.jp/kawabou/file/gjson/obs//[[datetime]]/stg/[[prefID]].json";
+	damJsonBase = damJsonBase.replace("[[datetime]]",timeStamp);
+	console.log(timeStamp,damJsonBase);
+	
+	var tjp =[];
+	for ( var i = 0 ; i < prefJson.prefs.length ; i++  ){
+		var pref = prefJson.prefs[i];
+		var damUrl=damJsonBase.replace("[[prefID]]",pref.prefCd);
+		tjp.push( fetchJson(damUrl,null) );
+		if ( tjp.length == bunchSize || i == prefJson.prefs.length-1){
+			var camTowns = await Promise.all(tjp);
+			for ( var camTown of camTowns){
+				if ( camTown &&  camTown.features ){
+					damData.features=damData.features.concat(camTown.features);
+				}
+			}
+			tjp =[];
+			console.log(i + "/" + prefJson.prefs.length );
+			document.getElementById("prg").innerText=i + "/" + prefJson.prefs.length;
+		}
+	}
+	console.log("Finished!",tjp);
+	document.getElementById("prg").innerText="Finished!";
+	printCsv(damData);
+}
+
+
+function printCsv( camData ){
+	var schema = [];
+	var ansTxt = "";
+	var idx = 0;
+	for ( var cam of camData.features ){
+		var prop = cam.properties;
+		var name = prop.obs_nm;
+		if ( name ){
+			if ( damDict[name] ){
+				console.warn("名称重複:",name);
+			} else {
+				damDict[name]=cam;
+			}
+		}
+		++idx;
+		if(schema.length==0){
+			for ( var key in prop){
+				schema.push(key);
+			}
+			ansTxt+="longitude,latitude," + schema.join(",")+"\n";
+		}
+		var propArray=[];
+		for ( key of schema){
+			propArray.push(prop[key]);
+		}
+		ansTxt+= cam.geometry.coordinates.join(",")+","+propArray.join(",")+"\n";
+	}
+	console.log(ansTxt);
+	document.getElementById("ans").innerText=ansTxt;
+}
+
+function fetchJson(postURL, sendData){
+	return new Promise(function(okCallback, ngCallback) {
+		getJson(postURL, sendData, okCallback);
+	})
+}
+
+function getJson(postURL, sendData, cbf, cbfParam){
+	postURL = proxyPath+postURL;
+	var httpObj = new XMLHttpRequest();
+//	httpObj.onreadystatechange = function(){ handleResult( this ) } ;
+	if ( sendData ){
+		httpObj.open( 'POST', postURL, true );
+	} else {
+		httpObj.open( 'GET', postURL, true );
+	}
+	httpObj.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+	httpObj.onloadend = function () {handleResult(this,cbf, cbfParam)};
+	if ( sendData ){
+		httpObj.send(JSON.stringify(sendData));
+	} else {
+		httpObj.send(null);
+	}
+}
+
+function handleResult( httpRes , cbf , cbfParam){
+	var jst = httpRes.responseText;
+//	console.log("Res:",httpRes);
+	var rJson=null;
+	try{
+		rJson = JSON.parse(jst);
+	} catch ( e ){
+		console.log("no json");
+	}
+//	console.log("Result:",rJson);
+//	console.log("cbf:",cbf , typeof(cbf));
+	if ( cbf && typeof(cbf) == "function"){
+		if ( cbfParam ){
+			cbf(rJson, cbfParam);
+		} else {
+			cbf(rJson);
+		}
+	}
+}
+
+
+
+</script>
+<body>
+<h2>River CCTV list</h2>
+<p>このソフトウェアは、川のライブカメラの位置情報をCSVでリストアップするものです。</p>
+<div>
+	<input id="pxyInput" style="width:400px" type="text" placeholder="CORSプロキシーサーバのアドレス"></input>
+	<input id="setPxyInput" type="button" value="初期化" onclick="init()" disabled></input>
+</div>
+<div id="getDataInput" >
+	<input id="cctvbtn" type="button" value="CCTVデータ取得" onclick="getScamData()"></input>
+	<input id="cctvbtn" type="button" value="ダムデータ取得" onclick="getDamData()"></input>
+	<input id="cctvbtn" type="button" value="STGデータ取得" onclick="getStgData()"></input>
+</div>
+<span id="prg"></span>
+<p id="ans">
+</p>
+</body>
+</html>

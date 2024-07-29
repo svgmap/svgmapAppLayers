@@ -1,0 +1,334 @@
+<!doctype html>
+<html>
+<head>
+	<title>気象庁津波データ可視化レイヤー</title>
+	<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// 
+// Description:
+// WebApp layer for SVGMap.js to draw JMI's tsunami data
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2021- by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// Log:
+// 2023/12/03 1st release
+// 2023/12/05 平時モード(clearweb.json対応実装)
+// 2023/12/05 震源標示
+
+var selInfoURL = "https://www.jma.go.jp/bosai/const/selectorinfos/tsunami.json";
+var geojsonURL = "https://www.jma.go.jp/bosai/common/const/geojson/tsunami.json";
+var dataListURL = "https://www.jma.go.jp/bosai/tsunami/data/list.json"; // このデータが津波概要情報（最新のものが必要）
+var clearURL = "https://www.jma.go.jp/bosai/tsunami/data/clearweb.json"; // このデータの日時以前の情報は解除という意味かと(fがforcast wがwarn? 同じ日付みたいだけど)
+
+var selInfo, geojson;
+
+var dataList, twarn , tinfo, tdata, clearDate;
+
+var wcodeKeys={
+	"51":"red", // 津波警報
+	"52":"purple", // 大津波警報
+	"53":"purple", // 大津波警報
+	"62":"yellow", // 津波注意報
+	"71":"skyblue", // 津波予報
+	"72":"skyblue", // 津波予報
+	"73":"skyblue", // 津波予報
+}
+/**
+00 - 津波なし
+71/72/73 - 津波予報系
+60 - 津波注意報解除系
+62 - 津波注意報系
+50 - 津波警報解除系
+51 - 津波警報系
+52/53 - 大津波警報系
+**/
+	
+onload = async function(){
+	selInfo = await getJson(selInfoURL);
+	geojson = await getJson(geojsonURL);
+
+	dataList = await getJson(dataListURL , true);
+	clearDate = await getJson(clearURL , true);
+	console.log("clearDate:",clearDate);
+	
+	svgImageProps.isClickable ={value:true, hilightStrokeStyle:{}};
+
+	twarn =[{ttl:"津波注意報 : 解除",rdt:clearDate.w}];
+	tinfo =[];
+	for ( var dat of dataList ){
+		console.log(dat,dat.ser, dat.cat);
+		if (dat.ttl.indexOf("予報")>0){
+			twarn.push(dat);
+		} else {
+			tinfo.push(dat);
+		}
+	}
+	twarn.sort((a, b) => new Date(b.rdt).getTime() - new Date(a.rdt).getTime());
+	tinfo.sort((a, b) => new Date(b.rdt).getTime() - new Date(a.rdt).getTime());
+	console.log("onload:",selInfo,geojson,twarn, tinfo);
+
+	initTtable();
+
+	showInfo(0,'warn')
+}
+
+
+async function showInfo(catIdx, cat){
+	console.log(catIdx, cat);
+	var tradio = document.getElementById(`tdm_${catIdx}`);
+	tradio.checked=true;
+	var tsel = document.getElementById(`tdh_${catIdx}`);
+	var logIdx = tsel.selectedIndex
+	var dat;
+	if ( catIdx ==0){ // twarn 最新0
+		dat=showTwarn(twarn[logIdx]);
+	} else if (catIdx == 1){ // tinfo 最新0
+		dat=showTinfo(tinfo[logIdx]);
+	}
+}
+
+function clearMap(){
+	var parentG = svgImage.getElementById("vectorGroup");
+	removeChildren(parentG);
+	svgMap.refreshScreen();
+}
+
+async function showTwarn(dat){
+	if (!dat.json){
+		clearMap();
+		return;
+	}
+	var dataJson = await getJson(new URL(dat.json, dataListURL).href);
+	console.log("warn:",dataJson);
+	var def = dataJson.Body.Tsunami.Forecast.CodeDefine.Type; // 報タイプ名
+	var tfItems = dataJson.Body.Tsunami?.Forecast?.Item;
+	var toItems = dataJson.Body.Tsunami?.Observation?.Item;
+	var eqInfo=getEQfeatures(dataJson.Body.Earthquake);
+	
+	var gjs = {type:'FeatureCollection',features:[]};
+	if ( eqInfo){
+		gjs.features = gjs.features.concat(eqInfo);
+	}
+	if ( tfItems ){ // 予報・予想
+		for ( var ti of tfItems){
+			var aCode = ti.Area.Code; // 沿岸コード
+			var aName = ti.Area.Name; // 沿岸名
+			var wType = ti.Category.Kind.Code; // 報タイプ
+			var wName = ti.Category.Kind.Name; // 報名
+			var fStat = ti.FirstHeight?.Condition; // 第一波状況
+			var fTime = ti.FirstHeight?.ArrivalTime; // 第一波到達時刻
+			var mHeight = ti.MaxHeight?.TsunamiHeight; // 予想される最大波の高さ
+			var mStat =  ti.MaxHeight?.Condition;
+			var title= wName + " : " + aName;
+			// codeでgeojsonを引っ張って、報タイプで線色付け
+			var props = {title,aName,wType,wName,fStat,fTime,mHeight,mStat};
+			//console.log(aCode,aName,wType,wName,aTime,tHeight);
+			var ft = getFeature(aCode, wType, props);
+			if (ft){
+				gjs.features.push(ft);
+			}
+			
+			if ( ti.Station ){ // 満潮時刻・津波到達予想時刻
+				// console.log( ti.Station );
+				for ( var fs of ti.Station){
+					var {sName, pos, fStat, fTime, mHeight, mTime, mStat, htTime} = getStationData(fs);
+					
+					var ft = {
+						type:"Feature",
+						geometry:{
+							type:"Point",
+							coordinates:pos,
+						},
+						properties:{title:"予想:"+sName,"marker-symbol":"p0", sName,fStat,fTime,mHeight,mTime,mStat,htTime}
+					}
+					gjs.features.push(ft);
+				}
+			}
+		}
+	}
+	if ( toItems ){ // 観測結果
+		for ( var to of toItems){
+			var toss = to.Station;
+			//console.log(to);
+			for ( var tos of toss){
+				var {sName, pos, fStat, fTime, mHeight, mTime, mStat, htTime} = getStationData(tos);
+				var sym="skyblue";
+				if( mHeight>=3){
+					sym="purple";
+				} else if( mHeight>=1){
+					sym="red";
+				} else if( mHeight>=0.2){
+					sym="yellow";
+				}
+				var ft = {
+					type:"Feature",
+					geometry:{
+						type:"Point",
+						coordinates:pos,
+					},
+					properties:{title:"観測:"+sName,"marker-symbol":sym, sName,fStat,fTime,mHeight,mTime,mStat,htTime}
+				}
+				gjs.features.push(ft);
+			}
+		}
+	}
+	console.log(gjs);
+	var parentG = svgImage.getElementById("vectorGroup");
+	removeChildren(parentG);
+	svgImage.documentElement.setAttribute("property",dispSchema.join());
+	svgMapGIStool.drawGeoJson(gjs,layerID,"red",2,"orange","p0","title",null,parentG,dataSchema);
+	svgMap.refreshScreen();
+}
+
+var dataSchema = ["title","aName","wType","wName","fStat","fTime","mStat","mTime","mHeight","htTime"]; // geojsonのスキーマ
+var dispSchema = ["title","地域","報タイプ","報名称","第一波","第一波時刻","最大波","最大波時刻","最大波高","満潮時刻"]; // 表示上のスキーマ(svg-prop.に設定する)
+
+function getStationData(tos){
+	// console.log(tos);
+	var sName = tos.Name;
+	var pos = [tos.latlon.lon,tos.latlon.lat];
+	var fStat = tos.FirstHeight?.Condition;
+	var fTime = tos.FirstHeight?.ArrivalTime; // 第一波到達時刻
+	var mHeight = tos.MaxHeight?.TsunamiHeight; // 最大波の高さ
+	var mTime = tos.MaxHeight?.DateTime; // 最大波の時刻
+	var mStat =  tos.MaxHeight?.Condition; // 状況
+	var htTime = tos.HighTideDateTime;
+	return {sName, pos, fStat, fTime, mHeight, mTime, mStat, htTime};
+}
+
+function getEQfeatures(eqList){
+	var eqfs=[];
+	if ( eqList ){
+		for ( var eq of eqList){
+			eqTime= eq.OriginTime;
+			eqMag = eq.Magnitude;
+			var eqp = parse6709(eq.Hypocenter.Area.Coordinate); // iso6709　震央
+			var eqpName = `${eq.Hypocenter.Area.Name} (magnitude ${eqMag})`; // エリア名
+			var aName = eq.Hypocenter.Area.DetailedName;
+			var ft = {
+				type:"Feature",
+				geometry:{
+					type:"Point",
+					coordinates:eqp,
+				},
+				properties:{title:eqpName,fTime:eqTime,"marker-symbol":"eqc",aName}
+			}
+			eqfs.push(ft);
+		}
+	}
+	return eqfs;
+}
+
+function getFeature(code, type, props){
+	var ans;
+	for ( var ft of geojson.features){
+		if ( ft.properties.code == code){
+			ans = structuredClone(ft);
+			ans.properties["stroke-width"]=5;
+			ans.properties.stroke = wcodeKeys[type]; // type
+			for ( var pName in props){
+				if ( props[pName] ){
+					ans.properties[pName]=props[pName];
+				}
+			}
+			return ans;
+		}
+	}
+	return null;
+}
+
+function parse6709(str){
+	var m = str.match(/([+-][0-9\.]+)([+-][0-9\.]+)\//);
+	return [Number(m[2]),Number(m[1])];
+}
+
+async function showTinfo(dat){
+	console.log("info:");
+	showTwarn(dat);
+	/**
+	var dataJson = await getJson(new URL(dat.json, dataListURL).href);
+	console.log("info:",dataJson);
+	var eqInfo=getEQinfo(dataJson);
+	dataJson.Body
+	**/
+}
+
+function initTtable(){
+	var idx = 0;
+	var ck;
+	removeChildren(ttable);
+	for ( var ti of selInfo[0].values){
+		if ( ti.name.indexOf("最新")>=0){
+			if (idx==0){ck="checked"} else {ck=""}
+			ttable.insertAdjacentHTML("beforeend", `<tr><td><input name="tdm" type="radio" id="tdm_${idx}" ${ck} onclick="showInfo(${idx},'${ti.value}')"/><label for="tdm_${idx}">${ti.name.replace("最新の","")}</label></td></tr><tr><td><select id="tdh_${idx}" onchange="showInfo(${idx},'${ti.value}',true)"></select></td></tr>` );
+
+			var tsel = document.getElementById(`tdh_${idx}`);
+			var log=twarn;
+			if ( ti.value=="info"){log=tinfo};
+			var li=0;
+			console.log(log, tsel);
+			for ( var l of log){
+				var optTxt = `${l.ttl}`;
+				var optAtt = `value="${li}"`;
+				var rdts = new Date(l.rdt).toLocaleString();
+				rdts = rdts.substring(0,rdts.length-3);
+				if (li ==0){
+					optAtt += " selected";
+					optTxt = `最新の${optTxt}: ${rdts}`;
+				} else {
+					optTxt = `${optTxt} : ${rdts}`
+				}
+				console.log(optTxt);
+				tsel.insertAdjacentHTML("beforeend", `<option ${optAtt} >${optTxt}</option>`);
+				++li;
+			}
+		}
+		
+		++idx;
+	}
+}
+
+async function getJson(url, latest){
+	var lt = "";
+	if ( latest ){
+		lt = "?t="+ new Date().getTime();
+	}
+	var res = await fetch(`${url}${lt}`);
+	const arrayBuffer = await res.arrayBuffer();
+	const text = new TextDecoder('utf-8').decode(arrayBuffer);
+	//console.log(text);
+	var json = JSON.parse(text);
+	return json;
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+</script>
+<body>
+<h4>気象庁　津波レイヤー</h4>
+<div>出典：<a href="https://www.jma.go.jp/bosai/map.html#4/28.684/138.46/&elem=warn&contents=tsunami" target="_blank">気象庁　津波情報</a>
+<table id="ttable"><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr></table>
+</body>
+</html>

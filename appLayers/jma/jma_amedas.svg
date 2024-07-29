@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="jma_amedas_direct.html#exec=appearOnLayerLoad&amp;requredHeight=500" property="code,nameJ,nameE,description,PDF">
+
+<defs>
+<g id="pN">
+	<circle cx="0" cy="0" r="2" fill="#ffffff"/>
+</g>
+<g id="p0">
+	<circle cx="0" cy="0" r="5" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>
+</g>
+
+<g id="d0"> <!--風向表示用　このアイコンからさらに15方向をコードで派生させてる-->
+	<path id="d0path" d="M -5,-4 0,0 5,-4 0,10 Z" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke" />
+</g>
+
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100.0,0.0,0.0,-100.0,0.0,0.0)" />
+<g id="areas"></g>
+<g id="icons"></g>
+</svg>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+</head>
+
+<script>
+onload=function(){
+	if (location.hash.indexOf("legend=")>=0){
+		legendImg =decodeURIComponent(location.hash.split("legend=")[1]);
+		console.log("legendImg:",legendImg);
+		legendDiv.insertAdjacentHTML("beforeend",`<img src="${legendImg}">`);
+	}
+}
+</script>
+
+<body>
+<h4>国土交通省　重ねるハザードマップレイヤー</h4>
+<span style="font-size:11px">
+<li>出典：<a href="https://disaportal.gsi.go.jp/index.html" target="_blank">国交省　ハザードマップポータルサイト</a>
+<li>Source: <a href="https://disaportal.gsi.go.jp/index.html" target="_blank">MLIT Hazard Map Data</a>
+</span>
+<div id="legendDiv">
+</div>
+</body>
+</html>
+

@@ -1,0 +1,59 @@
+{
+"category":[
+	{
+		"name":"雨の様子",
+		"path":"highresorad/highresorad_tile/HRKSNC/",
+		"type":"tile",
+		"timeStepMin":5,
+		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/highresorad/20190304/images/contents/HRKSNC_legendp_jp.png"
+	},
+	{
+		"name":"土砂災害",
+		"path":"doshamesh/dosha_tile/DOSHA/",
+		"type":"tile",
+		"timeStepMin":10,
+		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/doshamesh/20200624/images/contents/DOSHA_legend_jp.png"
+	},
+	{
+		"name":"浸水害",
+		"path":"suigaimesh/suigai_tile/INUND/",
+		"type":"tile",
+		"timeStepMin":10,
+		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/INUND_legend_jp.png"
+	},
+	{
+		"name":"洪水",
+		"path":"suigaimesh/suigai_tile/FLOOD/",
+		"type":"svg",
+		"timeStepMin":10,
+		"legend":["https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/FLOOD_legend_jp.png","https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/FLOOD_FCST_legend_jp.png"]
+	}
+],
+"jirei": [
+	{
+		"title":"平成30年7月豪雨",
+		"path":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/",
+		"timeSpan":["2018/07/04 12:00","2018/07/08 12:00"]
+	},
+	{
+		"title":"令和元年8月26日から29日の大雨",
+		"path":"https://www.data.jma.go.jp/yoho/meshjirei/jirei02/",
+		"timeSpan":["2019/08/26 00:00","2019/08/30 00:00"]
+	},
+	{
+		"title":"令和元年東日本台風（台風第19号）による大雨",
+		"path":"https://www.data.jma.go.jp/yoho/meshjirei/jirei03/",
+		"timeSpan":["2019/10/11 00:00","2019/10/15 00:00"]
+	},
+	{
+		"title":"令和2年7月豪雨（3日～6日 ）",
+		"path":"https://www.data.jma.go.jp/yoho/meshjirei/jirei04/",
+		"timeSpan":["2020/07/03 00:00","2020/07/07 00:00"]
+	},
+	{
+		"title":"令和2年7月豪雨（7日～8日）",
+		"path":"https://www.data.jma.go.jp/yoho/meshjirei/jirei05/",
+		"timeSpan":["2020/07/07 00:00","2020/07/09 00:00"]
+	}
+]
+}

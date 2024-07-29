@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Layer Specific UI for NowCast</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 気象庁　気象衛星センターのひまわり８号の情報を表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var cat=-1; // 地図のカテゴリ
+
+window.onload = function(){
+	// 少し後でないと設定されない。
+	setTimeout(initUI,200);
+}
+
+function initUI(){
+//	console.log("iframe's svgMap:",svgMap,"  id:",layerID," svgImageProps:",svgImageProps," svgImage:",svgImage);
+	console.log(svgImage, svgImage.documentElement,svgImageProps.Path,"\n",svgImageProps.script,"\n");
+//	svgImageProps.script.TestFunc("From LayerUI!");
+	var initCat = svgImageProps.script.initCat;
+	console.log("Initial Category:",initCat);
+	if ( cat == -1 ){
+		cat = initCat;
+		document.getElementById("dataCat").options[cat].selected = true;
+	} else {
+		cat = Number(document.getElementById("dataCat").selectedIndex);
+		svgImageProps.script.refreshTiles(svgImageProps.script.scale, svgImageProps.script.CRS, cat);
+		svgMap.refreshScreen();
+	}
+	var step = 1000 * 60 * svgImageProps.script.minStep[cat];
+	
+	var timeSel= document.getElementById("time");
+	
+	for (var i =timeSel.childNodes.length-1; i>=0; i--) {
+		timeSel.removeChild(timeSel.childNodes[i]);
+	}
+	
+	for ( var i = 0 ; i < 144 ; i++ ){
+		var option = document.createElement('option');
+		option.setAttribute('value', i * svgImageProps.script.minStep[cat]);
+		if ( i == 0 ){
+			option.selected=true;
+		}
+		var min =  i * svgImageProps.script.minStep[cat];
+		var hour = Math.floor(min / 60.0 );
+		min = min - hour * 60;
+		if ( hour == 0 ){
+			if ( min == 0 ){
+				option.innerHTML = '現在';
+			} else {
+				option.innerHTML = min + '分前';
+			}
+		} else {
+			option.innerHTML = hour + '時間' + min + '分前';
+		}
+		timeSel.appendChild(option);
+	}
+	
+	
+}
+
+
+
+function setMapTime(){
+	var sel = document.getElementById("time");
+	var idx = sel.selectedIndex;
+	var sval = Number(sel.options[idx].value);
+	console.log(sval);
+	var date0 = new Date();
+	var date = new Date(date0.getTime() - svgImageProps.script.guardTime[cat] + date0.getTimezoneOffset() * 60 * 1000); // set current time with guard time
+	var sDate = new Date(date.getTime() - sval * 60 * 1000 );
+	var step = 60 * 1000 * svgImageProps.script.minStep[cat];
+	var dDate = new Date( step * Math.floor(sDate.getTime() / step) );
+	console.log(sDate);
+	console.log(dDate);
+	
+	if ( idx == 0 ){
+		svgImageProps.script.noRefresh = false;
+	} else {
+		svgImageProps.script.noRefresh = true;
+	}
+	svgImageProps.script.refreshTiles(svgImageProps.script.scale, svgImageProps.script.CRS, cat, dDate);
+	
+	svgMap.refreshScreen();
+}
+
+animPlaying = true;
+function startAnim(){
+	var idx = document.getElementById("time").selectedIndex;
+	if ( idx > 0 && animPlaying){
+		document.getElementById("time").options[idx-1].selected = true;
+		setMapTime();
+		setTimeout(startAnim,1000);
+	} else {
+		animPlaying = true;
+	}
+}
+
+function stopAnim(){
+	animPlaying = false;
+}
+
+function fwd(){
+	var idx = document.getElementById("time").selectedIndex;
+	if ( idx > 0 ){
+		document.getElementById("time").options[idx-1].selected = true;
+		setMapTime();
+	}
+}
+function rew(){
+	var idx = document.getElementById("time").selectedIndex;
+	if ( idx < document.getElementById("time").options.length ){
+		document.getElementById("time").options[idx+1].selected = true;
+		setMapTime();
+	}
+}
+
+
+</script>
+<body>
+<h1>HIMAWARI8 Layer UI</h1>
+<p>ひまわり８号の情報を表示します。タイムラグは約２５分です。</p>
+<p>
+<select id="dataCat" onChange="initUI()">
+	<option value="b13">B13 (Infrared)</option>
+	<option value="b03">B03 (Visible)</option>
+	<option value="b08">B08 (Water Vapor)</option>
+	<option value="b07">B07 (Short Wave Infrared)</option>
+	<option value="arm">Airmass RGB</option>
+	<option value="dnc">Natural Color RGB</option>
+	<option value="dms">Day Microphysics RGB</option>
+	<option value="tre">True Color RGB (Enhanced)</option>
+	<option value="cve">Day Convective Storm RGB</option>
+	<option value="ngt">Night Microphysics RGB</option>
+	<option value="dst">Dust RGB</option>
+	<option value="dsl">Day Snow-Fog RGB</option>
+	<option value="snd">Sandwitch</option>
+	<option value="vir">B03 combined with B13</option>
+	<option value="irv">B03 and B13 at night</option>
+	<option value="trm">True Color Reproduction Image</option>
+</select>
+
+<select id="time" onChange="setMapTime()">
+</select>
+</p>
+
+<input type="button" onClick="rew()" value="&lt;" />
+<input type="button" onClick="fwd()" value="&gt;" />
+<input type="button" onClick="startAnim()" value="Animate" />
+<input type="button" onClick="stopAnim()" value="Stop" />
+
+<!--
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+<p>TEST</p>
+-->
+</body>
+</html>

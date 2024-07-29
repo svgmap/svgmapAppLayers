@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="jma_EQ_suikei.html#exec=appearOnLayerLoad" property="発生日時,震央地名,深さ,マグニチュード">
+
+<defs>
+<g id="p0">
+<!--<circle cx="0" cy="0" r="7" fill="red" stroke="none"/>-->
+   <image xlink:href="Xicon.png" preserveAspectRatio="none" x="-10" y="-10" width="20" height="20"/>
+</g>
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100.0,0.0,0.0,-100.0,0.0,0.0)" />
+<g id="areas"></g>
+<g id="icons">
+<use id="eqCenter" xlink:href="#p0" transform="ref(svg,0,0)" x="0" y="0" content="-,-,-,-"/>
+</g>
+</svg>
