@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+
+// Description:
+// 防災科研nankai-bosai.jpの情報を表示するSVGMapレイヤー
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// WMS遅い・・
+//
+// Programmed by Satoru Takagi
+// Copyright 2021 by Satoru Takagi All Rights Reserved
+//
+
+
+var baseURL = "https://catalog.nankai-bosai.jp/CatalogueService/servlet/NIEDProxyService?ID=60&SERVICE=wms&FORMAT=image/png&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&TRANSPARENT=TRUE&STYLES=&SRS=EPSG%3A900913&LAYERS=[[cat]]";
+
+var cats=[
+["強振断層モデルA 液状化（基本ケース）","hazardmap:nankai_ekijouka_kihon_1","legends/ekijyo.png"],
+["強振断層モデルA 液状化（西側ケース）","hazardmap:nankai_ekijouka_west_1","legends/ekijyo.png"],
+["強振断層モデルA 液状化（東側ケース）","hazardmap:nankai_ekijouka_east_1","legends/ekijyo.png"],
+["強振断層モデルA 液状化（陸側ケース）","hazardmap:nankai_ekijouka_rikugawa_1","legends/ekijyo.png"],
+["強振断層モデルA 液状化（経験的手法）","hazardmap:nankai_ekijouka_enpirical_1","legends/ekijyo.png"],
+["強震断層モデルA　地震動（基本ケース）","hazardmap:nankai_jishina_kihon_1","legends/jisindo.png"],
+["強震断層モデルA　地震動（西側ケース）","hazardmap:nankai_jishina_west_1","legends/jisindo.png"],
+["強震断層モデルA　地震動（東側ケース）","hazardmap:nankai_jishina_east_1","legends/jisindo.png"],
+["強震断層モデルA　地震動（陸側ケース）","hazardmap:nankai_jishina_rikugawa_2","legends/jisindo.png"],
+["強震断層モデルA　地震動（経験的手法）","hazardmap:nankai_jishina_enpirical_1","legends/jisindo.png"],
+["確率論的地震動予測地図2012年（モデル１）30年震度6強以上確率","hazardmap:jshis_y2012_m1_avr_ttl_mttl_1","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル１）30年震度6弱以上確率","hazardmap:jshis_y2012_m1_avr_ttl_mttl_2","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル１）30年震度5強以上確率","hazardmap:jshis_y2012_m1_avr_ttl_mttl_3","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル１）30年震度5弱以上確率","hazardmap:jshis_y2012_m1_avr_ttl_mttl_4","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル１）30年3%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_5","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル１）30年6%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_6","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル１）50年2%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_7","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル１）50年5%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_8","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル１）50年10%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_9","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル１）50年39%確率震度","hazardmap:jshis_y2012_m1_avr_ttl_mttl_10","legends/k_sindo.png"],
+
+["確率論的地震動予測地図2012年（モデル２）30年震度6強以上確率","hazardmap:jshis_y2012_m2_avr_ttl_mttl_1","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル２）30年震度6弱以上確率","hazardmap:jshis_y2012_m2_avr_ttl_mttl_2","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル２）30年震度5強以上確率","hazardmap:jshis_y2012_m2_avr_ttl_mttl_3","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル２）30年震度5弱以上確率","hazardmap:jshis_y2012_m2_avr_ttl_mttl_4","legends/k_bunpu.png"],
+["確率論的地震動予測地図2012年（モデル２）30年3%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_5","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル２）30年6%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_6","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル２）50年2%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_7","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル２）50年5%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_8","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル２）50年10%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_9","legends/k_sindo.png"],
+["確率論的地震動予測地図2012年（モデル２）50年39%確率震度","hazardmap:jshis_y2012_m2_avr_ttl_mttl_10","legends/k_sindo.png"],
+
+["長期間平均ハザード 再現期間1万年震度","hazardmap:jshis_v1_avr_ttl_mttl_1","legends/h_sindo.png"],
+["長期間平均ハザード 再現期間5万年震度","hazardmap:jshis_v1_avr_ttl_mttl_2","legends/h_sindo.png"],
+["長期間平均ハザード 再現期間10万年震度","hazardmap:jshis_v1_avr_ttl_mttl_3","legends/h_sindo.png"],
+["長期間平均ハザード 再現期間500年震度","hazardmap:jshis_v1_avr_ttl_mttl_4","legends/h_sindo.png"],
+["長期間平均ハザード 再現期間1000年震度","hazardmap:jshis_v1_avr_ttl_mttl_5","legends/h_sindo.png"],
+["長期間平均ハザード 再現期間5000年震度","hazardmap:jshis_v1_avr_ttl_mttl_6","legends/h_sindo.png"],
+
+["津波浸水深 ケース01_堤防破堤","hazardmap:nankai_shinsui_00_case1_1","legends/sinsui.png"],
+["津波浸水深 ケース02_堤防破堤","hazardmap:nankai_shinsui_00_case2_1","legends/sinsui.png"],
+["津波浸水深 ケース03_堤防破堤","hazardmap:nankai_shinsui_00_case3_1","legends/sinsui.png"],
+["津波浸水深 ケース04_堤防破堤","hazardmap:nankai_shinsui_00_case4_1","legends/sinsui.png"],
+["津波浸水深 ケース05_堤防破堤","hazardmap:nankai_shinsui_00_case5_1","legends/sinsui.png"],
+["津波浸水深 ケース06_堤防破堤","hazardmap:nankai_shinsui_00_case6_1","legends/sinsui.png"],
+["津波浸水深 ケース07_堤防破堤","hazardmap:nankai_shinsui_00_case7_1","legends/sinsui.png"],
+["津波浸水深 ケース08_堤防破堤","hazardmap:nankai_shinsui_00_case8_1","legends/sinsui.png"],
+["津波浸水深 ケース09_堤防破堤","hazardmap:nankai_shinsui_00_case9_1","legends/sinsui.png"],
+["津波浸水深 ケース10_堤防破堤","hazardmap:nankai_shinsui_00_case10_1","legends/sinsui.png"],
+["津波浸水深 ケース11_堤防破堤","hazardmap:nankai_shinsui_00_case11_1","legends/sinsui.png"],
+["津波浸水深 ケース01_堤防03分破壊","hazardmap:nankai_shinsui_03_case1_1","legends/sinsui.png"],
+["津波浸水深 ケース02_堤防03分破壊","hazardmap:nankai_shinsui_03_case2_1","legends/sinsui.png"],
+["津波浸水深 ケース03_堤防03分破壊","hazardmap:nankai_shinsui_03_case3_1","legends/sinsui.png"],
+["津波浸水深 ケース04_堤防03分破壊","hazardmap:nankai_shinsui_03_case4_1","legends/sinsui.png"],
+["津波浸水深 ケース05_堤防03分破壊","hazardmap:nankai_shinsui_03_case5_1","legends/sinsui.png"],
+["津波浸水深 ケース06_堤防03分破壊","hazardmap:nankai_shinsui_03_case6_1","legends/sinsui.png"],
+["津波浸水深 ケース07_堤防03分破壊","hazardmap:nankai_shinsui_03_case7_1","legends/sinsui.png"],
+["津波浸水深 ケース08_堤防03分破壊","hazardmap:nankai_shinsui_03_case8_1","legends/sinsui.png"],
+["津波浸水深 ケース09_堤防03分破壊","hazardmap:nankai_shinsui_03_case9_1","legends/sinsui.png"],
+["津波浸水深 ケース10_堤防03分破壊","hazardmap:nankai_shinsui_03_case10_1","legends/sinsui.png"],
+["津波浸水深 ケース11_堤防03分破壊","hazardmap:nankai_shinsui_03_case11_1","legends/sinsui.png"],
+["急傾斜地危険度分布（東京湾北部地震）","hazardmap:north_tokyobay_kyukeisha_2,hazardmap:north_tokyobay_kyukeisha_1","legends/kyukeisha.png"],
+["液状化危険度（東京湾北部地震）","hazardmap:north_tokyobay_ekijouka_1","legends/ekijyo_tyo.png"],
+["震度分布図（東京湾北部地震）","hazardmap:north_tokyobay_shindo_1","legends/jisindo.png"],
+["出火件数と焼失件数（東京湾北部地震）","hazardmap:north_tokyobay_fire_burned_9,hazardmap:north_tokyobay_fire_burned_8,hazardmap:north_tokyobay_fire_burned_7,hazardmap:north_tokyobay_fire_burned_6,hazardmap:north_tokyobay_fire_burned_5,hazardmap:north_tokyobay_fire_burned_4,hazardmap:north_tokyobay_fire_burned_3,hazardmap:north_tokyobay_fire_burned_2,hazardmap:north_tokyobay_fire_burned_1","legends/syukka.png"],
+["建物倒壊数（東京湾北部地震）","hazardmap:north_tokyobay_build_collapse_12,hazardmap:north_tokyobay_build_collapse_11,hazardmap:north_tokyobay_build_collapse_10,hazardmap:north_tokyobay_build_collapse_9,hazardmap:north_tokyobay_build_collapse_8,hazardmap:north_tokyobay_build_collapse_7,hazardmap:north_tokyobay_build_collapse_6,hazardmap:north_tokyobay_build_collapse_5,hazardmap:north_tokyobay_build_collapse_4,hazardmap:north_tokyobay_build_collapse_3,hazardmap:north_tokyobay_build_collapse_2,hazardmap:north_tokyobay_build_collapse_1","legends/tokai.png"]
+];
+
+var legends =[
+	"","","","",
+	
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_htc.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_clm.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_clc.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_dust.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_sim.svg",
+	
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hrp/images/legend_en_normal_hrp.svg",
+	"https://www.data.jma.go.jp/omaad/aviation/jp/cci/images/legend_jp_normal_cci.svg",
+	"https://www.data.jma.go.jp/omaad/aviation/jp/fog/images/legend_jp_normal_fog.svg",
+	
+	"https://www.msil.go.jp/legend/10074j.png"
+]
+
+var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
+
+
+var defaultCat = 5;
+
+onload=function(){
+	setTimeout(changeMap,100);
+	setTimeout(function(){
+		setDefaultParams();
+		prepCatSel();
+		addEventListener("zoomPanMap",showMessage);
+	},20);
+	setTimeout(showMessage,1000);
+}
+
+function showMessage(){ //無理やり過ぎか・・・
+	var msg = svgImageProps.script.getMessage().message;
+	console.log("msg:",msg);
+	if ( msg =="under minLevelLimitter."){
+		msgDiv.innerHTML="<font color='red'>レイヤーを表示するには拡大してください。</font>";
+	} else {
+		msgDiv.innerHTML="";
+	}
+}
+
+function setDefaultParams(){
+	var hashs;
+	if ( location.hash!=""){
+		hashs = location.hash.split("&");
+	} else {
+		var nhash=svgImageProps.controller.split("#")[1];
+		hashs = nhash.split("&");
+	}
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("cat")==0){
+			try{
+				var catNum = Number((hashs[i].split("="))[1]);
+				if ( catNum < cats0.length ){
+					defaultCat = catNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		}
+	}
+	console.log("defaultCat:",defaultCat);
+}
+
+function prepCatSel(){
+	for (var i = 0 ; i < cats.length ; i++ ){
+		var opt = document.createElement("option");
+		opt.value=cats[i][1];
+		opt.innerText=cats[i][0];
+		catSel.appendChild(opt);
+		if ( i==defaultCat){
+			opt.selected=true;
+		}
+	}
+}
+
+var timeData;
+var lastCat = -1; // 以前のカテゴリ
+var lastUpdateTime; // そのデータの最新更新日時
+
+
+
+function getLastUpdate(tData){
+	var bt = tData[tData.length-1].basetime;
+	var latestBaseTime = bt.substring(0,4)+"-"+bt.substring(4,6)+"-"+bt.substring(6,8)+"T"+bt.substring(8,10)+":"+bt.substring(10,12)+":"+bt.substring(12,14)+"+0000";
+	latestBaseTime = (new Date(latestBaseTime)).toLocaleString();
+	return ( latestBaseTime );// 文字列で出すのはちょっと手抜き・・
+}
+
+
+function changeMap(){
+	var cat = cats[catSel.selectedIndex][1];
+	
+	document.getElementById("hanrei").setAttribute("src",cats[catSel.selectedIndex][2]);
+	
+	
+	var newPath = svgMap.getCORSURL(baseURL.replace("[[cat]]",cat));
+//	var newPath = (baseURL.replace("[[cat]]",cat));
+	
+	// console.log( newPath);
+	
+	svgImageProps.script.reloadAll(newPath,11,18,true); // minLevelは11なんですね・・・・どうしようかな  第四引数はcrossorigin image指定
+	//svgMap.refreshScreen();
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+
+function loadJson(url,callback){
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET",url+"?t="+(new Date()).getTime(),true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send();
+	
+}
+
+
+</script>
+<body>
+<h3>南海トラフ広域地震関連ハザードマップデータレイヤー</h3>
+<p><a href="https://nankai-bosai.jp/" target="_blank">防災科研　南海トラフ広域地震防災研究PF</a>より解析した、南海トラフ広域地震関連ハザードマップデータ</p>
+<select id="catSel" onchange="changeMap()"></select> 
+<div id="msgDiv"></div>
+<img id="hanrei" style="display:true">
+</body>
+</html>

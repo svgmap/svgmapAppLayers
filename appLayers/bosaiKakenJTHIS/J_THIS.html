@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 防災科研 J_THIS表示SVGMapレイヤー　dynamicWebTile.svg使用
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var baseURL = "https://www.j-this.bosai.go.jp/NKD_hzmap_part1app_2020/wmts/?layer=[[category]]&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=[[zoom]]&TileCol=[[tx]]&TileRow=[[ty]]";
+
+var cats = ["maxlevel3","maxlevel5","maxlevel10"];
+//var cats = ["part1app_maxlevel3","part1app_maxlevel5","part1app_maxlevel10"];
+var catsExp = ["最大水位上昇量3m","最大水位上昇量5m","最大水位上昇量10m"];
+var defaultCat = 2;
+
+// TBD 高分解能測深データがある！
+var bathymetryURL = "https://www.j-this.bosai.go.jp/terrain/wmts/?layer=[[category]]&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=[[zoom]]&TileCol=[[tx]]&TileRow=[[ty]]";
+var bmCats=[ "terrain_53_1350", "terrain_53_450", "terrain_53_150", "terrain_53_50", "terrain_54_1350", "terrain_54_450", "terrain_54_150", "terrain_54_50"];
+var bmCatsExp=["1350m mesh/UTM53","450m mesh/UTM53","150m mesh/UTM53","50m mesh/UTM53","1350m mesh/UTM54","450m mesh/UTM54","150m mesh/UTM54","50m mesh/UTM54"];
+
+
+
+onload=function(){
+	setTimeout(test,100);
+	prepCatSel();
+}
+
+function test(){
+	console.log("svgImage:",svgImage,"  svgImageProps:",svgImageProps," controllerSrc :",controllerSrc ,"  location:",this.location);
+	// mapName
+	change();
+}
+
+function prepCatSel(){
+	for (var i = 0 ; i < cats.length ; i++ ){
+		var opt = document.createElement("option");
+		opt.value=cats[i];
+		opt.innerText=catsExp[i];
+		catSel.appendChild(opt);
+		if ( i==defaultCat){
+			opt.selected=true;
+		}
+	}
+}
+
+var guardMin = 30;
+function change(){
+	
+	var cat = cats[catSel.selectedIndex];
+	
+	hanrei.src="https://www.j-this.bosai.go.jp/map/images/probability_legend3.png";
+	
+	var newPath = baseURL.replace("[[category]]",cat);
+	
+	console.log( newPath,hanrei.src);
+	
+	svgImageProps.script.setServerParams(newPath,17,3);
+	console.log(svgImageProps.script.getServerParams());
+	svgMap.refreshScreen();
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+</script>
+<body>
+<h3>南海トラフ（地震調査委員会 2020年版）確率論的津波ハザード評価レイヤー</h3>
+<p>防災科研　<a href="http://www.j-this.bosai.go.jp/" target="_blank">J-THIS 津波ハザードステーション</a>より</p>
+<select id="catSel" onchange="change()"></select><br>
+<img id="hanrei">
+</body>
+</html>

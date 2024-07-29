@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>SVGMapのwebAppレイヤーで、geoJsonを描画するサンプル</title>
+</head>
+
+<style>
+/* 奇数行のスタイル */
+table tr:nth-child(odd){
+  background-color:#c0c0ff;
+}
+ 
+/* 偶数行のスタイル */
+table tr:nth-child(even){
+  background-color:#e0e0e0;
+}
+
+.blink {
+	animation: blinking 0.2s ease-in-out infinite alternate;
+} 
+@keyframes blinking {
+	0% {opacity: 0.3;}
+	100% {opacity: 1;}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+// Description:
+// 防災科研 J-SHISを表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var dataPaths = {
+	"https://www.j-shis.bosai.go.jp/JSHIS2/GeoJSON/F-Y2020-SHP-98F_TTL_TTL.geojson":"主要活断層帯",
+	"https://www.j-shis.bosai.go.jp/JSHIS2/GeoJSON/F-Y2020-SHP-ELS_GR1_TTL.geojson":"その他の活断層",
+	"https://www.j-shis.bosai.go.jp/JSHIS2/GeoJSON/F-Y2020-SHP-PME_TTL_TTL.geojson":"海溝型地震震源断層",
+	"https://www.j-shis.bosai.go.jp/JSHIS2/GeoJSON/F-Y2020-AREA-PME_TTL_TTL.geojson":"海溝型地震発生領域",
+};
+
+addEventListener("load", function(){
+	buildDataSelect();
+	changeData();
+});
+
+function changeData(){
+	var path = dataSelect.options[dataSelect.selectedIndex].value;
+	messageDiv.innerText="NOW LOADING:" + dataSelect.options[dataSelect.selectedIndex].innerText;
+	path = svgMap.getCORSURL(path);
+	loadAndDrawGeoJson(path);
+}
+
+async function loadAndDrawGeoJson(dataPath){
+	var gjs = await loadJSON(dataPath);
+	gjs.properties={
+		fill:"orange",
+		stroke:"red",
+		"stroke-width":2
+	}
+	transformMercator2wgs(gjs);
+	console.log("transformMercator2wgs:",gjs);
+	var parentElm = svgImage.getElementById("mapContents");
+	removeChildren(parentElm);
+	svgMapGIStool.drawGeoJson(gjs, layerID, "orange", 2, "orange", "p0", "poi", "", parentElm);
+	svgMap.refreshScreen();
+	messageDiv.innerText="";
+}
+
+function buildDataSelect(){
+	var first=true;
+	for ( var dataPath in dataPaths){
+		dataSelect.insertAdjacentHTML('beforeend', '<option value="' + dataPath +'" >'+dataPaths[dataPath]+'</option>');
+	}
+}
+
+async function loadJSON(url){
+	var dt = getDateStr(new Date(),10);
+	var response = await fetch(url+"?time="+dt); // 常に最新のデータを得るには何かダミーのクエリパートを付けるBad Tips..
+	// https://stackoverflow.com/questions/37204296/cache-invalidation-using-the-query-string-bad-practice
+	// https://stackoverflow.com/questions/9692665/cache-busting-via-params
+	var json = await response.json();
+	return ( json );
+}
+
+function getDateStr(dateData , tStep){
+	var mind = tStep * Math.floor( dateData.getUTCMinutes() / tStep ) ;
+	var ans = dateData.getUTCFullYear()+ pad(dateData.getUTCMonth() + 1) + pad(dateData.getUTCDate()) + pad(dateData.getUTCHours()) + pad(mind);
+	return ( ans );
+}
+function pad( inp ){
+	return ( ("0"+inp).slice(-2));
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function transformMercator2wgs(gjs){
+	if ( typeof(gjs)=="object"){
+		if ( Array.isArray(gjs)){
+			if ( typeof(gjs[0])=="number"){
+				var ll = mercatorXY2latLng(gjs[0],gjs[1]);
+				gjs[0]=ll.lng;
+				gjs[1]=ll.lat;
+			} else {
+				for ( var sgjs of gjs ){
+					transformMercator2wgs(sgjs);
+				}
+			}
+		} else {
+			if ( gjs.type){
+				if ( gjs.type=="FeatureCollection"){
+					for ( var ft of gjs.features){
+						transformMercator2wgs(ft);
+					}
+				} else if ( gjs.type=="Feature"){
+					transformMercator2wgs(gjs.geometry);
+				} else if ( gjs.type=="Polygon" || gjs.type=="LineString" || gjs.type=="Point"){
+					transformMercator2wgs(gjs.coordinates);
+				}
+			}
+		}
+	}
+}
+
+function mercatorXY2latLng(x,y){ // x,y:[meters]
+	var R =  6378137.0;
+	var lat = 2 * Math.atan(Math.exp (y / R)) - Math.PI / 2.0;
+	var lng = x / R;
+	lat = lat*180/Math.PI;
+	lng = lng*180/Math.PI;
+	return{
+		lat : lat ,
+		lng : lng
+	}
+}
+
+</script>
+<body>
+<h3>J-SHIS 震源断層レイヤー</h3>
+<p>出典：防災科研 <a href="https://www.j-shis.bosai.go.jp/map/" target="_blank">J-SHIS 地震ハザードステーション</a></p>
+<select id="dataSelect" onchange="changeData()"></select>
+<div id="messageDiv" class="blink" style="color:red"></div>
+</body>
+</html>

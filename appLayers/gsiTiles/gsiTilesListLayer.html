@@ -1,0 +1,409 @@
+<!doctype html>
+<html>
+<head>
+<title>Layer Specific UI for sub layers</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script src="./dynamicWebTile.js"></script>
+<script src="./geoJsonTileExtension.js"></script>
+
+<script>
+// Description:
+// WebApp layer for SVGMap.js to Parsing GSI's ichiran.html and extract a list of GSI tiles
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2021- by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+
+// History:
+// 2022/4/18 svgのscriptのコードをdynamicWebTile.jsに移行、完全なwebAppLayerとして再構築
+
+var idoc;
+var selectedTileKey="std";
+var srcContent="https://maps.gsi.go.jp/development/ichiran.html"
+addEventListener("load",async function(){
+	console.log("dynamicWebTile:",dynamicWebTile);
+	dynamicWebTile.init(""); // dynamicWebTileの初期表示を抑止する
+	var srcTxt = await getText(srcContent);
+	//console.log(srcTxt);
+	idoc=getDoc(srcTxt,"html");
+	console.log(idoc);
+	buildTileList(idoc);
+	setDefaultParams();
+	makeTable(tileList);
+});
+
+function setDefaultParams(){
+	if ( typeof(svgImageProps)=="undefined" ){return}
+	var hashs;
+	if ( location.hash!=""){
+		hashs = location.hash.split("&");
+	} else {
+		var nhash=svgImageProps.controller.split("#")[1];
+		hashs = nhash.split("&");
+	}
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("id")==0){
+			try{
+				var layerKey = ((hashs[i].split("="))[1]);
+				selectedTileKey=layerKey;
+			} catch (e){
+				console.log("cat parse err");
+			}
+		}
+	}
+}
+
+var tileList=[];
+function buildTileList(idoc){
+	var srcs = idoc.querySelectorAll(".source");
+	for ( var i = 0 ; i < srcs.length ; i++ ){ // srcs.length
+		
+		var srcTxt = srcs[i].innerText;
+		var tileObj ={};
+		var urls=parseURL(srcTxt);
+		tileObj.url=urls.url;
+		tileObj.format=urls.url.substring(urls.url.lastIndexOf(".")+1);
+		tileObj.urlComment=urls.comment;
+		tileObj.gsiId=urls.gsiTileId;
+		
+		var ti = getTitle(srcs[i]);
+		tileObj.gid = ti.gid;
+		tileObj.title = ti.title;
+		
+		var sTitle=getSuperTitle(srcs[i]);
+		tileObj.superTitle=sTitle;
+		
+		tileObj.metadata=getDetailMeta(srcs[i]);
+		
+		tileObj.zoomLevel=getZoomLevel(tileObj.metadata);
+		
+		tileList.push(tileObj);
+	}
+	console.log(tileList);
+}
+
+function getZoomLevel(metas){
+	var zoomMin=100;
+	var zoomMax=0;
+	for ( var meta of metas ){
+		if ( meta["ズームレベル"] ){
+			var zStr = meta["ズームレベル"];
+			if ( zStr.indexOf("※")>0){
+				zStr=zStr.substring(0,zStr.indexOf("※"));
+			}
+			var zlStr = zStr.replaceAll(/\n*（.*?）\n*/g,",").replaceAll(/～/g,",").replaceAll(/[^0-9]+/g,",").split(",");
+			for ( var i = 0 ; i < zlStr.length ; i++ ){
+				zlStr[i]=zlStr[i].trim();
+			}
+			console.log("getZoomLevel:",zlStr,zStr);
+			for ( var zls of zlStr ){
+				if (zls==""){continue}
+				var zl = Number(zls);
+				if (!isNaN(zl)){
+					if ( zl < zoomMin ){
+						zoomMin = zl
+					}
+					if ( zl > zoomMax ){
+						zoomMax = zl;
+					}
+				}
+			}
+		}
+	}
+	return {
+		min:zoomMin,
+		max:zoomMax
+	}
+}
+
+function getDetailMeta(srcElm){
+	//console.log("getDetailMeta:",srcElm);
+	var ok=false;
+	var nxt = srcElm;
+	var metas=[];
+	while ( !ok){
+		nxt = nxt.nextElementSibling;
+		if ( !nxt){
+			ok=true;
+		} else if ( nxt.tagName=="TABLE"){
+			//console.log(nxt);
+			meta = getMetaTable(nxt);
+			metas.push(meta);
+		} else if ( nxt.className=="title"){
+			ok=true;
+		}
+	}
+	return ( metas);
+}
+
+function getMetaTable(tbl){
+	//console.log("getMetaTable");
+	var key="";
+	var val="";
+	var meta={};
+	function trav(elm){
+		var cs = elm.children;
+		if ( cs ){
+			for ( var i = 0 ; i < cs.length ; i++ ){
+				var ce = cs[i];
+				if (  ce.tagName=="TR"){
+					key="";
+				}else if ( ce.tagName=="TD"){
+					if ( !key){
+						key = ce.innerText.trim();
+					} else if (meta[key]){
+						meta.thumbNail=ce.innerHTML;
+					} else {
+						meta[key]=ce.innerText.trim();
+					}
+				}
+				trav(ce);
+			}
+		}
+	}
+	trav(tbl);
+	//console.log("meta:",meta);
+	return ( meta );
+}
+
+function getTitle(srcElm){
+	var ok=false;
+	var prev = srcElm;
+	var title,tid;
+	while ( !ok){
+		prev = prev.previousElementSibling;
+		if ( prev.className=="title"){
+			title = prev.innerText.trim();
+			tid  = prev.id;
+			ok = true;
+		}
+	}
+	return {
+		title:title,
+		gid:tid
+	}
+}
+
+function getSuperTitle(srcElm){
+	//console.log("staart getSuperTitle for ",srcElm);
+	var ok=false;
+	var prev = srcElm;
+	var title;
+	while ( !ok){
+		prev = prev.previousElementSibling;
+		//console.log(prev,prev.tagName);
+		if ( prev.tagName=="P"){
+			title = prev.innerText.trim();
+			ok=true;
+		}
+	}
+	return (title);
+}
+
+
+function parseURL(txt){
+	txt=txt.substring(txt.indexOf("：")+1);
+	var url=txt.trim();
+	var cp = txt.indexOf("（");
+	var comment="";
+	if ( cp >0){
+		url = txt.substring(0,cp).trim();
+		comment = txt.substring(cp);
+	}
+	var gsiTileId="";
+	if ( url.indexOf("cyberjapandata.gsi.go.jp/xyz")>0){
+		gsiTileId=url.substring(url.indexOf("/xyz/")+5);
+		gsiTileId=gsiTileId.substring(0,gsiTileId.indexOf("/"));
+	}
+	return {
+		url:url,
+		comment:comment,
+		gsiTileId:gsiTileId
+	}
+}
+
+
+async function getText(url){
+	var dt = getDateStr(new Date(),10);
+	var response = await fetch(url+"?time="+dt);
+	var json = await response.text();
+	return ( json );
+}
+
+function getDoc(srcTxt,type){
+	var mimeTypes={
+		"html":"text/html",
+		"xml":"text/xml",
+		"appXml":"application/xml",
+		"xhtml":"application/xhtml+xml",
+		"svg":"image/svg+xml"
+	};
+	var mimeType;
+	if ( mimeTypes[type.toLowerCase()]){
+		mimeType=mimeTypes[type];
+	}else {
+		console.error("NO type");
+		return(null);
+	}
+	var parser = new DOMParser()
+	var doc = parser.parseFromString(srcTxt, mimeType);
+	if ( doc.getElementsByTagName("parsererror").length>0){
+		console.error("Parse Error");
+		return ( null );
+	}
+	return ( doc );
+}
+
+function getDateStr(dateData , tStep){
+	var mind = tStep * Math.floor( dateData.getUTCMinutes() / tStep ) ;
+	var ans = dateData.getUTCFullYear()+ pad(dateData.getUTCMonth() + 1) + pad(dateData.getUTCDate()) + pad(dateData.getUTCHours()) + pad(mind);
+	return ( ans );
+}
+
+function getJSTStr(dateData , tStep){
+//	console.log("getJSTStr:",dateData);
+	var mind = tStep * Math.floor( dateData.getMinutes() / tStep ) ;
+	var ans = dateData.getFullYear()+ "/"+ pad(dateData.getMonth() + 1) +"/"+ pad(dateData.getDate()) +" " + pad(dateData.getHours()) +":"+ pad(mind);
+	return ( ans );
+}
+function pad( inp ){
+	return ( ("0"+inp).slice(-2));
+}
+
+var bgColors=["#ddffdd","#ffddff"];
+
+function makeTable(tileList){
+	var supportedLayersCount=0;
+	var superTitle="";
+	var td0,rs;
+	var bgClr,slc=0;
+	for ( var i = 0 ; i < tileList.length ; i++){
+		var tile = tileList[i];
+		var tr = document.createElement("tr");
+		var st = tile.superTitle;
+		if ( st != superTitle){
+			bgClr = bgColors[slc % 2];
+			td0 = document.createElement("td");
+			superTitle = st;
+			td0.innerText = superTitle;
+			td0.style.backgroundColor=bgClr;
+			tr.appendChild(td0)
+			rs=1;
+			++ slc;
+		} else {
+			++rs
+			td0.setAttribute("rowspan",rs);
+		}
+		var tdBgClr = bgClr;
+		var td1 = document.createElement("td");
+		var tname = tile.title+tile.urlComment;
+		var supportedFormat=false;
+		var smt = getSMTemplate(tile.url,true);
+		if (smt.indexOf("{")>0){
+			tname+=" (現在未対応:{"+smt.replace(/.*{/,"").replace(/}.*/,"")+"})";
+		} else if(tile.title.indexOf("第三者が権利を有している")>=0 ){
+			tname+=" (現在未対応:RIGHTS)";
+		} else if ( tile.url.endsWith("jpg") || tile.url.endsWith("png")){
+			supportedFormat=true;
+			++ supportedLayersCount;
+		} else if  ( tile.url.endsWith("geojson")){
+			supportedFormat=true;
+			++ supportedLayersCount;
+		} else {
+			var exts = tile.url.substring(tile.url.lastIndexOf("."));
+			tname+=" (現在未対応:"+exts+")";
+		}
+		if ( !supportedFormat ){
+			tdBgClr = "#b0b0b0";
+		}
+		console.log("makeTable:",tile);
+//		var tname = tile.title;
+		td1.innerHTML='<a href="'+srcContent+'#'+tile.gid+'" target="_blank">'+tname+'</a>';
+		td1.style.backgroundColor=tdBgClr;
+		
+		/**
+		var td1a = document.createElement("td");
+		td1a.innerText=tile.urlComment;
+		td1a.style.backgroundColor=tdBgClr;
+		tr.appendChild(td1a);
+		**/
+		
+		var td2 = document.createElement("td");
+		//td2.innerText=tile.zoomLevel.min+".."+tile.zoomLevel.max;
+		td2.style.backgroundColor=tdBgClr;
+		
+//		selectedTileKey
+		
+		var td3 = document.createElement("td");
+		td3.style.backgroundColor=tdBgClr;
+		td3.style.fontSize="2px";
+		td3.innerHTML=tile.format+":"+tile.zoomLevel.min+".."+tile.zoomLevel.max;
+		
+		var rdo=document.createElement("input");
+		rdo.setAttribute("type","radio");
+		rdo.setAttribute("name","layerSel");
+		rdo.setAttribute("value",i);
+		if ( !supportedFormat){
+			rdo.disabled=true;
+		}
+		rdo.addEventListener("change",changeLayer);
+		td2.appendChild(rdo);
+		
+		tr.appendChild(td2);
+		tr.appendChild(td1);
+		tr.appendChild(td3);
+		
+		list.appendChild(tr);
+	}
+	slcSpan.innerText=supportedLayersCount;
+}
+
+function changeLayer(evt){
+	var selIndex = evt.target.value
+	var selTile = tileList[selIndex];
+	var urlTmpl=getSMTemplate(selTile.url);
+	console.log(selIndex, selTile, urlTmpl, typeof(svgImageProps),svgImageProps,svgMap,layerID);
+	
+	if ( urlTmpl &&  typeof(svgImageProps)=="object"){
+		console.log("set url:",urlTmpl,"  zoomMax:",selTile.zoomLevel.max, " zoomMin:",selTile.zoomLevel.min);
+		dynamicWebTile.setServerParams(urlTmpl, selTile.zoomLevel.max, selTile.zoomLevel.min);
+		//svgMap.refreshScreen();
+	}
+}
+
+function getSMTemplate(gsiTemplateString,forceRes){
+	gsiTemplateString=gsiTemplateString.replace("{x}","[[tx]]").replace("{y}","[[ty]]").replace("{z}","[[zoom]]");
+	if ( gsiTemplateString.indexOf("{")>=0 && !forceRes){
+		console.error("テンプレート未解決　スキップ");
+		return ( null );
+	}
+	return ( gsiTemplateString );
+}
+
+</script>
+
+</head>
+<body>
+<h4 id="uiName">地理院タイルレイヤー</h4>
+<p style="font-size:11px" id="message">下記<span id="slcSpan"></span>個のサブレイヤーから表示レイヤーを選択ください<br>出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院 地理院タイル</a></p>
+<table id="list" style="font-size:11px">
+</table>
+</body>
+</html>

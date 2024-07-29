@@ -1,0 +1,515 @@
+<!doctype html>
+<html>
+<head>
+<title>DRONEBIRD Layer</title>
+<meta charset="utf-8"></meta>
+</head>
+<style>
+#loader{
+    margin:auto;
+    width:30px;
+    height:30px;
+    border-radius:30px;
+    border:8px solid #17cddd;
+    border-right-color:transparent;
+    animation:spin 1s infinite linear;
+}
+#loader{
+    animation:spin 1s infinite linear;
+}
+@keyframes spin{
+    0%{transform:rotate(0deg); opacity:0.4;}
+    50%{transform:rotate(180deg); opacity:1;}
+    100%{transform:rotate(360deg); opacity:0.4;}
+    
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script src="./dynamicWebTile.js"></script>
+
+<script>
+// Description:
+// DRONEBIRDレイヤー
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// HISTORY
+// 2022/10/18 : initial まずはREADME.mdを適当に解読してインデックスをつくってみる
+// 2022/10/19 : dronebird_metadata.csvを読む, メタデータ読み込みを並列化して高速化（効率悪いけれど）
+// 2022/11/1x : 全部入りコンテンツをデフォルト表示
+//
+// TBD
+// せっかく読んだdronebird_metadata.csvを使っていろいろ情報を表示できるようにする
+
+//var dronebirdIndex="indexData.json"; // ↓のバックアップ情報　デバッグ用
+var dronebirdIndex="https://api.github.com/orgs/dronebird/repos"; // 本家から取得　1時間に60リクエストの制限があるよ^^;
+
+
+var dronebirdRawPath = "https://raw.githubusercontent.com/dronebird";
+var metadataFileName = "dronebird_metadata.csv";
+var readmeFileName ="README.md";
+var indexFilterWord="oam_";
+
+var allDataUrl = "https://apps.kontur.io/raster-tiler/oam/mosaic/{z}/{x}/{y}.png";
+var allDataInfo= {
+	name: "ALL_DATA",
+	tilemeta:{
+		maxzoom:19,
+		minzoom:5,
+		name: "ALL_DATA",
+		tiles:[allDataUrl],
+	}
+};
+
+var layerList=[];
+var indexData;
+
+var targetLayer ; // 選択中のレイヤーのメタデータ
+
+onload=async function(){
+	dynamicWebTile.init("");
+	selectLayer(null,"ALL_DATA");
+	addEventListener("zoomPanMap",allDataTileMarker);
+//	loader.style.display="none";
+	setTimeout(allDataTileMarker,100);
+//	return;
+	indexData = await getIndexJson(indexFilterWord);
+	console.log(indexData);
+	if (layerList.length == 0 ){
+		layerList = await buildlayerList(indexData);
+	}
+	loader.style.display="none";
+	buildLayerTable(layerList);
+	setCenterPin();
+	initUI();
+}
+
+
+async function buildlayerList(indexData){
+	// github.com APIを使えばもっと効率的なのだが、1時間60クエリ制限があるので、あえて非効率なこの方法を
+	var tiles = [];
+	var metaPM =[];
+	for ( var oneIdx of indexData ){
+		metaPM.push(getOneProjectMeta(oneIdx.name));
+	}
+	
+	var metas = await Promise.all(metaPM);
+	
+	for ( var meta of metas ){
+		
+		if (!meta ){
+			console.error("can't get README.md skip...");
+			continue;
+		} else {
+			console.log("Add:",oneIdx.name);
+			tiles.push(meta);
+		}
+	}
+	console.log(tiles);
+	return ( tiles );
+}
+
+async function getOneProjectMeta(pjName){
+	var oamUrl = null;
+	// まずCSVから獲得を試みる。
+	var csv = await getMetaCsv(pjName);
+	var csvMeta = null;
+	if ( csv ){
+		//console.log("CSV:",csv);
+		csvMeta = parseCsvMeta(csv);
+		oamUrl = csvMeta.bbox;
+	} else {
+		// できなければReadmeからヒューリスティックに
+		var readmeMd = await getReadmeMd(pjName);
+		if (!readmeMd ){
+			return ( null );
+		}
+		oamUrl = getOpenAerialMapURLfromReadme(readmeMd);
+	}
+	
+	if ( oamUrl ){
+		var tilemeta = await getTileMetaFromOpenAerial(oamUrl);
+		var projectMeta={
+			name: pjName,
+			tilemeta: tilemeta
+		}
+		if ( csvMeta ){
+			projectMeta.date = csvMeta.date;
+			projectMeta.title = csvMeta.name;
+			projectMeta.title_en = csvMeta.name_en;
+			projectMeta.description = csvMeta.description;
+			projectMeta.license = csvMeta.license;
+			projectMeta.author = csvMeta.author;
+			projectMeta.memo = csvMeta.memo;
+			
+			
+		}
+		return ( projectMeta );
+	} else {
+		return ( null );
+	}
+}
+
+function parseCsvMeta(csv){
+	csv = csv.split("\n");
+	var schema = csv[0].trim().split(",");
+	var data = csv[1].trim().split(",");
+	if ( schema.length == data.length ){
+		var ans = {};
+		for ( var i = 0 ; i < schema.length ; i++ ){
+			ans[schema[i]]=data[i];
+		}
+		return ( ans );
+	} else {
+		// parse error
+		return null;
+	}
+}
+
+async function getMetaCsv(pjName){
+	return ( await getGHbranches(pjName, metadataFileName) );
+}
+
+async function getReadmeMd(pjName){
+	return ( await getGHbranches(pjName, readmeFileName) );
+}
+
+async function getGHbranches(pjName, fileName){
+	// ネット負荷はさらに高いが、同時に問い合わせてスピードアップする
+	var metap=[];
+	
+	var url = `${dronebirdRawPath}/${pjName}/main/${fileName}`;
+	metap.push( loadRawText(url) );
+	
+	url = `${dronebirdRawPath}/${pjName}/gh-pages/${fileName}`;
+	metap.push( loadRawText(url) );
+	
+	url = `${dronebirdRawPath}/${pjName}/master/${fileName}`;
+	metap.push( loadRawText(url) );
+	
+	var meta = await Promise.all(metap)
+	var ans = null;
+	for ( oneMeta of meta){
+		if ( oneMeta ){
+			ans = oneMeta;
+			break;
+		}
+	}
+	
+	return(ans);
+}
+
+async function getGHbranchesSq(pjName, fileName){
+	// ネット負荷は高いが、シーケンシャルに問い合わせる
+	var meta=null;
+	var url = `${dronebirdRawPath}/${pjName}/main/${fileName}`;
+	meta = await loadRawText(url);
+	if ( !meta ){
+		url = `${dronebirdRawPath}/${pjName}/gh-pages/${fileName}`;
+		meta = await loadRawText(url);
+	}
+	if ( !meta ){
+		url = `${dronebirdRawPath}/${pjName}/master/${fileName}`;
+		meta = await loadRawText(url);
+	}
+	return(meta);
+}
+
+
+async function getIndexJson(filterWord){
+	const perPage = 100; // max 100のようです
+	var pageContinues = true;
+	var page = 1;
+	var ans = [];
+	while (pageContinues){
+		console.log("get: page:",page);
+		var indexJson = await loadJson(`${dronebirdIndex}?page=${page}&per_page=${perPage}`); // ターゲットのHTML読み込み
+		++page;
+		console.log(indexJson);
+		ans = ans.concat(indexJson);
+		if ( indexJson.length < perPage || indexJson.length > perPage){
+			pageContinues = false;
+		}
+	}
+	ans = ans.filter(function(item){
+//		console.log(item.name, item.name.indexOf(filterWord)>=0);
+		return( ( item.name.indexOf(filterWord)>=0)); // 正規表現でもいいが・・
+	});
+	return ( ans );
+}
+
+async function getTileMetaFromOpenAerial(oamUrl){
+	var json = await loadJson(oamUrl);
+		if ( json ){
+			for ( var i = 0 ; i < json.tiles.length ; i++ ){
+				json.tiles[i]=  decodeURIComponent(new URL( json.tiles[i], oamUrl).href);
+			}
+		}
+	
+	return ( json );
+}
+
+function getOpenAerialMapURLfromReadme(readmeMd){
+	readmeMd = readmeMd.split("\n");
+	var ans = null;
+	for ( var line of readmeMd){
+		var matched = line.match(/(https:\/\/tiles\.openaerialmap\.org\/[^\/]+\/[^\/]+\/[^\/]+\/){.}\/{.}\/{.}/);
+		if ( matched){
+			ans = matched[1]
+			break;
+		}
+	}
+	return ( ans );
+}
+
+async function loadJson(htmlURL){
+	var response = await fetch( htmlURL);
+	if ( !response.ok){ return null }
+	var json = await response.json();
+	return ( json );
+	/**
+	var txt = await response.text();
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(txt, "text/html");
+	//console.log("doc:",doc);
+	return ( doc );
+	**/
+}
+
+async function loadRawText(txtURL){
+	var response = await fetch( txtURL);
+	if ( !response.ok){ return null }
+	var txt = await response.text();
+	return ( txt );
+}
+
+function buildLayerTable( layerList ){
+	var tbl = document.getElementById("oam_table");
+	tbl.insertAdjacentHTML( "beforeend", `<tr><td><input type="radio" checked id="ALL_DATA" name="layerlist" value="ALL_DATA" onchange="selectLayer(event)"><label for="ALL_DATA">ALL_DATA on OpenAerialMap</lablel></td></tr>`);
+	for ( var item of layerList ){
+		tbl.insertAdjacentHTML( "beforeend", `<tr><td><input type="radio" id="l_${item.name}" name="layerlist" value="${item.name}" onchange="selectLayer(event)"><label for="l_${item.name}">${item.name}</lablel></td></tr>`);
+	}
+}
+
+function getTargetLayer(name){
+	var targetLayer;
+	for ( var item of layerList){
+		if ( item.name == name ){
+			targetLayer = item;
+			break;
+		}
+	}
+	return ( targetLayer);
+}
+
+function selectLayer(event, name){
+	if (!name ){
+		name = event.target.value;
+	}
+	console.log(name);
+	targetLayer ;
+	if ( name == "ALL_DATA"){
+		targetLayer = allDataInfo;
+	} else {
+		targetLayer = getTargetLayer(name);
+	}
+	console.log(targetLayer);
+	
+	var urlTmpl=getSMTemplate(targetLayer.tilemeta.tiles[0]);
+	
+	if ( urlTmpl &&  typeof(svgImageProps)=="object"){
+		console.log("set url:",urlTmpl,"  zoomMax:",targetLayer.tilemeta.maxzoom, " zoomMin:",targetLayer.tilemeta.minzoom);
+		dynamicWebTile.setServerParams(urlTmpl, targetLayer.tilemeta.maxzoom, targetLayer.tilemeta.minzoom);
+		//svgMap.refreshScreen();
+	}
+}
+
+function getSMTemplate(gsiTemplateString,forceRes){
+	gsiTemplateString=gsiTemplateString.replace("{x}","[[tx]]").replace("{y}","[[ty]]").replace("{z}","[[zoom]]");
+	if ( gsiTemplateString.indexOf("{")>=0 && !forceRes){
+		console.error("テンプレート未解決　スキップ");
+		return ( null );
+	}
+	return ( gsiTemplateString );
+}
+
+function setCenterPin(){
+	if ( typeof(svgImageProps)!="object"){
+		return;
+	}
+	for ( var item of layerList){
+		var ct = item.tilemeta.center;
+		var use = svgImage.createElement("use");
+		use.setAttribute("transform",`ref(svg,${ct[0]*100},${-ct[1]*100})`);
+		use.setAttribute("xlink:href","#p1");
+		use.setAttribute("xlink:title",item.name);
+		use.setAttribute("content",`${item.tilemeta.name},${item.tilemeta.bounds}`);
+		svgImage.getElementById("indexPin").appendChild(use);
+		var rect = svgImage.createElement("rect");
+		rect.setAttribute("x",Math.min(item.tilemeta.bounds[0],item.tilemeta.bounds[2])*100);
+		rect.setAttribute("y",-Math.max(item.tilemeta.bounds[1],item.tilemeta.bounds[3])*100);
+		rect.setAttribute("width",Math.abs(item.tilemeta.bounds[0]-item.tilemeta.bounds[2])*100);
+		rect.setAttribute("height",Math.abs(item.tilemeta.bounds[1]-item.tilemeta.bounds[3])*100);
+		rect.setAttribute("stroke","red");
+		rect.setAttribute("vector-effect","non-scaling-stroke");
+		rect.setAttribute("stroke-width","3");
+		rect.setAttribute("fill","none");
+		svgImage.getElementById("indexPin").appendChild(rect);
+	}
+	svgMap.refreshScreen();
+}
+
+function initUI(){
+	if ( typeof(svgImageProps)!="object"){
+		return;
+	}
+	console.log("initUI:",layerID);
+	svgMap.setShowPoiProperty( customShowPoiProperty, layerID);
+}
+
+
+async function customShowPoiProperty(target){
+	console.log(target);
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	var name = svgMap.parseEscapedCsvLine(target.getAttribute("xlink:title"));
+	var targetLayer = getTargetLayer(name);
+	var message = `<table>
+	<tr><td>NAME</td><td>${name}</td></tr>
+	<tr><td>CENTER</td><td>${targetLayer.tilemeta.center}</td></tr>
+	<tr><td>NAME</td><td>${name}</td></tr>
+	</table>`;
+	svgMap.showModal(message,400,600);
+	document.getElementById(`l_${name}`).checked=true;
+	selectLayer(null,name);
+}
+
+
+
+async function allDataTileMarker(){
+	// ちょっとでもデータのある所のまわりを赤くマーキングする
+	// lv6で使えそう
+	if ( targetLayer.name != "ALL_DATA"){return}
+		
+	var images = svgImage.getElementsByTagName("image");
+	var tiles =[];
+	for ( var image of images){
+		var meta = image.getAttribute("metadata")
+		if ( meta && image.getAttribute("xlink:href").indexOf("http")==0 && Number(meta.split("_")[2])<14 ){
+			var tileData = {
+				meta,
+				x:image.getAttribute("x"),
+				y:image.getAttribute("y"),
+				width:image.getAttribute("width"),
+				height:image.getAttribute("height"),
+				url:svgMap.getCORSURL(image.getAttribute("xlink:href")),
+				element: image,
+			}
+			tiles.push(tileData);
+		}
+	}
+	//console.log(tiles);
+	var imgurls=[];
+	for ( var tileData of tiles){
+		imgurls.push(markImage( tileData ));
+	}
+	var imgs = await Promise.all( imgurls );
+	console.log("allDataTileMarker:",imgs);
+	for ( var tileData of imgs){
+		tileData.element.setAttribute("xlink:href",tileData.datauri);
+//		tileData.element.removeAttribute("iid");
+	}
+	svgMap.refreshScreen();
+}
+
+function markImage(tileData){
+	return ( new Promise(function(callback){
+	canvas = document.getElementById('allDataMarkerCanvas');
+	var ctx = canvas.getContext('2d');
+	var img = new Image();
+	img.src = tileData.url;
+	img.setAttribute("crossorigin","");
+	img.onload = function(){
+		var iw = img.naturalWidth;
+		var ih = img.naturalHeight;
+		canvas.setAttribute("width",iw);
+		canvas.setAttribute("height",ih);
+		//console.log("img onload context:",ctx, " w,h:",iw,ih);
+		if ( iw == 0 || ih == 0 ){ return }
+		
+		ctx.drawImage(img, 0, 0);
+		var imageData  = ctx.getImageData(0, 0, iw, ih);
+		var mpx = 0;
+		var pixels = imageData.data; 
+		//console.log(pixels);
+		for ( var py = 0 ; py < (ih) ; py++){
+			for ( var px = 0 ; px < iw ; px++){
+				var pi = (py * iw + px)*4;
+				var r = pixels[pi];
+				var g = pixels[pi+1];
+				var b = pixels[pi+2];
+				var a = pixels[pi+3]; // αが250以上のものの周りを
+				if ( a >= 50 && r!=255 && g!=0 && b!=0 ){ // 赤以外のピクセル
+					drawAreaBounds(px,py,iw,ih,pixels);
+					++mpx;
+				}
+			}
+		}
+		//console.log("marked px:",mpx);
+		ctx.putImageData(imageData, 0, 0);
+		var uri = canvas.toDataURL('image/png');
+		tileData.datauri = uri;
+		callback(tileData);
+	}
+	}));
+}
+
+var markW = 4; // ±3px分塗る
+
+function drawAreaBounds(px,py,iw,ih,pixels){ // 実際に輪郭を赤くする。　タイルの継ぎ目が欠けるけど・・・まあ単なる目印なんで面倒だからこれで良いでしょ・・
+	for ( var iy =-markW ; iy <=markW ; ++iy ){
+		ppy = (py + iy);
+		if ( ppy < ih && ppy >= 0 ){
+			for ( var ix =-markW ; ix <=markW ; ++ix ){
+				ppx = (px + ix);
+				if ( ppx < iw  && ppx >=0 ){
+					var pp = (ppy * iw + ppx) * 4;
+					if ( pixels[pp + 3] <240 ){
+						//console.log("set px");
+						pixels[pp] = 255;
+						pixels[pp + 1] = 0;
+						pixels[pp + 2] = 0;
+						pixels[pp + 3] = 250;
+					}
+				}
+			}
+		}
+	}
+}
+
+</script>
+<body>
+<h3>DRONEBIRD Layer</h3>
+出典：<a href="https://dronebird.org/" target="_blank">DRONEBIRD</a> (<a href="https://github.com/dronebird" target="_blank">GitHub</a>)
+<div id="loader"></div>
+<canvas id="allDataMarkerCanvas" style="display:none"></canvas>
+<table id="oam_table" style="font-size:11px">
+</table>
+
+</body>
+</html>

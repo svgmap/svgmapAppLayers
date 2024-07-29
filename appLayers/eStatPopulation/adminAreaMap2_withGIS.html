@@ -1,0 +1,486 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script src="./japanMesh_r2.js"></script>
+<script src="./meshLib.js"></script>
+<script src="./indexDBpromise.js"></script>
+
+<script src="https://unpkg.com/shapefile@0.6">
+// https://github.com/mbostock/shapefile
+// https://qiita.com/frogcat/items/b3235c06d64cee01fa47
+</script>
+
+<script type="module">
+import {unzip, HTTPRangeReader} from './unzipit.module.js';
+window.unzip = unzip;
+window.HTTPRangeReader = HTTPRangeReader;
+</script>
+
+<script src="popGIS.js"></script>
+<script type="text/javascript" src="./layerLister.js"></script>
+
+<script>
+// zipアーカイブされたshapefileにランダムアクセスし可視化する
+// ランダムアクセスは地球地図と国土数値情報で使用(e-statはホストのプロトコルが非対応の模様)
+// shapefile(https://github.com/mbostock/shapefile)と、unzipit(https://github.com/greggman/unzipit)を使用
+// Copyright 2023 by Satoru Takagi All Rights Reserved.
+// Programmed by Satoru Takagi
+// License: GPL3 : https://www.gnu.org/licenses/gpl-3.0.ja.html
+
+var EStatURL="https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=B002005212020&code={ADMINCODE}&coordSys=1&format=shape&downloadType=5&datum=2000";
+
+// もしもローカルミラーを使う場合・・
+//var EStatURL="mirror/gaikuPop/data%3fdlserveyId=B002005212020&code={ADMINCODE}&coordSys=1&format=shape&downloadType=5&datum=2000";
+//var meshMirror=new URL("mirror/admMesh3/",location).href;
+
+
+// Global var
+var estatSchema;
+var GMjson;
+var viewMode = "plane"; // heatmap || plane
+
+var heatMapBottom;
+
+var mr,meshList;
+var japanMeshDbName={dbName:"estatMeshDB",tableName:"japanMeshRawData"};
+var japanGaikuDbName={dbName:"estatGaikuDB",tableName:"lgGeojson"};
+var meshDB, gaikuDB;
+
+onload=async function(){
+	var ihash = getSvgImageHash();
+	if ( ihash.complexGisLayer){
+		vectorGISlayerName =  ihash.complexGisLayer;
+	}
+	svgMap.setShowPoiProperty(customShowPoiProperty4estat, layerID);
+	estatSchema = await buildEstatSchema();
+	await initJpMesh();
+	await initGaikuDB();
+}
+
+function getSvgImageHash(){
+	var ans = {};
+	if ( svgImageProps.Path.lastIndexOf("#") >0){
+		var svgImgHash=svgImageProps.Path.substring(svgImageProps.Path.lastIndexOf("#")+1).split("&");
+		for ( var i=0 ; i < svgImgHash.length ; i++){
+			var hs = svgImgHash[i].split("=");
+			if ( hs.length==2){
+				ans[hs[0]]=hs[1];
+			}
+		}
+	}
+	return ans;
+}
+
+async function initGaikuDB(){
+	gaikuDB=getDB(japanGaikuDbName);
+	await gaikuDB.connect();
+}
+
+async function initJpMesh(){
+	meshDB=getDB(japanMeshDbName);
+	await meshDB.connect();
+	mr = stdJpMesh(meshDB);
+	console.log("onload japanMesh_r3 :mr:",mr);
+	await getDataFromStatGo();
+	addEventListener("zoomPanMap",zpmFunc);
+	zpmFunc();
+}
+
+async function getDataFromStatGo(){
+	console.log("stat.go.jpからメッシュデータCSV読み込み中:");
+	if (typeof meshMirror !="undefined" ){
+		console.log("Use Mesh Mirror:",meshMirror);
+		await mr.buildMeshData(pcf,null,meshMirror);
+	} else {
+		await mr.buildMeshData(pcf);
+	}
+	//await doCalc();
+	// meshList=await mr.doCalc(2, 3);
+}
+function pcf(ans){
+	console.log(ans);
+	document.getElementById("msg2").innerText=ans.message;
+}
+
+var currentVisibleAreas={};
+
+async function zpmFunc(){
+	console.log("called preRenderFunction of japanMeshGridController");
+//	console.log("scale :",svgImageProps.scale );
+	var geoViewBox = svgMap.getGeoViewBox();
+	
+	
+	if ( svgImageProps.scale > 10 ){
+		var ma = getMeshArray(geoViewBox,3 );
+		var lgCodesArray=[];
+		for ( var mesh of ma){
+			lgCodesArray.push(structuredClone(await mr.isLandMesh(mesh))); // クローンしないとまずかった・・・2023/10/24
+		}
+//		console.log(lgCodesArray);
+		var lgCodes = {};
+		lgCodesArray.reduce(function(acc,val){
+			//console.log(acc);
+			for ( var key in val){
+				if (!lgCodes[key]){
+					lgCodes[key]=val[key];
+				}
+			}
+		},{});
+		if ( Object.keys(lgCodes).length<9 || svgImageProps.scale > 100){
+//			msg.innerText=`${svgImageProps.scale.toFixed(2)} : ${Object.keys(lgCodes).join()} : 詳細データを表示します`;
+			msg.innerText=`Scale: ${svgImageProps.scale.toFixed(2)} : 詳細データを表示します`;
+			removeUnusedGroup(lgCodes);
+			for ( var code in lgCodes ){
+				var grp = svgImage.getElementById("vectorMapG:"+code);
+				if ( !grp ){ // 既存でないもののみロードして表示
+					//console.log("load:",code);
+					showES(code);
+				}
+			}
+			currentVisibleAreas = lgCodes;
+		} else {
+//			msg.innerText=`${svgImageProps.scale.toFixed(2)} : ${Object.keys(lgCodes).join()} : 拡大してください(タイル多)`;
+			msg.innerText=`Scale: ${svgImageProps.scale.toFixed(2)} : 拡大してください(タイル多)`;
+		}
+	} else {
+		msg.innerText=`Scale; ${svgImageProps.scale.toFixed(2)} :  拡大してください(スケール小)`;
+	}
+	showAreaList(currentVisibleAreas);
+}
+
+function removeUnusedGroup(lgCodeDict){
+	var grps = svgImage.getElementsByTagName("g");
+	for ( var i = grps.length - 1 ; i>=0 ; i--){
+		var grp=grps[i];
+		var lgCode = grp.getAttribute("id").split(":")[1];
+		if (lgCode && !lgCodeDict[lgCode]){ // 表示が不要な既存svgグループ
+			grp.parentElement.removeChild( grp );
+		} else { // 表示が必要な既存svgグループは、そのdisplay状態を更新しておく(チェックボックス反映用)
+			var display = grp.getAttribute("display");
+			if ( display=="none"){
+				lgCodeDict[lgCode].display="none";
+			} else {
+				delete lgCodeDict[lgCode]?.display;
+			}
+		}
+	}
+}
+
+function showDownloading(){
+	if ( downloading == 0){
+		msg2.innerText="";
+	} else {
+		msg2.innerText="読み込み中 : " + downloading;
+	}
+}
+
+var downloading=0;
+async function showES(adminCode){
+	var dlURL=EStatURL.replace("{ADMINCODE}",adminCode);
+	++downloading;
+	showDownloading()
+	//console.log(dlURL);
+	try{
+		var grp = svgImage.getElementById("vectorMapG:"+adminCode);
+		if ( !grp ){
+		// まずグループを用意してから、DLをはじめる(スクロール連発で重複DLするのを防ぐ)
+			grp = svgImage.createElement("g");
+			grp.setAttribute("id","vectorMapG:"+adminCode);
+			svgImage.documentElement.appendChild(grp);
+		}
+		
+		var geojson;
+		var geojsonData =await gaikuDB.get(adminCode); // IndexedDBのキャッシュを調べてあればそっちで取得
+		if ( !geojsonData){
+			var zipArchive =await unzip(svgMap.getCORSURL(dlURL));
+			console.log (zipArchive);
+			geojson = await getGeoJsonFromShapefile(zipArchive);
+			console.log(geojson);
+			gaikuDB.put({idCol:adminCode,data:geojson}); 
+		} else {
+			geojson = geojsonData.data
+			//console.log("get cached geojson:",geojson);
+		}
+		if ( viewMode=="heatmap"){
+			buildPopulationDensityHeatMap(geojson,{bottom:heatMapBottom});
+		} else {
+			buildPopulationDensityHeatMap(geojson,{clear:true});
+		}
+		
+		console.log(geojson);
+		
+		removeChildren(grp);// それでもわずかなタイミングの隙でDLしてしまった場合のために、念のため中身を消しておく
+		--downloading;
+		showGeoJson(geojson, grp);
+	} catch(e){
+		--downloading;
+		console.log(adminCode,e);
+		//var prefCode = adminCode.substring(0,2);
+		//showKSJ(prefCode);
+		//showGeoJson({type:"featureCollection",features:[]});
+	}
+	showDownloading();
+}
+
+
+function showGeoJson(geojson, mapGroup){
+	var props = getProps(geojson);
+	console.log("showGeoJson: metaDict:",props.join());
+	svgImage.documentElement.setAttribute("property",props.join());
+	//console.log(geojson,viewMode);
+	if ( viewMode=="heatmap" ){
+		svgMapGIStool.drawGeoJson(geojson,layerID,"red",2,null,"p0","title",null,mapGroup,props);
+	} else {
+		svgMapGIStool.drawGeoJson(geojson,layerID,"red",2,"orange","p0","title",null,mapGroup,props);
+	}
+	svgMap.refreshScreen();
+//	msg.innerHTML="-<br>-";
+}
+
+function getProps(geojson){
+	var ps = geojson.features[0].properties;
+	var pa=[];
+	for ( var p in ps){
+		if ( p!="fill" && p!="stroke" && p!="stroke-width"){
+			pa.push(p);
+		}
+	}
+	return pa;
+}
+
+async function getGeoJsonFromShapefile(zipArchive){
+	var shpPath,dbfPath;
+	for (var fn in zipArchive.entries){
+		if (fn.endsWith("polbnda_jpn.shp")){
+			shpPath = fn;
+		} else if (fn.endsWith("polbnda_jpn.dbf")){
+			dbfPath = fn;
+		}
+	}
+	if ( !shpPath && !dbfPath){
+		for (var fn in zipArchive.entries){
+			if (fn.endsWith("shp")){
+				shpPath = fn;
+			} else if (fn.endsWith("dbf")){
+				dbfPath = fn;
+			}
+		}
+	}
+	
+	const shpAB = await zipArchive.entries[shpPath].arrayBuffer();
+	const dbfAB = await zipArchive.entries[dbfPath].arrayBuffer();
+	console.log(shpAB,dbfAB);
+	var geojs = await shapefile.read(shpAB,dbfAB,{encoding: "shift_jis"});
+	return geojs;
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+
+function customShowPoiProperty4estat(target){
+	var admincode;
+	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(","); // debug 2013.8.27
+	var message="<table border='1' style='font-size:11px;word-break: break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse: collapse'>";
+	var titleAndLayerName = target.getAttribute("data-title") + "/" + target.getAttribute("data-layername") + "\n";
+	
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	message += "<tr><th style='width=25%'>name</th><th>value</th></tr>";
+	message += "<tr><td>title/Layer</td><td> " + titleAndLayerName + "</td></tr>";
+	for ( var i = 0 ; i < metaSchema.length ; i++ ){
+		val = getHTMLval(metaData[i]).trim();
+		if ( val!="" && val!="-"){
+			var sn = estatSchema[metaSchema[i]];
+			if ( !sn ){sn=""}else{sn=sn[2]};
+			message += `<tr><td>${metaSchema[i]} (${sn})</td><td>${val}</td></tr>`;
+			if ( metaSchema[i] =="adm_code"){
+				admincode = val;
+			} else if (metaSchema[i]=="N03_007"){
+				admincode = val;
+			}
+		}
+	}
+	message += "</table>";
+	//console.log(message);
+	
+	svgMap.showModal(message,400,600);
+}
+
+function getHTMLval( val , embedImage){
+	var ans;
+	if ( val.toLowerCase().indexOf(".png")>=0 || val.toLowerCase().indexOf(".jpg")>=0 || val.toLowerCase().indexOf(".jpeg")>=0 || val.toLowerCase().indexOf(".gif")>=0 || val.toLowerCase().indexOf(".svg")>=0 || embedImage ){
+		var cors = "";
+		var imgSrc = val;
+		if ( val.indexOf("http:")==0 ){
+			imgSrc = svgMap.getCORSURL(val);
+			cors="crossorigin='anonymous'";
+		}
+		ans =`<a target="img" href="${val}"><img style="opacity:1" src="${imgSrc}" width="100%" ${cors}/></a>`;
+	} else if ( val.indexOf("http://")==0 || val.indexOf("https://")==0 || val.toLowerCase().indexOf(".html")>=0 || val.indexOf(".htm")>=0){
+		ans =`<a target="htmlContent" href="${val}" >${val}</a>`;
+	} else {
+		ans = val;
+	}
+	return ( ans );
+}
+
+
+async function buildEstatSchema(){
+	var stxt = await(await fetch("schema.csv")).text();
+	stxt=stxt.split("\n");
+	var schema={};
+	stxt.forEach(function(value, index, array) {
+		var val = value.trim();
+		val = val.split(",");
+		var key=val[1];
+		array[index]=val;
+		schema[key]=val;
+	});
+	console.log(stxt,schema);
+	return schema;
+}
+
+function changeViewMode(event){
+	if ( pdensCk.checked ){
+		viewMode = "heatmap";
+		pdensValDiv.style.visibility="visible";
+	} else {
+		viewMode = "plane";
+		pdensValDiv.style.visibility="hidden";
+	}
+	console.log(viewMode);
+	for ( var admCode in currentVisibleAreas){
+		showES(admCode);
+	}
+}
+
+function buildPopulationDensityHeatMap(geojson,options){
+	var clearMode = false;
+	var btm= Math.log10(100); // 足切りの人数
+	var range = 2; // 何桁分の表示領域か
+	if ( options?.range){
+		range = options.range;
+	}
+	if ( options?.bottom){
+		btm= Math.log10(options.bottom);
+	}
+	if ( options?.clear){
+		clearMode = true;
+	}
+	//console.log("buildPopulationDensityHeatMap: clearMode:",clearMode);
+	for ( var feature of geojson.features){
+		if ( clearMode){
+			delete feature.properties.fill;
+//			feature.properties.fill="pink";
+			feature.properties.stroke="red";
+			feature.properties["stroke-width"]=1;
+			
+			continue;
+		}
+		var pop = feature.properties.JINKO;
+		var area = feature.properties.AREA;
+		var dens = pop/area * 1e6; // 1Km^2あたりの人口
+		var h=0;
+		if (isFinite(dens) && dens>0){
+			h = (Math.log10(dens)-btm)/range; // 2桁分表示 
+		}
+		
+		h = Math.min(Math.max(h*270,0),270);
+		h = 270 - h;
+		
+		var color=getColorStr(h);
+		//console.log(dens,h, color);
+		feature.properties.fill=color;
+	}
+}
+
+function getColorStr(h){
+	var rgb=svgMapGIStool.hsv2rgb(h,100,100);
+	var color=svgMapGIStool.getColorString(rgb.r,rgb.g,rgb.b);
+	return color;
+}
+
+function setHeatMapRange(event){
+	var range = 2;
+	//console.log(pdensBtm.value);
+	var btmP = Number(pdensBtm.value);
+	var minValue= Math.pow(10,btmP);
+	var midV = Math.pow(10,btmP+1);
+	var maxValue= Math.pow(10,btmP+2);
+	pdensRangeVal.innerHTML=`<span style="color:${getColorStr(270)}">${Math.floor(minValue)}</span> - <span style="color:${getColorStr(135)}">${Math.floor(midV)}</span> - <span style="color:${getColorStr(0)}">${Math.floor(maxValue)}</span> / Km^2`;
+	heatMapBottom = minValue;
+	if ( event && event.type=="change"){
+		changeViewMode();
+	}
+}
+
+function showAreaList(lgCodesDict){
+	var areaTbl = document.getElementById("msgTbl");
+	removeChildren(areaTbl);
+	for ( var code in lgCodesDict){
+		var aid ="lgCode"+code;
+		var lgInfo=lgCodesDict[code];
+		var aname = lgInfo.pref + lgInfo.lg;
+		var ck="checked";
+		if ( lgInfo.display=="none"){
+			ck="";
+		}
+		var trHtm=`<tr><td><input type="checkbox" id="${aid}" ${ck} onChange="changeGroupVisivility(event)" value="${code}"><label for="${aid}">${code}</label></td><td><label for="${aid}">${aname}</label></td>`;
+		areaTbl.insertAdjacentHTML("beforeend",trHtm);
+	}
+}
+
+function changeGroupVisivility(event){
+	var lgCode =  event.target.value;
+	var targetId = "vectorMapG:" + lgCode;
+	var visible = event.target.checked;
+	var grp = svgImage.getElementById(targetId);
+	console.log(targetId, grp);
+	if ( visible ){
+		grp.removeAttribute("display");
+		delete currentVisibleAreas[lgCode].display;
+	} else {
+		grp.setAttribute("display","none");
+		currentVisibleAreas[lgCode].display="none";
+	}
+	svgMap.refreshScreen();
+}
+
+</script>
+
+
+<body>
+<h4>e-statの街区境界・人口・世帯数</h4>
+<input type="checkbox" id="pdensCk" onchange="changeViewMode(event)"></input><label style="font-size:9px" for="pdensCk">人口密度ヒートマップ</label> <span id="pdensValDiv" style="font-size:7px;visibility:hidden"><input type="range" id="pdensBtm" min="0" max="5" value="3" step="0.1" oninput="setHeatMapRange(event)" onchange="setHeatMapRange(event)" ></input><span id="pdensRangeVal"></span></span>
+<ul style="font-size:9px">
+<li>出典1：詳細データ:<a href="https://www.e-stat.go.jp/gis/statmap-search?page=1&type=2&aggregateUnitForBoundary=A&toukeiCode=00200521&toukeiYear=2020&serveyId=B002005212020&coordsys=1&format=shape&datum=2000" target="_blank">e-stat 国勢調査 境界データ2020</a> (<a href="estatPolygonDownloadLink.html" target="_blank">全データURL取得</a>）
+<li>出典2：インデックスデータ:<a href="https://www.stat.go.jp/data/mesh/m_itiran.html" target="_blank">e-stat 市区町村別メッシュ・コード</a>
+</a>
+</ul>
+<div id="msg" style="color:blue;font-size:11px"><table id="msgTbl"></table></div>
+<div style="color:blue;font-size:11px"><table id="msgTbl"></table></div>
+<div id="msg2" style="color:red;font-size:11px"></div>
+<!-- <input type="button" onclick="mr.buildMeshData(pcf,true);" value="testInit"></input> -->
+
+<div id="popGISpanel" style="font-size:10px">
+	<input type="checkbox" id="popGIScheck" onchange="changePopGISpanel(event)"></input><label for="popGIScheck">人口集計機能</label>
+	<div id="popGISui" style="font-size:10px;display:none">
+		Target Layer:<select name="targetLayer0" id="targetLayer0"  ></select>
+		<input type="button" id="doIntersectionButton" value="検索" /><br>
+		<span id="csvStoreSpan">
+			<input type="button" id="showCsvBtn" value="showCsv"/>
+			<input type="button" id="saveCsvBtn" value="saveCsv"/>
+		</span>
+		<span id="computingSpan" style="display:none">Now Computing</span>
+		<div id="popGISmessageDiv" ></span>
+	</div>
+</div>
+</body>
+</html>

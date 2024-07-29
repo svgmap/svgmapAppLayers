@@ -1,0 +1,338 @@
+<!doctype html>
+<html>
+<head>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+
+
+// Description:
+// JAXA GSMaPを表示するコントローラ 
+// dynamicWebTile.svgのためのカスタムコントローラ
+// 
+// xlink:href="../dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11"
+//
+// Programmed by Satoru Takagi
+//
+//  Copyright (C) 2022-2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// 2022/07/04 1st rev
+
+//var selectedCat = "NEXRA:ss_uv10m";
+//var selectedCat = "GSMaP";
+var selectedCat = "GSMaP_NOW";
+
+var contentCats={
+GSMaP:{
+	id:"GSMaP",
+	title:"雨分布速報(準リアルタイム)",
+	legend:"https://sharaku.eorc.jaxa.jp/GSMaP/img/console_notes_rain_j.png",
+	tileBase:"https://sharaku.eorc.jaxa.jp/cgi-bin/trmm/GSMaP/tilemap/tile_rain.py?prod=rain",
+	min:0,
+	timeBase :"https://sharaku.eorc.jaxa.jp/GSMaP/js/gsmap_set_latest.js",
+	minStep: 60,
+},
+GSMaP_NOW:{
+	id:"GSMaP_NOW",
+	title:"雨分布リアルタイム",
+	legend:"https://sharaku.eorc.jaxa.jp/GSMaP_NOW/img/console_notes_rain_j.png",
+	tileBase:"https://sharaku.eorc.jaxa.jp/cgi-bin/trmm/GSMaP_NOW/tilemap/tile_rain.py?prod=rain",
+	min:true,
+	timeBase :"https://sharaku.eorc.jaxa.jp/GSMaP_NOW/js/gsmap_set_latest.js",
+	minStep: 30,
+},
+"NEXRA:ss_uv10m":{
+	id:"NEXRA:ss_uv10m",
+	title:"世界の気象リアルタイム:地表風速",
+	legend:"https://www.eorc.jaxa.jp/theme/NEXRA/images/cbar_ss_uv10m.png",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=ss_uv10m",
+	min:"def",
+	minStep: 60,
+},
+"NEXRA:ss_vap_atm":{
+	id:"NEXRA:ss_vap_atm",
+	title:"世界の気象リアルタイム:積算蒸気量",
+	legend:"https://www.eorc.jaxa.jp/theme/NEXRA/images/cbar_ss_vap_atm.png",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=ss_vap_atm",
+	min:"def",
+	minStep: 60,
+},
+"NEXRA:ss_t2m":{
+	id:"NEXRA:ss_t2m",
+	title:"世界の気象リアルタイム:地表気温",
+	legend:"https://www.eorc.jaxa.jp/theme/NEXRA/images/cbar_ss_t2m.png",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=ss_t2m",
+	min:"def",
+	minStep: 60,
+},
+"NEXRA:ss_slp":{
+	id:"NEXRA:ss_slp",
+	title:"世界の気象リアルタイム:海水面更正気圧",
+	legend:"https://www.eorc.jaxa.jp/theme/NEXRA/images/cbar_ss_slp.png",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=ss_slp",
+	min:"def",
+	minStep: 60,
+},
+"NEXRA:sa_tppn":{
+	id:"NEXRA:sa_tppn",
+	title:"世界の気象リアルタイム:時間積算降水量",
+	legend:"https://www.eorc.jaxa.jp/theme/NEXRA/images/cbar_sa_tppn.png",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=sa_tppn",
+	min:"def",
+	minStep: 60,
+},
+"NEXRA:ss_uv10m_img":{
+	id:"NEXRA:ss_uv10m_img",
+	title:"世界の気象リアルタイム:風向矢印",
+	legend:"",
+	tileBase:"https://www.eorc.jaxa.jp/cgi-bin/theme/nexra3/tile_hreso.py?max=def&min=def&prod=ss_uv10m_img",
+	min:"def",
+	minStep: 60,
+},
+"GSMaPxNEXRA":{
+	id:"GSMaPxNEXRA",
+	title:"全球降水予報",
+	legend:"https://sharaku.eorc.jaxa.jp/GSMaPxNEXRA/images/console_notes_rain_j.png",
+	tileBase:"https://sharaku.eorc.jaxa.jp/cgi-bin/trmm/GSMaPxNEXRA/tilemap/tile_rain.py?prod=LW",
+	min:false,
+	minStep: 60,
+},
+}
+
+
+onload=async function(){
+	var hashOpts=getHashOpts();
+	console.log("hashOpts:",hashOpts);
+	for ( var catId in contentCats){
+		var catTitle = contentCats[catId].title;
+		var opt = document.createElement("option");
+		opt.setAttribute("value",catId);
+		opt.innerText=catTitle;
+		if (hashOpts.cat && catId == hashOpts.cat){
+			opt.selected=true;
+		}
+		catSel.appendChild(opt);
+	}
+	catSel.addEventListener("change",changeCat);
+	timeSel.addEventListener("change",changeTime);
+	changeCat();
+}
+
+function getHashOpts(){
+	var nhash=svgImageProps.controller.split("#");
+	if ( nhash.length >1){
+		var ans ={};
+		var hashs = nhash[1].split("&");
+		for ( var hs of hashs){
+			hs = hs.split("=");
+//			console.log(hs);
+			if ( hs.length >1){
+				ans[hs[0].trim()]=hs[1].trim();
+			} else {
+				ans[hs[0].trim()]=true;
+			}
+		}
+		return ( ans );
+	} else{
+		return ( {} );
+	}
+}
+
+async function changeCat(){
+	selectedCat = catSel.options[catSel.selectedIndex].value;
+	console.log(selectedCat);
+	var latestTime = await getLatestTime(selectedCat);
+	legend.src=contentCats[selectedCat].legend;
+	titleDiv.innerText = contentCats[selectedCat].title;
+	console.log(latestTime);
+	buildTimeSel(selectedCat,latestTime);
+	changeTime()
+}
+
+function buildTimeSel(selectedCat,latestTime){
+	removeChildren(timeSel);
+	var hasForecast=false;
+	if ( ! contentCats[selectedCat].timeBase){
+		hasForecast = true;
+	}
+
+	var ct = new Date(1995, 11, 17, 3, 0, 0);
+	console.log(ct,latestTime)
+	ct.setUTCFullYear(latestTime.year);
+	ct.setUTCMonth(latestTime.month);
+	ct.setUTCDate(latestTime.day)
+	ct.setUTCHours(latestTime.hour)
+	ct.setUTCMinutes(latestTime.min)
+
+	console.log(ct);
+	
+	if ( hasForecast ){
+		for ( var f_min = 72*60 ; f_min >0 ; f_min -= contentCats[selectedCat].minStep){
+			var tt = new Date(ct.getTime()+f_min*60*1000);
+			timeSel.appendChild(getOpt(tt));
+		}
+	}
+	var currentSel = true;
+	for ( var p_min = 0 ; p_min < 7*24*60 ; p_min += contentCats[selectedCat].minStep){
+		var tt = new Date(ct.getTime()-p_min*60*1000);
+		var opt = getOpt(tt);
+		if ( currentSel ){
+			opt.selected=true;
+			currentSel = false;
+		}
+		timeSel.appendChild(opt);
+	}
+}
+
+function getOpt(dateObj){
+	var opt = document.createElement("option");
+	var ls = dateObj.toLocaleString();
+	//console.log(ls);
+	opt.innerText = ls.substring(0,ls.lastIndexOf(":"));
+	opt.value = `${dateObj.getUTCFullYear()},${dateObj.getUTCMonth()},${dateObj.getUTCDate()},${dateObj.getUTCHours()},${dateObj.getUTCMinutes()}`;
+	return(opt);
+}
+
+
+function changeTime(){
+	var td=getTargetDate();
+	year = td.year;
+	month = td.month;
+	day = td.day;
+	hour = td.hour;
+	min = td.min;
+	
+	console.log(year,month,day,hour,min);
+	if ( contentCats[selectedCat].min != true ){
+		min = contentCats[selectedCat].min;
+	}
+	var newPath = getTile(contentCats[selectedCat].tileBase,year,month,day,hour,min);
+	var zoomLimit = 11;
+	
+	// console.log( newPath);
+	
+	svgImageProps.script.setServerParams(newPath,zoomLimit,3);
+	console.log(svgImageProps.script.getServerParams());
+	svgMap.refreshScreen();
+}
+
+function getTargetDate(){
+	var tt = timeSel.options[timeSel.selectedIndex].value;
+	tt = tt.split(",");
+	return{
+		year:Number(tt[0]),
+		month:Number(tt[1]),
+		day:Number(tt[2]),
+		hour:Number(tt[3]),
+		min:Number(tt[4]),
+	}
+}
+
+async function getLatestTime(selectedCat){
+	var ans;
+	if ( contentCats[selectedCat].timeBase ){
+		var txt = await getText(`${contentCats[selectedCat].timeBase}?t=${new Date().getTime()}`);
+		ans=parseLatest(txt);
+		if ( !ans.year){
+			ans = getCurrent();
+		}
+	} else {
+		ans = getCurrent();
+	}
+	return ( ans );
+}
+
+function parseLatest(txt){
+	var ansObj ={};
+	txt = txt.replaceAll(";","\n");
+	txt = txt.split("\n");
+	for ( var line of txt){
+		line = line.trim();
+		if ( line==""){
+			continue;
+		} else {
+			line = line.replaceAll("var","");
+			line = line.replaceAll(" ","");
+			line = line.split("=");
+			if ( line.length == 2 && line[1].match(/^[0-9]+$/)){
+				ansObj[line[0]]=line[1];
+			}
+		}
+	}
+	console.log(ansObj);
+	return {
+		year:Number(ansObj.ltYer),
+		month:Number(ansObj.ltMon)-1,
+		day:Number(ansObj.ltDay),
+		hour:Number(ansObj.ltHour),
+		min:Number(ansObj.ltMin)
+	}
+}
+
+function getCurrent(){
+	var ct = new Date();
+	return {
+		year:ct.getUTCFullYear(),
+		month:ct.getUTCMonth(),
+		day:ct.getUTCDate(),
+		hour:ct.getUTCHours(),
+//		min:ct.getUTCMinutes(),
+		min:0,
+	}
+}
+
+
+function getTile(tileBase,year,month,day,hour,min){
+	var mins = "";
+	if (min===false){
+		console.log("min===false");
+	} else {
+		console.log("min!=false");
+		mins =`&min=${min}`;
+	}
+	console.log(year,month,day,hour,min,mins);
+	return (`${tileBase}&year=${year}&month=${month+1}&day=${day}&hour=${hour}${mins}&z=[[zoom]]&x=[[tx]]&y=[[invty]]`);
+}
+
+async function getText(url){
+	var response = await fetch(svgMap.getCORSURL(url));
+	var rtext = await response.text();
+	/**
+	const parser = new DOMParser();
+	var xml= parser.parseFromString(rtext, "application/xml");
+	const errorNode = xml.querySelector('parsererror');
+	**/
+	return ( rtext);
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+	  ele.removeChild( ele.firstChild );
+	}
+}
+</script>
+<body>
+<h4>JAXA GSMaPレイヤー</h4>
+<div>出典：<a href="https://sharaku.eorc.jaxa.jp/GSMaP/index_j.htm" target="_blanl">JAXA 衛星全球降水マップ(GSMaP)</a></div>
+<div><select id="catSel"></select></div>
+<div><select id="timeSel"></select></div>
+
+<div id="titleDiv"></div>
+<div ><img id="legend" width="350"></img></div>
+<div id="message"></div>
+</body>
+</html>

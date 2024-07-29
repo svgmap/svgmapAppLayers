@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="K_NET.html#exec=appearOnLayerLoad&amp;requiredWidth=450&amp;requiredHeight=320" property="マグニチュード,深さ[Km],震度,加速度[gal]">
+
+<defs>
+<g id="p0">
+	<rect x="-3" y="-3" width="6" height="6" stroke="#505050" stroke-width="0.7"/>
+</g>
+<g id="centerMark">
+	<circle cx="0" cy="0" r="10" fill="red" stroke="#502020" stroke-width="2"/>
+	<!--<image xlink:href="Typhoon_icon.png" preserveAspectRatio="none" x="-8" y="-16" width="16" height="32"/>-->
+</g>
+
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1.0,0.0,0.0,-1.0,0.0,0.0)" />
+
+<g id="points"></g>
+<g id="center"></g>
+</svg>

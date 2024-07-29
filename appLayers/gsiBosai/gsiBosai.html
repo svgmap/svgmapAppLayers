@@ -1,0 +1,283 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
+<script type="module">
+import {unzip, HTTPRangeReader} from './unzipit.module.js';
+window.unzip = unzip;
+window.HTTPRangeReader = HTTPRangeReader;
+</script>
+
+<script>
+// Description:
+// 地理院の防災・災害対応ページ下にある情報表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+var pxy = "ProxieForNonSvgMapEnv";
+var rootPage="https://www.gsi.go.jp/bousai.html";
+
+
+var rootIndex;
+
+onload=async function(){
+	if ( typeof(svgMap)=="undefined"){
+		window.svgMap={
+			getCORSURL:function(url){
+				return (pxy+url);
+			}
+		}
+	}
+	rootIndex = await getRootIndex();
+	var ps=[];
+	for ( idx of rootIndex){
+		ps.push(addMapLinks(idx));
+	}
+	await Promise.all(ps);
+	console.log(rootIndex);
+	showIndexTable(rootIndex);
+}
+
+//var styleProps={"_fillColor":"fill","_fillOpacity":"none","_color":"stroke","_opacity":"none","_weight":"none"};
+var styleProps={"_fillColor":"fill","_fillOpacity":"opacity","_color":"stroke","_opacity":"none","_weight":"none"};
+	
+function showGeoJsons(gjss){
+	var props={"subLayerName":true};
+	var ipoi;
+	for ( var gji of gjss){
+		var subLayerName = gji.name.split("/");
+		subLayerName = subLayerName[subLayerName.length-1];
+		subLayerName = subLayerName.split(".");
+		subLayerName = subLayerName[0];
+		var json = gji.data;
+		if (json.name){
+			subLayerName = json.name;
+		}
+		for ( var ft of json.features){
+			if (!ipoi ){
+				ipoi = getCrd(ft.geometry.coordinates);
+			}
+			var properties = ft.properties;
+			for (var propName in properties){
+				var spn=styleProps[propName];
+				if (spn){
+					if ( spn=="none"){
+					} else {
+						properties[spn]=properties[propName];
+					}
+					delete properties[propName];
+				} else {
+					props[propName]=true;
+				}
+			}
+			properties.subLayerName= subLayerName;
+			if ( properties.stroke){
+				properties["stroke-width"]= 2;
+			}
+			if ( properties.opacity==0){
+				properties.fill="none";
+			}
+			//console.log("opacity:",properties.opacity, properties.fill);
+		}
+		console.log(json);
+	}
+	console.log("ipoi:",ipoi);
+	if ( typeof svgMapGIStool == "object"){
+		svgImage.documentElement.setAttribute("property",Object.keys(props).join(","));
+		var grp=svgImage.getElementById("vectorMapG");
+		removeChildren(grp);
+		for ( var gji of gjss){
+			if ( typeof svgMapGIStool == "object"){
+				svgMapGIStool.drawGeoJson(gji.data,layerID,"red",2,null,"p0","title",null,grp,Object.keys(props));
+			}
+		}
+		setIndexPoi(ipoi);
+		svgMap.refreshScreen();
+	}
+}
+
+function getCrd(crd){
+	var scrd = crd;
+	console.log(scrd);
+	while(typeof(scrd[0])!="number"){
+		scrd = scrd[0];
+	}
+	return ( scrd );
+}
+
+function setIndexPoi(ipoi){
+	var iuse = svgImage.getElementById("indexPoi");
+	iuse.setAttribute("transform",`ref(svg,${ipoi[0]*100},${-ipoi[1]*100})`);
+}
+
+async function selectDat(event){
+	var turl = event.target.value;
+	console.log(turl);
+	var zipArchive =await initReader(svgMap.getCORSURL(turl));
+	console.log(zipArchive);
+	var jsons = await getGeoJsonFromShapefile(zipArchive);
+	console.log(jsons);
+	showGeoJsons(jsons)
+}
+
+async function getGeoJsonFromShapefile(zipArchive){
+	var jsons=[];
+	for (var fn in zipArchive.entries){
+		if (fn.toLowerCase().endsWith(".json") || fn.toLowerCase().endsWith(".geojson") ){
+			var fname = convertToCharset(zipArchive.entries[fn].nameBytes);
+			var json = await zipArchive.entries[fn].json();
+			jsons.push({name:fname,data:json});
+		}
+	}
+	
+	return jsons;
+}
+
+
+async function initReader(zipFilePath){
+	const reader = new HTTPRangeReader(zipFilePath);
+	var zipArchive = await unzip(reader);
+	return zipArchive;
+}
+
+
+
+function showIndexTable(rootIndex){
+	var htm;
+	var idx=0;
+	for ( var cat0 of rootIndex){ // 個別災害ページ
+		htm= `<tr><td colspan=2><b>${cat0.title}</b>(<a href="${cat0.url}" target="_blank">オリジナルページ</a>)</td></tr>`;
+		indexTable.insertAdjacentHTML("beforeend",htm);
+		//console.log(cat0);
+		if (!cat0.contents){continue}
+		for ( var cat2 of cat0.contents){ // 個別情報
+			htm= `<tr><td><input name="dseln" type="radio" value="${cat2.url}" id="dat_${idx}" onchange="selectDat(event)"></input></td><td><label for="dat_${idx}">${cat2.title.replace("ファイルのダウンロード","").replace("ダウンロード","")}</label> (<a href="${cat2.url}" target="_blank">ダウンロード</a>)</td></tr>`;
+			indexTable.insertAdjacentHTML("beforeend",htm);
+			++idx;
+		}
+	}
+}
+
+async function addMapLinks(idx){
+	//console.log("addMapLinks",idx);
+	var ans =[];
+	var htext = await (await fetch(svgMap.getCORSURL(idx.url))).text();
+	var dom = new DOMParser().parseFromString(htext, "text/html");
+	var targetLinks= dom.querySelectorAll("a");
+	//console.log(targetDivs);
+	for ( var clink of targetLinks){
+		var title1 = clink.innerText;
+		var turl = clink.getAttribute("href");
+		turl=new URL(turl,rootPage).href;
+		if ( turl.toLowerCase().indexOf("geojson")>0 && turl.toLowerCase().indexOf(".zip")>0){
+			hasContent=true;
+			ans.push({title:title1,url:turl});
+		} else if ( title1.toLowerCase().indexOf("geojson")>=0 &&  turl.toLowerCase().indexOf(".zip")>0){
+			// console.log("GISデータ?", turl,title1);
+			hasContent=true;
+			ans.push({title:title1,url:turl});
+		}
+		//console.log(cat);
+	}
+	if ( ans.length>0){
+		idx.contents=ans;
+	}
+}
+
+async function addMapLinksX(idx){
+	//console.log("addMapLinks",idx);
+	var ans =[];
+	var htext = await (await fetch(svgMap.getCORSURL(idx.url))).text();
+	var dom = new DOMParser().parseFromString(htext, "text/html");
+	var targetDivs= dom.querySelectorAll(".base_txt");
+	//console.log(targetDivs);
+	for ( var tdiv of targetDivs){
+		var title0 = tdiv.innerText;
+		var links = tdiv.querySelectorAll("a");
+		var cat={title:title0,contents:[]};
+		var hasContent=false;
+		for ( var clink of links){
+			var title1 = clink.innerText;
+			var turl = clink.getAttribute("href");
+			turl=new URL(turl,rootPage).href;
+			if ( turl.indexOf("geojson")>0 && turl.indexOf(".zip")>0){
+				hasContent=true;
+				cat.contents.push({title:title1,url:turl});
+			}
+			//console.log(cat);
+		}
+		if ( hasContent){
+			ans.push(cat);
+		}
+	}
+	if ( ans.length>0){
+		idx.contents=ans;
+	}
+}
+
+async function getRootIndex(){
+	var ans =[];
+	var htext = await (await fetch(svgMap.getCORSURL(rootPage))).text();
+	var dom = new DOMParser().parseFromString(htext, "text/html");
+	var targetDiv = dom.querySelectorAll(".scrollBox")[0];
+	targetLinks=targetDiv.querySelectorAll("a");
+	//console.log(targetLinks);
+	for ( var an of targetLinks){
+		var turl = an.getAttribute("href");
+		turl=new URL(turl,rootPage).href;
+		ans.push({
+			url:turl,
+			title:an.innerText
+		});
+	}
+	return ans;
+}
+
+function convertToCharset(sjisArray  ){ // charsetStr: sjis
+	var dc = Encoding.detect(sjisArray );
+	//console.log(sjisArray,dc);
+	var unicodeArray = Encoding.convert(sjisArray, {
+		to: 'UNICODE',
+		from:dc
+	});
+	var str = Encoding.codeToString(unicodeArray);
+        return ( str );
+}
+
+const sleep = msec => new Promise(resolve => setTimeout(resolve, msec));
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+
+
+</script>
+<body>
+<h3>地理院防災・災害情報</h3>
+<div  style="font-size:11px">出典：<a href="https://www.gsi.go.jp/bousai.html" target="_blank">国土地理院　防災・災害対応 ページ</a>
+<table style="font-size:11px"  border=1 id="indexTable"></table>
+<div id="msgDiv"></div>
+</body>
+</html>

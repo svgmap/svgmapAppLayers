@@ -1,0 +1,572 @@
+<html>
+<!-- 以下をもとに生成したライブラリ -->
+<!-- https://gist.github.com/satakagi/436838ae91522eecd333441bced06ff1 -->
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js"></script>
+<script src="./mbvt.js"></script>
+<script>
+// 
+// Description:
+// WebApp layer for SVGMap.js to draw experimental GSI map data in mapbox vector tile data format.
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2021- by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+// History:
+//  2021/03/01 mapboxのバイナリデータ形式の読み込み方法が判明
+//  2021/04/01 スタイリングは全くやっていませんが、基本的なレンダリングを実装(ビューボックス(ズームレベル・表示領域)に応じた等分割タイルピラミッドの差分取得と描画)
+
+// TBD:
+//  注記を含むスタイリング～　たいへんそうなのでやるかどうかは必要に応じてになりますが・・
+//  (almost done) https://github.com/gsi-cyberjapan/gsimaps-vector-experiment の　地物コード及び表示ズームレベル一覧　を用いた（数字ではないフィルタリング機能）
+
+var dataspecFiles=["dataspecN_11-13.csv","dataspecN_17.csv","dataspecN_8-10.csv","dataspec_14-16.csv","dataspec_4-7.csv","dataspecN_14-16.csv","dataspecN_4-7.csv","dataspec_11-13.csv","dataspec_17.csv","dataspec_8-10.csv"];
+var noNoteSpec = true;
+var dataSpecs=[];
+var currentLevel;
+var defaultLevelOffset = 6;
+var levelOffsetTrim = 0;
+//var filterObj={layers:null,ftCodes:{8103:true}}; // 発電所フィルタ
+var filterObj={layers:null,ftCodes:null, enabled:false};
+
+onload=function(){
+	setTimeout(zoomPanMapFunction,20);
+	loadDatSpecs();
+}
+
+addEventListener("zoomPanMap",zoomPanMapFunction);
+
+var prevLevel = -1;
+async function zoomPanMapFunction(){
+//	console.log("called gsivm zoomPanMapFunction:",window,svgImage,svgImageProps,svgMap.getGeoViewBox());
+	console.log("ZPM: levelOffsetTrim:",levelOffsetTrim,"  filterEnabled:",filterObj.enabled);
+	var levelOffset = defaultLevelOffset + levelOffsetTrim;
+	var level = Math.floor( Math.LOG2E * Math.log(svgImageProps.scale) + levelOffset);
+	if ( level < 4 ){
+		level = 4;
+	} else if ( level > 16 ){
+		level = 16;
+	}
+	currentLevel = level;
+	if ( currentLevel != prevLevel){
+		console.log("buildDataSpecUI : ", currentLevel , prevLevel);
+		buildDataSpecUI();
+	}
+	prevLevel = currentLevel;
+//	console.log("called gsivm zoomPanMapFunction: level:",level);
+	var tileSet = getTileSet( svgMap.getGeoViewBox() , level );
+	console.log("called gsivm zoomPanMapFunction: tileSet:",tileSet);
+	
+	var areaParentElm = svgImage.getElementById("areas");
+	
+	var currentTiles =  areaParentElm.getElementsByTagName("g");
+	
+	for ( var i = currentTiles.length - 1 ; i >= 0 ; i-- ){
+		var oneTile = currentTiles[i];
+		var qkey = oneTile.getAttribute("data-metadata");
+		if ( tileSet[qkey] ){
+			// console.log("exist, skip:",qkey);
+			tileSet[qkey].exist = true;
+		} else {
+			console.log("Not exist, remove:",qkey);
+			oneTile.parentNode.removeChild(oneTile);
+		}
+	}
+	
+//	removeChildren(areaParentElm);
+	
+	for ( var tkey in tileSet ){
+		if ( ! tileSet[tkey].exist ){
+			console.log("Load new tile:",tkey);
+			var tx = tileSet[tkey].x;
+			var ty = tileSet[tkey].y;
+			var tz = level;
+			//console.log(tx,ty,tz);
+			var tileContElement = svgImage.createElement("g");
+			tileContElement.setAttribute("data-metadata", tkey);
+			areaParentElm.appendChild(tileContElement);
+			//var geoData = await getPbf(tx,ty,tz);
+			//drawGeoData(geoData, {x:tx,y:ty,z:tz}, tileContElement);
+			drawPbfTile(tx,ty,tz,tileContElement);
+		} else {
+			console.log("Already exist:",tkey);
+		}
+	}
+}
+
+async function drawPbfTile(tx,ty,tz,tileContElement){
+	var geoData = await getPbf(tx,ty,tz);
+	drawGeoData(geoData, {x:tx,y:ty,z:tz}, tileContElement);
+}
+
+async function getPbf(tx,ty,tz){
+//	console.log("caled getPbf");
+	var url =`https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/${tz}/${tx}/${ty}.pbf`; // z,x,y
+//	console.log("url:",url);
+	let response = await fetch(url);
+	if (response.ok) {
+		var bufferRes = await response.arrayBuffer();
+		var pbf = new Pbf(new Uint8Array(bufferRes));
+		var obj = new VectorTile(pbf);
+		return obj;
+	} else {
+		console.error("error:", response.status);
+	}
+};
+
+function doFtCodeFilter(gjs){
+	if ( !gjs){
+		return ( null );
+	}
+	if ( filterObj.ftCodes[gjs.properties.ftCode]){
+		//console.log("found:",gjs);
+		return gjs;
+	}else {
+		return null;
+	}
+}
+
+var ftCodesDict = {level:-1,codes:{}};
+
+function drawGeoData(geoData,xyz, tileContElement){
+	for ( var key in geoData.layers ){
+		var layer = geoData.layers[key];
+		if ( filterObj.layers ){
+			if (!filterObj.layers[key]){
+				continue;
+			}
+		}
+		if ( ftCodesDict.level != xyz.z ){ftCodesDict.level=xyz.z;ftCodesDict.codes={}}
+		var fc = layer.length
+		//console.log("layer:",layer," key:",key,"  length:",fc);
+		for ( var i = 0 ; i < fc ; i++ ){
+			var geojson = layer.feature(i).toGeoJSON(xyz.x,xyz.y,xyz.z); // geoGeojson(x,y,z)の数値はタイルのxyzのことです
+			var color="green";
+			var poiId = "p0";
+			ftCodesDict.codes[geojson.properties.ftCode]=true;
+			if ( filterObj.enabled ){
+				geojson = doFtCodeFilter(geojson);
+				if ( !geojson){continue};
+				color="red";
+				poiId = "p1";
+			}
+			//console.log(key," geojson:",i,":",geojson);
+			svgMapGIStool.drawGeoJson(geojson,layerID,color,1,color, poiId, "poi", "", tileContElement);
+		}
+	}
+	console.log("load Completed:",xyz);
+	ftCodesDiv.innerText="Level:"+ftCodesDict.level+"; ftCodes:"+getFtCodesCsv(ftCodesDict.codes);
+	svgMap.refreshScreen();
+}
+
+function getFtCodesCsv(fcs){
+	var ans ;
+	var firstItem = true;
+	for ( var fc in fcs ){
+		if ( firstItem ){
+			firstItem = false;
+			ans = fc;
+		} else {
+			ans += ","+fc;
+		}
+	}
+	return ans;
+}
+
+
+
+
+
+// メルカトルタイルのURLを取得する関数群
+function getTileSet( geoViewBox , level ){
+	var TileSet = new Object();
+	if ( geoViewBox.y + geoViewBox.height > 85.05113 ){
+		geoViewBox.height = 85.05113 -  geoViewBox.y;
+	}
+	
+	if ( geoViewBox.y < -85.05113 ){
+		geoViewBox.y = -85.05113;
+	}
+	
+	// 指定エリアの、tileのXYとそのHashKeyを返却する
+	var tlxy = latLng2XY( geoViewBox.y + geoViewBox.height , geoViewBox.x , level );
+	var tileTLxy = XY2TileXY( tlxy );
+	var brxy = latLng2XY( geoViewBox.y , geoViewBox.x + geoViewBox.width, level );
+	var tileBRxy = XY2TileXY( brxy );
+	
+	for ( var i = tileTLxy.y ; i <= tileBRxy.y ; i++ ){
+		for ( var j = tileTLxy.x ; j <= tileBRxy.x  ; j++ ){
+			var qkey = getKey( j, i, level);
+			TileSet[qkey] = new Object();
+			TileSet[qkey].x = j;
+			TileSet[qkey].y = i;
+//				console.log( j , i , qkey );
+		}
+	}
+	return ( TileSet );
+}
+
+function latLng2XY( lat , lng , lvl ){
+	var size = lvl2Res(lvl);
+//		console.log("size:" + size);
+	var sinLat = Math.sin(lat * Math.PI / 180.0);
+	var pixelX = (( lng + 180.0 ) / 360.0 ) * size;
+	var pixelY = (0.5 - Math.log((1 + sinLat) / (1.0 - sinLat)) / (4 * Math.PI)) * size;
+	return {
+		x : pixelX ,
+		y : pixelY
+	}
+}
+
+function XY2TileXY( xy ){
+	var tileX = Math.floor(xy.x / tilePix);
+	var tileY = Math.floor(xy.y / tilePix);
+	return {
+		x : tileX ,
+		y : tileY
+	}
+}
+
+var tilePix = 256;
+function lvl2Res( lvl ){
+	var j = 1;
+	for(var i = 0 ; i < lvl ; i++){
+		j = j * 2;
+	}
+	return ( j * tilePix );
+}
+
+function XY2latLng( px , py , lvl ){
+	var size = lvl2Res(lvl);
+	var x = ( px / size ) - 0.5;
+	var y = 0.5 - ( py / size);
+	var lat = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
+	var lng = 360 * x;
+	return{
+		lat : lat ,
+		lng : lng
+	}
+}
+
+function getKey(tx , ty , lvl){
+	return ( tx + "_" + ty + "_" + lvl );
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function changeFilter(){
+	var fval = document.getElementById("ftCodeFilter").value;
+	var fn ={};
+	if ( fval!=""){
+		fval = fval.split(",");
+		for ( var fv of fval){
+			if ( !isNaN(fv)){
+				fn[Number(fv)]=true;
+			}
+		}
+	}
+	if ( Object.keys(fn).length > 0 ){
+		filterObj.enabled = true;
+		levelOffsetTrim = 1; //フィルター掛けたときは level+2（16倍たくさん）表示する
+		filterObj.ftCodes = fn;
+	} else {
+		filterObj.enabled  = false;
+		levelOffsetTrim = 0;
+		filterObj.ftCodes = null;
+	}
+	console.log("filterObj.enabled:",filterObj.enabled,"  filterObj.ftCodes:",filterObj.ftCodes);
+	reloadData();
+}
+
+function reloadData(){
+	var areaParentElm = svgImage.getElementById("areas");
+	
+	var currentTiles =  areaParentElm.getElementsByTagName("g");
+	for ( var i = currentTiles.length - 1 ; i >= 0 ; i-- ){
+		var oneTile = currentTiles[i];
+		oneTile.parentNode.removeChild(oneTile);
+	}
+	zoomPanMapFunction();
+}
+
+async function loadDatSpecs(){
+	var ps=[];
+	for ( var file of dataspecFiles){
+		if ( noNoteSpec && file.indexOf("dataspecN_")>=0){
+			continue;
+		}
+		ps.push( fetch("dataspecs/"+file));
+	}
+	var resps = await Promise.all(ps);
+	for ( var resp of resps){
+		dataSpecs.push( parseDataSpecCsv(await(resp.text())) );
+	}
+	console.log("DatSpecs:",dataSpecs);
+	buildDataSpecUI();
+}
+
+function parseDataSpecCsv(txt,isNote){
+	var schema =[];
+	var resp = [];
+	var lv=[];
+	txt = txt.split("\n");
+	for ( var i=0 ; i < txt.length ; i++){ 
+		txt[i]=txt[i].trim();
+		var mdata=[];
+		if ( i==0){
+			var lvs=txt[i].match(/(\d+)[^\d+](\d*)/);
+			lv.push(Number(lvs[1]));
+			if ( lvs[2]){
+				lv.push(Number(lvs[2]));
+			} else {
+				lv.push(Number(lvs[1]));
+			}
+		} else {
+			var line = txt[i].split(",");
+			if (line.length<2){continue}
+			for ( var j = 0 ; j < line.length ; j++){
+				var col = line[j].trim();
+				if ( i==1){
+					schema.push(col);
+				} else {
+					mdata.push(col);
+				}
+			}
+		}
+		if ( i>1){
+			if ( mdata.length == schema.length){
+				resp.push(mdata);
+			} else {
+				console.warn("mdata.length != schema.length");
+			}
+		}
+	}
+	//console.log(lv,schema,resp);
+	return [lv,schema,resp];
+}
+
+function buildDataSpecUI(){
+	// dataSpecsを使って、currentLevelに応じた、dataSpecのtableを dataSpecUIにつくる
+	var dsUI=document.getElementById("dataSpecUI");
+	removeChildren(dsUI);
+	for ( var ds of dataSpecs){
+		if ( ds[0][0]<=currentLevel && currentLevel<=ds[0][1]){
+			if ( SummarizeByCategoryFlag ){
+				buildDataSpecCatTable(ds[1],ds[2],dsUI);
+			} else {
+				buildDataSpecTable(ds[1],ds[2],dsUI);
+			}
+		}
+	}
+	
+}
+
+var SummarizeByCategoryFlag = true;
+function setDataSpecUI(SummarizeByCategory){
+	if ( SummarizeByCategory ){
+		SummarizeByCategoryFlag = true;
+	} else {
+		SummarizeByCategoryFlag = false;
+	}
+	buildDataSpecUI();
+}
+
+function buildDataSpecTable(schema,data,dsUI){
+	function buildTr(row,isTh, inputValue){
+		var ans = "";
+		var sp ="td";
+		if (isTh){
+			ans = `<th><input value="▲" type="button" onclick="setDataSpecUI(true)" ></input></th>`;
+			sp="th";
+		} else {
+			ans = `<td><input onclick="setFeatureFilter(event)"  type="checkbox" value="${inputValue}"></input></td>`;
+		}
+		for ( var col of row){
+			ans+=`<${sp}>${col}</${sp}>`;
+		}
+		return `<tr>${ans}</tr>`;
+	}
+	var ftCodeCols=getFtCodeCols(schema);
+	
+	dsUI.insertAdjacentHTML("beforeend",buildTr(schema,true));
+	for ( var row of data){
+		var featureCode="";
+		for ( var colIdx of ftCodeCols){
+			featureCode +=row[colIdx];
+		}
+		console.log("featureCode:",featureCode);
+		dsUI.insertAdjacentHTML("beforeend",buildTr(row,false,featureCode));
+		
+	}
+}
+
+function buildDataSpecCatTable(schema,data,dsUI){
+	var catIndex;
+	function buildTr(row,isTh,rt, inputValue){
+		var ans = "";
+		var sp ="td";
+		if (isTh){
+			ans = `<th><input value="▼" type="button" onclick="setDataSpecUI(false)" ></input></th>`;
+			sp="th"
+		} else {
+			ans = `<td><input onclick="setFeatureFilter(event)" type="checkbox" value="${inputValue}"></input></td>`;
+		}
+		var idx = 0;
+		for ( var col of row){
+			if ( isTh){
+				if (col=="カテゴリ"){
+					catIndex = idx;
+				}
+			}
+//			if ( idx != catIndex){continue}
+			if ( rt ){
+				ans+=`<${sp}><span title=${rt[idx]}>${col}</span></${sp}>`;
+			} else {
+				ans+=`<${sp}>${col}</${sp}>`;
+			}
+			++idx;
+		}
+		return `<tr>${ans}</tr>`;
+	}
+	dsUI.insertAdjacentHTML("beforeend",buildTr(schema,true));
+	
+	var ftCodeCols=getFtCodeCols(schema);
+	
+	var cats ={};
+	var catFeatureCodes={};
+	for ( var row of data){
+		var catName = row[catIndex];
+		if( cats[catName]){
+			for ( var i = 0 ; i < row.length ; i++ ){
+				cats[catName][i].push(row[i]);
+			}
+		}else{
+			cats[catName]=[];
+			catFeatureCodes[catName]=[];
+			for ( var i = 0 ; i < row.length ; i++ ){
+				cats[catName][i]=[row[i]];
+			}
+		}
+		var featureCode="";
+		for ( var colIdx of ftCodeCols){
+			featureCode +=row[colIdx];
+		}
+		//console.log("featureCode:",featureCode);
+		catFeatureCodes[catName].push(featureCode);
+	}
+	//console.log("cats:",cats, " catFeatureCodes:",catFeatureCodes);
+	for ( var catName in cats){
+		var row = [];
+		var rowTitle = [];
+		for ( var col of cats[catName]){
+			var ans = superSubcompare(col, true);
+			//console.log(ans, col ,col.join(","));
+			row.push(ans);
+			rowTitle.push(col.join(","));
+		}
+		var inputValue = catFeatureCodes[catName].join(",");
+		dsUI.insertAdjacentHTML("beforeend",buildTr(row,false,rowTitle,inputValue));
+	}
+}
+
+function getFtCodeCols(schema){
+	var ans =[];
+	for ( var i = 0 ; i < schema.length ; i++ ){
+		if ( schema[i]==("ftCodeH")){
+			ans[0]=i;
+		} else if ( schema[i]==("ftCodeL")){
+			ans[1]=i;
+		} else if ( schema[i]==("ftCode")){
+			ans=[i];
+		}
+	}
+	return(ans);
+}
+
+function superSubcompare(names, wildCardStr){
+	var ans ="";
+	var scans;
+	var cmp = names[0];
+	for ( var i = 1 ; i < names.length; i++){
+		//console.log(cmp,names[i]);
+		scans = subCompare(cmp, names[i]);
+		if ( scans.found==0){cmp=""; break;}
+		cmp = scans.substring;
+	}
+	if (wildCardStr ){
+		if ( cmp == names[0]){
+		} else {
+			cmp = "*"+cmp+"*";
+		}
+	}
+//	console.log("superSubcompare:",cmp);
+	return ( cmp );
+}
+
+// https://stackoverflow.com/questions/13006556/check-if-two-strings-share-a-common-substring-in-javascript
+function subCompare (needle, haystack, min_substring_length) {
+	// Min substring length is optional, if not given or is 0 default to 1:
+	min_substring_length = min_substring_length || 1;
+
+	// Search possible substrings from largest to smallest:
+	for (var i=needle.length; i>=min_substring_length; i--) {
+		for (j=0; j <= (needle.length - i); j++) {
+			var substring = needle.substr(j,i);
+			var k = haystack.indexOf(substring);
+			if (k != -1) {
+				return {
+					found : 1,
+				substring : substring,
+				needleIndex : j,
+				haystackIndex : k
+				}
+			}
+		}
+	}
+	return {
+		found : 0
+	}
+}
+
+function setFeatureFilter(event){
+	var dsUI=document.getElementById("dataSpecUI");
+	var fInputs = dsUI.getElementsByTagName("input");
+	var fCodes = [];
+	for ( var fi of fInputs){
+		if ( fi.checked ){
+			fCodes.push(fi.value);
+		}
+	}
+	var fcstr = fCodes.join(",");
+	console.log("fCodes:",fcstr);
+	ftCodeFilter.value=fcstr;
+}
+
+</script>
+<body>
+<h4>GSI's <a href="https://github.com/gsi-cyberjapan/gsimaps-vector-experiment" target="_blank">vector tile experiment.</a></h4>
+<ul style="font-size:10px" >
+<li>Currently no styling
+<li><a href="https://gist.github.com/satakagi/436838ae91522eecd333441bced06ff1" target="_blank">How to load mapbox's vector map tile pbf format data as geoJSON.</a>
+<li><a href="https://maps.gsi.go.jp/help/pdf/vector/dataspec.pdf" target="_blanl">about ftCode</a>
+</ul>
+<input style="width:200px" type="text" id="ftCodeFilter"></input><input type="button" onClick="changeFilter()" value="set ftCode filter in CSV"></input><br>
+<textarea style="font-size:10px" cols="60" rows="5" id="ftCodesDiv" disabled></textarea>
+<table id="dataSpecUI" border="1" style="border:0.5px;font-size:10px"></div>
+</html>

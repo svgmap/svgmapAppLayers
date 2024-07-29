@@ -1,0 +1,533 @@
+<!doctype html>
+<html>
+<head>
+<title>Layer Specific UI for K-NET SVGMap Layer</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<style>
+#loader{
+    margin:auto;
+    width:30px;
+    height:30px;
+    border-radius:30px;
+    border:8px solid #17cddd;
+    border-right-color:transparent;
+    animation:spin 1s infinite linear;
+}
+#loader{
+    animation:spin 1s infinite linear;
+}
+@keyframes spin{
+    0%{transform:rotate(0deg); opacity:0.4;}
+    50%{transform:rotate(180deg); opacity:1;}
+    100%{transform:rotate(360deg); opacity:0.4;}
+    
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+
+// Description:
+// 防災科研 K_NETデータレイヤ
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+// History:
+// 2021/11/22 Programmed by Satoru Takagi
+
+
+onload=function(){
+	initEqYMsel();
+	init();
+}
+
+
+var instantEqCount = 6;
+var debug=false;
+var eqColors= [ // 未満の値
+	{intensity:0.5,colorArray:[221, 221, 221]},
+	{intensity:1,  colorArray:[158, 189, 221]},
+	{intensity:2,  colorArray:[61, 121, 181]},
+	{intensity:3,  colorArray:[50, 200, 180]},
+	{intensity:4,  colorArray:[30, 220, 80]},
+	{intensity:5,  colorArray:[155, 255, 92]},
+	{intensity:5.5,colorArray:[255, 255, 0]},
+	{intensity:6,  colorArray:[255, 176, 71]},
+	{intensity:6.5,colorArray:[255, 80, 120]},
+	{intensity:7,  colorArray:[150, 0, 60]},
+];
+
+var proxyPath = "https://www.kyoshin.bosai.go.jp/cgi-bin/kyoshin/";
+
+function makeColor(){
+	for ( var c of eqColors){
+		c.color="#"+pad(c.colorArray[0].toString(16))+pad(c.colorArray[1].toString(16))+pad(c.colorArray[2].toString(16));
+	}
+}
+
+
+var eqListCache;
+async function init(updateInstant,year,month){
+	// updateInstant: 最新のデータだけを取得する(year,monthは無視)
+	// year,month：指定した年月とその１月前のデータを取得する(updateInstantはnull|false)
+	// すべてのオプションを無しにすると、最新のデータと今月と前月のデータを取る
+	
+	eqListSelDiv.style.display="none";
+	loaderDiv.style.display="";
+	makeColor();
+	
+	var eqList;
+	if ( updateInstant){
+		year=undefined;
+		month=undefined;
+	}
+	if ( updateInstant && eqListCache){
+		eqList = eqListCache;
+		console.log("use eqListCache");
+	} else {
+		if ( year && month ){
+			if ( checkYM(year,month) == false){
+				console.warn("yearMonthErr");
+				eqListSelDiv.style.display="";
+				loaderDiv.style.display="none";
+				return;
+			} // 日時がおかしいときはエラーアウト
+			eqList = await getPastEqList(2,year,month);
+			eqListCache = null;
+		} else {
+			eqList = await getPastEqList(2);
+			eqListCache = eqList;
+		}
+	}
+	
+	var instantList=[];
+	if ( !year && !month ){
+		instantList = parseEqList(await getText(`${proxyPath}instant/eqlist.cgi?0+ORGTIME+DESC+${instantEqCount}+knt`));
+		//console.log((instantList));
+	}
+	
+	//change();
+	makeEqListSel(instantList,eqList);
+	eqListSelDiv.style.display="";
+	loaderDiv.style.display="none";
+	changeQuake();
+}
+
+function checkYM(year,month){
+	var ans = false;
+	if ( isNaN(year) || isNaN(month) ){
+		return(ans);
+	}
+	
+	if ( new Date().getTime() -  new Date(year,month).getTime() > 0){
+		ans = true;
+	}
+	return ( ans );
+}
+
+async function getPastEqList(monthCount,year,month){ // monthは月(-1の値)
+	if ( !year || !month){
+		var ct = new Date();
+		year = ct.getFullYear();
+		month = ct.getMonth()+1;
+	} else {
+		month++;
+	}
+	
+	var eqList=[];
+	for ( var i = 0 ; i < monthCount ; i++ ){
+		var eqOpt = `1+0+${year}+${pad(month)}+ORGTIME+DESC+all`;
+		var eqListP = parseEqList(await getText(`${proxyPath}quake/eqlist.cgi?${eqOpt}`),true);
+		console.log(month," eqListP:",eqListP);
+		eqList = eqList.concat(eqListP);
+		--month;
+		if (month==0){
+			month=12;
+			--year;
+		}
+	}
+	console.log("eqList:",eqList);
+	return ( eqList );
+}
+
+
+var guardMin = 30;
+function change(){
+	
+	var cat = cats[catSel.selectedIndex];
+	
+	var newPath = baseURL.replace("[[category]]",cat);
+	
+	console.log( newPath);
+	
+	svgImageProps.script.setServerParams(newPath,17,3);
+	console.log(svgImageProps.script.getServerParams());
+	svgMap.refreshScreen();
+}
+
+
+function parseEqList(txt, parseEqDetailOpt,isDatalist){
+	var lines = txt.split(";");
+	var eqCenter=null;
+	if(isDatalist=="instant"){
+		eqCenter = parseEqCenter(lines);
+		//console.log("eqCenter:",eqCenter);
+	}
+	var ans = [];
+	var ans1 = [];
+	var ans2 = [];
+	for ( line of lines){
+		var m1 = line.match(/target\.options\[(\d+)\]\.value\="(.*)"/);
+		var m2 = line.match(/target\.options\[(\d+)\]\.text\="(.*)"/);
+		if (m1){
+			ans1.push([m1[1],m1[2]]);
+		}
+		if (m2){
+			if ( parseEqDetailOpt){
+				var detail = parseEqDetail(m2[2], isDatalist);
+				if ( detail ){
+					ans2.push([m2[1],m2[2],detail]);
+				}
+			} else {
+				ans2.push([m2[1],m2[2]]);
+			}
+		}
+	}
+	if ( ans1.length == ans2.length ){
+		for ( var i = 0 ; i < ans1.length ; i++ ){
+			ans[ans1[i][0]]={value:ans1[i][1]};
+		}
+		for ( var i = 0 ; i < ans2.length ; i++ ){
+			ans[ans1[i][0]].text=ans2[i][1];
+			if ( ans2[i].length == 3){
+				ans[ans1[i][0]].detail=ans2[i][2];
+			}
+		}
+	}
+	if ( eqCenter ){
+			ans.push({text:"震源",value:"center",detail:{latitude:eqCenter.lat,longitude:eqCenter.lng,title:"震源", magnitude:"-",depth:"-"}});
+	}
+	if ( ans.length==1 && ans[0].value=="0"){
+		ans = [];
+	}
+	return(ans);
+}
+
+var crossIconShift=7;//15pxの+アイコン
+// サムネール画像(japan_instant_dark.gif)から・・・
+var i1_a=0.06865732668346507,i1_d=0.054782650973926476, i1_e=127.95941483908487, i1_f=-46.96522286423033;
+var i2_a=0.069190437444145,  i2_d=0.054192563430729604, i2_e=121.57680924592928, i2_f=-31.301050892961122;
+var i2bb=[20,121,42,134];
+
+
+function parseEqCenter(txts){
+	var ans ={};
+	for ( var txt of txts){
+		var m = txt.match(/window\.top\.main\.document\.getElementById\('eqc'\)\.style\.(top|left).*=(.+)/);
+		if ( m ){
+			ans[m[1]]=Number((m[2]).trim())+crossIconShift;
+		}
+	}
+	if ( ans.top ){
+		if ( ans.left>i2bb[0] && ans.left<i2bb[1] && ans.top>i2bb[2] && ans.top<i2bb[3] ){
+			ans.lat = -(ans.top * i2_d + i2_f);
+			ans.lng = ans.left * i2_a + i2_e;
+		} else {
+			ans.lat = -(ans.top * i1_d + i1_f);
+			ans.lng = ans.left * i1_a + i1_e;
+		}
+		return ( ans );
+	} else {
+		return ( null);
+	}
+}
+
+function parseEqDetail(txt,isDatalist){
+	txt = txt.replace(/\s+/g," ");
+	txt = txt.split(" ");
+	var lat;
+	if ( isDatalist && isDatalist=="quake" ){
+		lat = txt[3].trim();
+	}else if ( isDatalist && isDatalist=="instant" ){
+		lat = txt[2].trim();
+	} else {
+		lat = txt[1].trim();
+	}
+	if ( lat.endsWith("N")){
+		lat = Number(lat.substring(0,lat.length-1));
+	} else {
+		lat = -Number(lat.substring(0,lat.length-1));
+	}
+	var lng;
+	if ( isDatalist && isDatalist=="quake" ){
+		lng = txt[4].trim();
+	}else if ( isDatalist && isDatalist=="instant" ){
+		lng = txt[3].trim();
+	} else {
+		lng = txt[2].trim();
+	}
+	if ( lng.endsWith("E")){
+		lng = Number(lng.substring(0,lng.length-1));
+	} else {
+		lng = -Number(lng.substring(0,lng.length-1));
+	}
+	if ( isDatalist ){
+		var intensity ,acceleration, title;
+		if ( isDatalist=="quake" ){
+			intensity = (txt[6].trim());
+			acceleration = txt[5].trim();
+			title = txt[8].trim();
+		} else { // instatnt
+			intensity = (txt[5].trim());
+			acceleration = txt[4].trim();
+			title = txt[6].trim();
+		}
+		if ( intensity.indexOf("<")==0){
+			intensity=Number(intensity.substring(1));
+		}else{
+			intensity=Number(intensity);
+		}
+		acceleration = Number(acceleration.substring(0,acceleration.length-3));
+		return {
+			latitude:lat,
+			longitude:lng,
+			intensity:intensity,
+			acceleration:acceleration,
+			title:title
+		}
+	} else {
+		if ( txt[3]){
+			var depth = txt[3].trim();
+			depth = Number(depth.substring(0,depth.length-2));
+			var magnitude = txt[4].trim();
+			magnitude = Number(magnitude.substring(1));
+			
+			return {
+				latitude:lat,
+				longitude:lng,
+				depth:depth,
+				magnitude:magnitude
+			}
+		} else {
+			return null;
+		}
+	}
+}
+
+
+function getInstantDataListURL(txt){
+	var txt = txt.split("+");
+	var url = `${proxyPath}instant/datalist.cgi?${txt[0]}+${txt[1]}+${txt[3]}+SITE_MAXACC+DESC+knt`;
+	return (url);
+}
+
+function getQuakeDataListURL(txt){
+	var txt = txt.split(",");
+	var url = `${proxyPath}quake/datalist.cgi?${txt[0]}+${txt[5]}+SITE_MAXACC+DESC+JMAQ+all`;
+	return (url);
+}
+
+async function changeQuake(event){
+	var eq = eqListSel.options[eqListSel.selectedIndex];
+	//console.log("eq:",eq);
+	var durl;
+	var eqCenter;
+	var cat = eq.getAttribute("data-cat");
+	if ( cat =="quake"){
+		durl = getQuakeDataListURL(eq.value);
+		eqCenter = parseEqDetail(eq.innerText);
+		eqCenter.title="震源";
+	} else {
+		durl = getInstantDataListURL(eq.value);
+	}
+	//console.log("dataListURL:",durl);
+	var dlTxt = (await getText(durl));
+	//console.log(dlTxt);
+	var dl = parseEqList(dlTxt,true,cat);
+	if ( eqCenter ){
+		dl.push({
+			text:"震源",
+			value:"center",
+			detail:eqCenter
+		});
+	}
+	//console.log(dl);
+	if ( svgMap){
+		drawMap(dl);
+	}
+}
+
+function makeEqListSel(instantList,quakeList){
+	var isFirst=true;
+	var idx = 0;
+	var opt;
+	removeChildren(eqListSel);
+	for ( var itm of instantList){
+		opt=document.createElement("option");
+		if ( isFirst ){
+			opt.selected=true;
+			isFirst = false;
+		}
+		opt.value=itm.value;
+		opt.setAttribute("data-cat","instant");
+		opt.setAttribute("data-index",idx);
+		opt.innerText=itm.text;
+		eqListSel.appendChild(opt);
+		++idx;
+	}
+	
+	if ( debug){
+		opt=document.createElement("option");
+		opt.value = "1+20211120085722+xx+0";
+		opt.innerText="TESTINS";
+		opt.setAttribute("data-cat","instant");
+		opt.setAttribute("data-index",idx);
+		eqListSel.appendChild(opt);
+	}
+	
+	idx = 0;
+	for ( var itm of quakeList){
+		opt=document.createElement("option");
+		if ( isFirst ){
+			opt.selected=true;
+			isFirst = false;
+		}
+		opt.value=itm.value;
+		opt.setAttribute("data-cat","quake");
+		opt.setAttribute("data-index",idx);
+		opt.innerText=itm.text;
+		eqListSel.appendChild(opt);
+		++idx;
+	}
+	
+}
+
+
+function drawMap(dl){
+	//console.log("called drawMap:",dl);
+	var centerg = svgImage.getElementById("center");
+	removeChildren(centerg);
+	var pointsg = svgImage.getElementById("points");
+	removeChildren(pointsg);
+	for ( var poi of dl){
+		var sp = svgImage.createElement("use");
+		sp.setAttribute("transform","ref(svg,"+poi.detail.longitude+","+(-poi.detail.latitude)+")");
+		sp.setAttribute("xlink:title",poi.detail.title);
+		if(poi.value=="center"){
+			sp.setAttribute("xlink:href","#centerMark");
+			sp.setAttribute("content",poi.detail.magnitude+","+poi.detail.depth+",,");
+			centerg.appendChild(sp);
+		} else {
+			sp.setAttribute("xlink:href","#p0");
+			sp.setAttribute("fill",getColor(poi.detail.intensity));
+			sp.setAttribute("content",",,"+poi.detail.intensity+","+poi.detail.acceleration);
+			pointsg.appendChild(sp);
+		}
+	}
+	svgMap.refreshScreen();
+}
+
+function getColor(inte){
+	ans="black";
+	for ( var it of eqColors){
+		ans = it.color;
+		if (inte <= it.intensity ){
+			break;
+		}
+	}
+	return ( ans );
+}
+function removeChildren(elm){
+	while(elm.firstChild){
+		elm.removeChild(elm.firstChild);
+	}
+}
+
+
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+async function getText(url){
+	var dt = getDateStr(new Date(),10);
+//	var response = await fetch(svgMap.getCORSURL(url+"&time="+dt));
+	var response = await fetch(svgMap.getCORSURL(url),{cache: "no-store"});
+	var json = await response.text();
+	return ( json );
+}
+function getDateStr(dateData , tStep){
+	var mind = tStep * Math.floor( dateData.getUTCMinutes() / tStep ) ;
+	var ans = dateData.getUTCFullYear()+ pad(dateData.getUTCMonth() + 1) + pad(dateData.getUTCDate()) + pad(dateData.getUTCHours()) + pad(mind);
+	return ( ans );
+}
+function getJSTStr(dateData , tStep){
+//	console.log("getJSTStr:",dateData);
+	var mind = tStep * Math.floor( dateData.getMinutes() / tStep ) ;
+	var ans = dateData.getFullYear()+ "/"+ pad(dateData.getMonth() + 1) +"/"+ pad(dateData.getDate()) +" " + pad(dateData.getHours()) +":"+ pad(mind);
+	return ( ans );
+}
+function pad( inp ){
+	return ( ("0"+inp).slice(-2));
+}
+
+function initEqYMsel(){
+	var cd = new Date();
+	var cy = cd.getFullYear();
+	var cm = cd.getMonth();
+	console.log("initEqYMsel:",cy,cm);
+	for ( var y = 2000 ; y <= cy; y++){
+		eqYearSel.insertAdjacentHTML("afterbegin",`<option ${y==cy?"selected":""} value=${y}>${y}年</option>`);
+	}
+	for ( var m = 0 ; m <=11 ; m++ ){
+		eqMonthSel.insertAdjacentHTML("afterbegin",`<option ${m==cm?"selected":""} value=${m}>${m+1}月</option>`);
+	}
+}
+
+function changeYM(){
+	var cd = new Date();
+	var cy = cd.getFullYear();
+	var cm = cd.getMonth();
+	
+	var y = Number(eqYearSel.options[eqYearSel.selectedIndex].value);
+	var m = Number(eqMonthSel.options[eqMonthSel.selectedIndex].value);
+	var updateInstant=false;
+	if ( y==cy && m==cm){
+		updateInstant=true;
+	}
+	console.log(updateInstant,y,m);
+	init(updateInstant,y,m);
+}
+
+</script>
+<body>
+<h3>防災科研　K-NET強震観測網レイヤー</h3>
+
+<p><a href="https://www.kyoshin.bosai.go.jp/kyoshin/" target="_blank">強震観測網 K-NET</a>、<a href="https://www.kyoshin.bosai.go.jp/kyoshin/instant/" target="_blank"> 即時公開</a> and <a href="https://www.kyoshin.bosai.go.jp/kyoshin/quake/" target="_blank">地震</a>より</p>
+<p style="font-size:10px"><div style="; float: left; text-align: center">震度凡例：</div>
+<div  style="background-color: rgb(158, 189, 221); float: left; height: 17.0781px; width: 13.9219px; text-align: center">1</div><div  style="background-color: rgb(61, 121, 181); float: left; height: 17.0781px; width: 13.9219px; text-align: center">2</div><div  style="background-color: rgb(50, 200, 180); float: left; height: 17.0781px; width: 13.9219px; text-align: center">3</div><div  style="background-color: rgb(30, 220, 80); float: left; height: 17.0781px; width: 13.9219px; text-align: center">4</div><div  style="background-color: rgb(155, 255, 92); float: left; height: 17.0781px; width: 13.9219px; text-align: center">5-</div><div  style="background-color: rgb(255, 255, 0); float: left; height: 17.0781px; width: 13.9219px; text-align: center">5+</div><div  style="background-color: rgb(255, 176, 71); float: left; height: 17.0781px; width: 13.9219px; text-align: center">6-</div><div  style="background-color: rgb(255, 80, 120); float: left; height: 17.0781px; width: 13.9219px; text-align: center">6+</div><div  style="background-color: rgb(150, 0, 60); float: left; height: 17.0781px; width: 13.9219px; text-align: center">7</div></p>
+
+<div id="eqYMselDiv"><select id="eqYearSel"></select><select id="eqMonthSel"></select><input type="button" value="設定/更新" onClick="changeYM()"></input></div>
+<div id="eqListSelDiv">
+<select id="eqListSel" size="10" onchange="changeQuake(event)" style="width:425px"></select>
+</div>
+<div id="loaderDiv"><div> Loading.. </div><div id="loader"></div></div>
+</body>
+</html>

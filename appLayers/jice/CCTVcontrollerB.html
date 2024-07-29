@@ -1,0 +1,155 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>authoring tools tests for tiled maps</title>
+<meta charset="UTF-8">
+</head>
+
+<style>
+#loader{
+    margin:auto;
+    width:30px;
+    height:30px;
+    border-radius:30px;
+    border:8px solid #17cddd;
+    border-right-color:transparent;
+    animation:spin 1s infinite linear;
+}
+#loader{
+    animation:spin 1s infinite linear;
+}
+@keyframes spin{
+    0%{transform:rotate(0deg); opacity:0.4;}
+    50%{transform:rotate(180deg); opacity:1;}
+    100%{transform:rotate(360deg); opacity:0.4;}
+    
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 国土技術研究センター 地図で見る日本の国土河川ライブカメラ情報を表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+onload=function(){
+	setTimeout(initUI,10);
+}
+
+var proxyPath;
+
+function initUI(){
+	console.log("initUI:",layerID);
+	svgMap.setShowPoiProperty( customShowPoiProperty, layerID);
+	console.log("svgImageProps",svgImageProps);
+	if ( (svgImageProps.Path).indexOf("cat=river")>0){
+		proxyPath="https://www.jice.or.jp/cms/gis/rivers.geojson";
+		catNameSpan1.innerText="河川";
+		catNameSpan2.innerText="河川";
+	} else {
+		proxyPath="https://www.jice.or.jp/cms/gis/roads.geojson";
+		catNameSpan1.innerText="道路";
+		catNameSpan2.innerText="道路";
+	}
+	getRiverCamPois();
+}
+
+function customShowPoiProperty(target){
+	var metaSchema = null;
+	// metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(","); // debug 2013.8.27
+	console.log("POI target:",target);
+	var content = target.getAttribute("content");
+//	console.log(content);
+	var html=unEscape_html(content);
+	//html = replaceHttpImg2Proxy(html); // 2020/1/10 chromeのmixed content対応　結局proxy以外選択肢はない感じ・・
+	console.log(html);
+	html= html.replace("img width='200px'","img width='350px'");
+	svgMap.showModal(html,400,450);
+	
+}
+
+function getRiverCamPois(){
+	messageDiv.innerText="現在データ取得中です";
+	var httpObj = new XMLHttpRequest();
+	httpObj.open( 'GET', svgMap.getCORSURL(proxyPath), true );
+	httpObj.onloadend = function () {handleCamPoi(this)};
+	httpObj.send(null);
+}
+
+function handleCamPoi(httpRes){
+	messageDiv.innerText="データ取得完了";
+	loader.style.display="none";
+	var root=svgImage.documentElement;
+	var camPois= JSON.parse(httpRes.responseText);
+	console.log("camPois:",camPois);
+	for ( var i=0 ; i < camPois.features.length ; i++){
+		var poi=camPois.features[i];
+		var lat=Number(poi.geometry.coordinates[1]);
+		var lng=Number(poi.geometry.coordinates[0]);
+		var title=poi.properties.title;
+		var html=poi.properties.discription;
+		var tf = "ref(svg," + (lng * 100) + "," + ( lat * -100 ) + ")";
+		var cl=svgImage.createElement("use");
+		cl.setAttribute("x" , 0);
+		cl.setAttribute("y" , 0);
+		cl.setAttribute("transform" , tf);
+		cl.setAttribute("xlink:href" , "#p0");
+		cl.setAttribute("xlink:title" , title);
+		cl.setAttribute("content", escape_html(html));
+		root.appendChild(cl);
+	}
+	svgMap.refreshScreen();
+}
+
+function escape_html (string) {
+  if(typeof string !== 'string') {
+    return string;
+  }
+  return string.replace(/[&'`"<>]/g, function(match) {
+    return {
+      '&': '&amp;',
+      "'": '&#x27;',
+      '`': '&#x60;',
+      '"': '&quot;',
+      '<': '&lt;',
+      '>': '&gt;',
+    }[match]
+  });
+}
+
+function unEscape_html(str){
+	var str=str.replace('&amp;',"&");
+	str=str.replace(/&#x27;/g,"'");
+	str=str.replace(/&#x60;/g,'`');
+	str=str.replace(/&quot;/g,'"');
+	str=str.replace(/&lt;/g,"<");
+	str=str.replace(/&gt;/g,">");
+	return (str);
+}
+
+
+</script>
+<body>
+<h3><span id="catNameSpan1">河川</span>ライブカメラレイヤー</h3>
+<p><a target="_blank" href="http://www.jice.or.jp/knowledge/maps/">国土技術研究センター 地図で見る日本の国土</a>の<span id="catNameSpan2">河川</span>ライブカメラ情報をマッシュアップしています</p>
+
+<div style="font-weight:bold" id="messageDiv"></div>
+<div id="loader"></div>	
+</body>
+</html>

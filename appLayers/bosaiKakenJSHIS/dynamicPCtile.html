@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>OpenStreerMap Dynamic Layer</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+	// Dynamic  plate carrée Tile Pyramid Layer for SVGMap 
+	// Programmed by Satoru Takagi
+	// Copyright (C) 2022 by Satoru Takagi @ KDDI CORPORATION
+	// 
+	// License:
+	//  This program is free software: you can redistribute it and/or modify
+	//  it under the terms of the GNU General Public License version 3 as
+	//  published by the Free Software Foundation.
+	//
+	//  This program is distributed in the hope that it will be useful,
+	//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+	//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	//  GNU General Public License for more details.
+	//
+	//  You should have received a copy of the GNU General Public License
+	//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
+	
+	// level0 tiles: (2x1)
+	//   0_0: x(lng):-180..0, y(lat):-90..90
+	//   1_0: x(lng):0..180, y(lat):-90..90
+	// level1 tiles: (4x2) = 2x2 level0
+
+	var baseURL = "";
+	// このファイルの読み込み時に実行する
+	onload = function(){
+		var hash = getHashParams(svgImageProps.Path);
+		if ( hash.server){
+			baseURL = decodeURIComponent(hash.server);
+		}
+		var cmp = document.getElementById("commentP");
+		var cmt = cmp;
+		if ( hash.link){
+			cmt = document.createElement("a");
+			cmt.target="_blank";
+			cmt.href=hash.link;
+			cmp.appendChild(cmt);
+			cmt.innerText="LINK";
+		}
+		if ( hash.comment){
+			var comment=decodeURIComponent(hash.comment);
+			console.log("comment:",comment);
+			cmt.innerText=comment;
+		} 
+		if( hash.legend){
+			var lgImg = document.createElement("img");
+			lgImg.src = hash.legend;
+			legendDiv.appendChild(lgImg);
+		}
+		titleH.innerText=svgMap.getLayer(layerID).getAttribute("title");
+		console.log("hash:",hash);
+		svgMap.refreshScreen();
+	}
+	
+	function getHashParams( path ){
+		if ( path.indexOf("#")<0){
+			return ( "" );
+		}
+		hash = path.substring(path.indexOf("#")+1);
+		hash = hash.split("&");
+		for ( var i = 0 ; i < hash.length ; i++ ){
+			hash[i] = hash[i].split("="); // "
+			if ( hash[i][1] ){
+				hash[hash[i][0]] = hash[i][1];
+			} else {
+				hash[hash[i][0]] = true;
+			}
+		}
+	//    	console.log(hash);
+		return ( hash );
+	}
+		
+	function preRenderFunction(){
+		if ( !baseURL){
+			return;
+		}
+		var level = 8;
+		// ズームレベルを計算(3から18)
+		var level = Math.floor( Math.LOG2E * Math.log(svgImageProps.scale) + 6.5);
+		if (level > 18 ){
+			level = 18;
+		} else if ( level < 3 ){
+			level = 3;
+		}
+		
+		// この地図の地理座標におけるviewBox内表示させる、tileのXYとそのHashKeyを取得する
+		var tileSet = getTileSet( svgMap.getGeoViewBox() , level )
+		
+		console.log("level:",level," tileSet:",tileSet);
+		
+		// 現在読み込まれているimageというタグ名を持った(地図のタイルごとのイメージ)要素を取得
+		console.log("tileSet:",tileSet);
+		var currentTiles =  svgImage.getElementsByTagName("image");
+		
+		// 取得できた各タイル分以下を繰り返し、既に読み込み済みのものは再利用、表示範囲外のものは削除する
+		for ( var i = currentTiles.length - 1 ; i >= 0 ; i-- ){
+			var oneTile = currentTiles[i];
+			var qkey = oneTile.getAttribute("metadata");
+			if ( tileSet[qkey] ){
+//				すでにあるのでスキップさせるフラグ立てる。
+				tileSet[qkey].exist = true;
+			} else {
+//				ないものなので、消去
+				oneTile.parentNode.removeChild(oneTile);
+			}
+		}
+		
+		// 表示させるタイル分以下を繰り返し、読み込まれていないファイルを読込み要素に加える
+		for ( var tkey in tileSet ){
+			if ( ! tileSet[tkey].exist ){
+				var addTile = getTile( tileSet[tkey].x , tileSet[tkey].y , level , this.CRS );
+				svgImage.getElementsByTagName("svg")[0].appendChild(addTile);
+			}
+		}
+	}
+
+	
+	// 指定された場所のタイル(分割された地図イメージ)を取得
+	function getTile( tileX ,  tileY , level , crs ){
+		// tileX、tileYの座標、levelのズームレベルのタイルのURLを取得。
+		var tileURL = getURL( tileX , tileY , level);
+		
+		// タイルのSVGにおけるbboxを得る
+		var tLatLng = tileXY2latLng( tileX  , tileY , level ); // 左上
+		var tSvg = svgMap.transform( tLatLng.lng , tLatLng.lat , crs );
+		var tLatLngBR = tileXY2latLng( tileX +1 , tileY +1 , level  ); // 右下
+		var tSvgBR = svgMap.transform( tLatLngBR.lng , tLatLngBR.lat , crs );
+		tSvg.width  = tSvgBR.x - tSvg.x; // 効率悪い・・改善後回し
+		tSvg.height = tSvgBR.y - tSvg.y;
+		
+		// 取得するタイル要素を作成し、各属性をセットする。
+		var cl = svgImage.createElement("image");
+		cl.setAttribute("x" , tSvg.x);
+		cl.setAttribute("y" , tSvg.y);
+		cl.setAttribute("width" , tSvg.width);
+		cl.setAttribute("height" , tSvg.height);
+		cl.setAttribute("xlink:href" , tileURL.URL);
+		cl.setAttribute("metadata" , tileURL.Key);
+		return ( cl );
+	}
+	
+	// 指定された地図座標geoViewBoxに、levelのズームレベルの地図を表示する場合に、必要なタイルのXYのセットを返却する
+	function getTileSet( geoViewBox , level ){
+		var TileSet = new Object();
+		/**
+		if ( geoViewBox.y + geoViewBox.height > 90 ){
+			geoViewBox.height = 90 -  geoViewBox.y;
+		}
+		if ( geoViewBox.y < -90 ){
+			geoViewBox.y = -90;
+		}
+		**/
+		
+		// 指定エリアの、tileのXYとそのHashKeyを返却する
+		
+		var tileTLxy = XY2TileXY( {y:geoViewBox.y + geoViewBox.height ,x: geoViewBox.x , level:level} ); // 左上
+		var tileBRxy = XY2TileXY( {y:geoViewBox.y ,x: geoViewBox.x + geoViewBox.width , level:level} ); // 右下
+		
+		// 必要な高さ・幅分のタイル個数分以下を繰り返す
+		for ( var i = tileTLxy.y ; i <= tileBRxy.y ; i++ ){
+			for ( var j = tileTLxy.x ; j <= tileBRxy.x  ; j++ ){
+				// タイルのXYとズームレベルからHashKeyを取得する
+				var qkey = getKey( j, i, level);
+				// 上記で取得したHashKeyごとに、必要なタイル情報を設定する
+				TileSet[qkey] = new Object();
+				TileSet[qkey].x = j;
+				TileSet[qkey].y = i;
+			}
+		}
+		return ( TileSet );
+	}
+	
+	
+	// XYからタイルのXYに変換
+	function XY2TileXY( xyl ){
+		var tilePix = 180/Math.pow(2,xyl.level);
+		var tileX = Math.floor((180+xyl.x) / tilePix);
+		var tileY = Math.floor((180 - (90+xyl.y)) / tilePix);
+		return {
+			x : tileX ,
+			y : tileY
+		}
+	}
+	
+	// tileXYから緯度・経度(左上の)に変換
+	function tileXY2latLng( tx , ty , lvl ){
+		var tileSize = 180 / Math.pow(2,lvl);
+		var lng = -180 + tx * tileSize;
+		var lat =  90 - ty * tileSize;
+		return{
+			lat : lat ,
+			lng : lng
+		}
+	}
+	
+	// タイルのXYとズームレベルからURLを返却する
+	function getURL( tx , ty , lvl ){
+		// XYとズームレベルからHashKeyを取得
+		var tile_ans = getKey( tx , ty , lvl );
+		// OpenStreetMapのURLを組み立てる
+		var mapServerURL = baseURL.replace("[[level]]",lvl);
+		mapServerURL = mapServerURL.replace("[[x]]",tx);
+		mapServerURL = mapServerURL.replace("[[y]]",ty);
+		return {
+			URL : mapServerURL ,
+			Key : tile_ans
+		}
+	}
+	
+	// HashKeyを生成し返却する
+	function getKey(tx , ty , lvl){
+		return ( tx + "_" + ty + "_" + lvl );
+	}
+</script>
+
+<body>
+<h3 id="titleH"></h3>
+<p id="commentP"></p>
+<div id="legendDiv"></div>
+</body>
+</html>
