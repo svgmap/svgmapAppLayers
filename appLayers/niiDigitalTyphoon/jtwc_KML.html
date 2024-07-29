@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+<title>JTWC</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src='togeojson.js'></script>
+
+<script type="module">
+import {unzip, HTTPRangeReader} from './unzipit.module.js';
+window.unzip = unzip;
+window.HTTPRangeReader = HTTPRangeReader;
+</script>
+
+<!-- <script src="kml2svgMap.js"></script> -->
+
+<script>
+// JTWCのKMLを取得＆ZIP解凍して表示する
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//https://www.metoc.navy.mil/jtwc/rss/jtwc.rss?1691970287681
+var metaDict = ["name","description"];
+
+addEventListener("load",init);
+
+const parser = new DOMParser();
+
+async function init(){
+	var idx = await loadIndex();
+	console.log(idx);
+	var kmlps=[];
+	for ( var tpl of idx){
+		var thtml= `<tr><td>${tpl.title}</td></tr>`;
+		ttable.insertAdjacentHTML("beforeend",thtml);
+		kmlps.push(getKml(tpl.link));
+	}
+	var kmls = await Promise.all(kmlps);
+	console.log(kmls);
+	
+	if ( typeof svgMapGIStool =="object"){
+		svgImage.documentElement.setAttribute("property",metaDict.join());
+		for ( var kml of kmls){
+//			console.log(kml);
+//			svgMapGIStool.drawKml(kml, layerID, "red", 3, "purple", "p0", "JTWC");
+			var gjs = toGeoJSON.kml(kml);
+			trim180(gjs);
+			editGeoJson(gjs);
+			console.log(gjs);
+//			drawKml(kml, layerID, "red", 3, "purple", "p0", "JTWC");
+			svgMapGIStool.drawGeoJson(gjs, layerID, "red", 3, "purple", "p0",null,null,null,metaDict);
+			fixStyle();
+//			break;
+		}
+		svgMap.refreshScreen();
+	}
+}
+
+function editGeoJson(gjs){
+	for ( var ft of gjs.features){
+		ft.properties.title = ft.properties.name
+	}
+}
+
+function fixStyle(){
+	var ps=svgImage.getElementsByTagName("path");
+	for ( p of ps){
+		p.removeAttribute("fill");
+	}
+}
+
+async function getKml( href ){
+	const reader = new HTTPRangeReader(href);
+	var zipArchive =await unzip(reader);
+	//console.log (zipArchive);
+	var kmlPath;
+	for (var fn in zipArchive.entries){
+		if (fn.endsWith(".kml")){
+			kmlPath = fn;
+		}
+	}
+	if ( !kmlPath){
+		return null;
+	}
+	const kmlTxt = await zipArchive.entries[kmlPath].text();
+	const kmlDom = parser.parseFromString(kmlTxt, "application/xml");
+	//console.log(kmlDom);
+	return ( kmlDom );
+}
+
+
+async function loadIndex(){
+	var txt = await(await fetch("https://www.metoc.navy.mil/jtwc/rss/jtwc.rss?"+(new Date().getTime()))).text();
+	const dom = parser.parseFromString(txt, "application/xml");
+	console.log(dom);
+	
+	var descs = dom.getElementsByTagName("description");
+	
+	var ans = [];
+	for ( var desc of descs){
+		ans = ans.concat(parseDesc(desc));
+	}
+	return ans;
+}
+
+function parseDesc(ds){
+	var txt = ds.textContent;
+	//console.log(txt);
+	const idx = parser.parseFromString(txt,"text/html");
+	var ancs = idx.getElementsByTagName("a");
+	var kmzs=[];
+	for ( var anc of ancs){
+		if ( anc.getAttribute("href").endsWith(".kmz")){
+			var title = getTwTitle(anc);
+			kmzs.push({title, element:anc,link:anc.getAttribute("href")});
+		}
+	}
+	return kmzs
+}
+
+function getTwTitle(anc){
+	if ( anc.parentElement ){
+		for ( var child of anc.parentElement.children){
+			if ( child.textContent.indexOf("Issued at")>0){
+				//console.log(child, child.textContent);
+				var txts = child.textContent.trim().split("\n");
+				var ans =[];
+				for ( var txt of txts){
+					ans.push(txt.trim());
+					if ( txt.indexOf("Issued at")>=0){
+						break;
+					}
+				}
+				return ans.join();
+			}
+		}
+		return getTwTitle( anc.parentElement );
+	} else {
+		return null;
+	}
+}
+
+function trim180(gjs){
+	var idx = 0;
+	for ( var ft of gjs.features){
+		//console.log(ft);
+		if ( ft.geometry.type=="LineString"){
+			var crds = ft.geometry.coordinates;
+			var rft = {type:"Feature", geometry:{type:"MultiLineString"}};
+			var rcrds=[];
+			var prevX=null;
+			var rcdss=[];
+			var toSplit = false;
+			for ( var crd of crds){
+				if ( prevX !=null && Math.abs(prevX - crd[0])>180 &&  prevX * crd[0] < 0 ){
+					rcrds.push(rcdss);
+					rcdss=[];
+					toSplit = true;
+					//console.log("To SPLIT");
+				}
+				prevX = crd[0];
+				rcdss.push(crd);
+			}
+			rcrds.push(rcdss);
+			if ( toSplit ){
+				rft.geometry.coordinates=rcrds;
+				rft.properties=ft.properties;
+				gjs.features[idx] = rft;
+				//console.log(rft)
+			}
+		}
+		++idx;
+	}
+}
+
+</script>
+<body>
+<h3><a href="https://www.metoc.navy.mil/jtwc/jtwc.html" target="_blank">JTWC</a> KML</h3>
+<table style="font-size:11px" border="1" id="ttable"></table>
+</body>
+</html>

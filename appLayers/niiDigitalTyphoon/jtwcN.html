@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>JTWC</title>
+	</head>
+
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script>
+	// JTWCレイヤー
+	//
+	//  Copyright (C) 2023-2024 by Satoru Takagi @ KDDI CORPORATION
+	//  
+	// License: (GPL v3)
+	//  This program is free software: you can redistribute it and/or modify
+	//  it under the terms of the GNU General Public License version 3 as
+	//  published by the Free Software Foundation.
+	//  
+	//  This program is distributed in the hope that it will be useful,
+	//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+	//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	//  GNU General Public License for more details.
+	//  
+	//  You should have received a copy of the GNU General Public License
+	//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	//
+	// JTWCのabpwsair.jpgを地図に位置合わせして乗せる
+	// このデータは毎更新ごとに緯度方向の地理座標とビットイメージ座標の関係が変化するので、位置合わせが必要
+	//
+	// 2021/6/8 画像認識ルーチンを組み込んで位置合わせ
+	// 2023/8/8 画像認識ルーチンを刷新
+	// 　10度おきの緯線をfftで破線認識させることで、少し信頼性を上げた。
+	// 　赤道は水色の線を使って認識させる
+
+	// 2023/8/10 緯線破線のピッチの想定範囲を使いフィルタ
+	// 大ISSUE!!! JTWC、出力画像の解像度がものすごくバラツキ、小さい解像度の時は点線が完全につぶれてしまう！
+	// よって、FFTで破線を検出するという戦略は破綻している
+	// 水色のピクセルは破線に加えてエリア注記文字も、長期に渡り、解像度が異なっても、地図上の位が安定している様子
+	// 
+	// 2023/8/10 そこで、FFTをあきらめ、これをマーカーにして補正する　ただし右上のレポート文字が同じ色のケースがあるので、ここを外しクリップする
+	// さらに大ISSUE 注記の水色文字の場所が変わってしまう・・　abpwsair_2023081619.jpg　参照　やはり点線認識か・・？
+	
+		var img, canvas;
+		var corsPxy = "ProxieForNonSvgMapEnv";
+		onload = function () {
+			getMapRefernces(function(ri){
+				var gTop =  (0  + ri.lat0 / (ri.lat10span/10));
+				var gBtm = (0 - (ri.imageHeight - ri.lat0)/ (ri.lat10span/10));
+				console.log(ri, gTop, gBtm);
+				if (  typeof svgMap =="object"){
+					var gHeight = -gBtm+gTop;
+					var timg = svgImage.getElementById("timg");
+					timg.setAttribute("y",-gTop);
+					timg.setAttribute("height",gHeight);
+					svgMap.refreshScreen();
+				}
+			})
+		}
+		
+		function getMapRefernces(cbf){
+			canvas = document.getElementById("wcanvas");
+			var ctx = canvas.getContext("2d");
+			img = new Image();
+			if ( typeof svgMap =="object"){
+				img.src = svgMap.getCORSURL('https://www.metoc.navy.mil/jtwc/products/abpwsair.jpg');
+				// img.src = "abpwsair_2021060801.jpg"; // test data
+			} else {
+				img.src =
+					corsPxy + "https://www.metoc.navy.mil/jtwc/products/abpwsair.jpg";
+			}
+			img.setAttribute("crossorigin", "");
+			img.onload = function () {
+				console.log("img loaded");
+				var iw = img.naturalWidth;
+				var ih = img.naturalHeight;
+				console.log("img size :", iw, ih);
+				canvas.setAttribute("width", iw);
+				canvas.setAttribute("height", ih);
+				ctx.drawImage(img, 0, 0);
+				var imageData = ctx.getImageData(0, 0, iw, Math.floor(ih));
+				var data = imageData.data;
+				console.log(data.length, iw, ih);
+				var mark0d = [];
+				var mark0dWin = [Math.floor(ih/2 - ih*0.15),Math.floor(ih/2 + ih*0.15)];
+				
+				var markHd = [];
+
+				var markHwin = Math.floor(iw * 700/960); // 水色エリア注記文字下端認識時、右上レポートが同色になることがあるので除外するためのウィンド幅
+				var markHbuf = Math.floor(ih * 8/720); // 赤道の線をかわして注記文字下端トレースするための線の幅
+				var markHdef = 41.54; // 水色エリア注記文字下端の緯度
+
+				console.log({mark0dWin,markHwin});
+				for (var py = 0; py < ih; py++) {
+					var totalVal = 0;
+
+					var v0d = 0;
+					var vHd = 0;
+					for (var px = 0; px < iw; px++) {
+						var pi = (py * iw + px) * 4;
+						var hsv = rgb2hsv(data[pi], data[pi + 1], data[pi + 2]);
+						// 赤道線フィルタは色を選べばほぼ確実
+						if (
+							Math.abs(hsv.h - 196) < 5 &&
+							Math.abs(hsv.s - 96) < 10 &&
+							Math.abs(hsv.v - 96) < 10
+						) {
+							if ( py >= mark0dWin[0] && py <= mark0dWin[1]){
+								++v0d;
+							}
+							if ( px < markHwin){
+								++vHd;
+							}
+						}
+
+					}
+
+					mark0d.push(v0d);
+					markHd.push(vHd);
+				}
+
+				//console.log("v0d,v10d:", mark0d, mark10d);
+
+				// 緯度0度(赤道)の座標を得る　最大値の座標が赤道
+				var vmax = 0;
+				var py_0d; //赤道座標
+				for (var py = 0; py < mark0d.length; py++) {
+					if (mark0d[py] > vmax) {
+						py_0d = py;
+						vmax = mark0d[py];
+					}
+				}
+				console.log("赤道の座標:", py_0d);
+
+				// 注記下端Y座標を得る
+				//  py_0dより小さいY座標で、且つ大きい値の一番大きいY座標
+				py_Hd=[];
+				for ( var py = py_0d - markHbuf ; py>=0 ; py--){
+					if ( markHd[py] > markHbuf ){
+						py_Hd.push(py);
+						
+					}
+				}
+
+				console.log(py_Hd);
+				var span = (py_0d - py_Hd[0]) * 10 / markHdef;
+				console.log("北緯",markHdef,"度の座標 : ", py_Hd[0]);
+				console.log("赤道の座標:", py_0d," 10度の長さ:" , span);
+				
+				cbf ({lat0:py_0d,lat10span:span, imageHeight:ih});
+			};
+		};
+		
+
+		// rgb2hsv and hsv2rgb : from https://www.petitmonte.com/javascript/rgb_hsv_convert.html
+		function rgb2hsv(r, g, b) {
+			var max = Math.max(r, g, b);
+			var min = Math.min(r, g, b);
+			var hsv = { h: 0, s: 0, v: max }; // V(???x)
+			if (max != min) {
+				// H(?F??)
+				if (max == r) hsv.h = (60 * (g - b)) / (max - min);
+				if (max == g) hsv.h = (60 * (b - r)) / (max - min) + 120;
+				if (max == b) hsv.h = (60 * (r - g)) / (max - min) + 240;
+				// S(??x)
+				hsv.s = (max - min) / max;
+			}
+			if (hsv.h < 0) {
+				hsv.h = hsv.h + 360;
+			}
+			hsv.h = Math.round(hsv.h);
+			hsv.s = Math.round(hsv.s * 100);
+			hsv.v = Math.round((hsv.v / 255) * 100);
+			return hsv;
+		}
+	</script>
+	<body>
+		<h4>
+			<a href="https://www.metoc.navy.mil/jtwc/jtwc.html" target="_blank"
+				>JOINT TYPHOON WARNING CENTER</a
+			>
+			Layer
+		</h4>
+		<canvas
+			id="wcanvas"
+			width="400"
+			height="300"
+			style="display: none"
+		></canvas>
+	</body>
+</html>

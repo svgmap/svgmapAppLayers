@@ -1,0 +1,449 @@
+<!doctype html>
+<html>
+<head>
+<title>DigitalTyphoonGetter</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// NII DigitalTyphoonGetter
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+windStrColor=[]; // 0...7
+windStrColorVal=[];
+
+onload=function(){
+	initModel();
+//	loadJson("data.json",makeMap);
+	makeWindStrColor();
+//	console.log("windStrColor:",windStrColor);
+	document.addEventListener("zoomPanMap", zoomPanMapFunc,false);
+	document.addEventListener("screenRefreshed", screenRefreshedFunc,false);
+}
+
+
+var geoViewBox;
+
+var preRenderFunctionCalled=false;
+function preRenderFunction(){
+//	console.log("This is digital typhoon GPV wind layer's preRenderFunction.");
+	geoViewBox = svgMap.getGeoViewBox();
+	buildDirSvg();
+	preRenderFunctionCalled = true;
+}
+
+var ctime=-1;
+
+function setTimeInfo(json){
+	setLegend(json);
+	if ( ctime==-1){
+		ctime = Math.floor(((new Date()).getTime() )/1000) ;
+	}
+	console.log("testInfo:",json);
+	var sel = document.getElementById("timeSel");
+	removeChildElements(sel);
+	var tselected = false;
+	for ( var i = 0 ; i <json.data.length ; i++ ){
+		var jstStr = json.data[i].l;
+		var timeStr = json.data[i].d;
+		var opt = document.createElement("option");
+		if ( !tselected && Number(json.data[i].s)>ctime){
+			tselected=true;
+			opt.selected=true;
+		}
+		opt.value=timeStr;
+		opt.innerText=jstStr;
+		opt.setAttribute("data-ctime",json.data[i].s);
+		sel.appendChild(opt);
+	}
+	changeTime();
+}
+
+function setLegend(json){
+	var legendDiv=document.getElementById("legend");
+	removeChildElements(legendDiv);
+	for ( var i = 0 ; i < json.category.length ; i++ ){
+		var cnum = Number(json.category[i].c);
+		var ccolor = windStrColor[cnum];
+		var cval = (json.category[i].l);
+		var td = document.createElement("td");
+		td.innerText=cval;
+		td.style.backgroundColor=ccolor;
+		legendDiv.appendChild(td);
+	}
+}
+
+function zoomPanMapFunc(){
+//	console.log("wind: zoomPanMap : window:",window);
+//	console.log(layerID,svgImageProps,svgImage);
+//	console.log("vb:",svgMap.getGeoViewBox());
+	if ( preRenderFunctionCalled == false && showDir == true){
+		console.log("call buildDirSvg by zoomPanMapFunc");
+		geoViewBox = svgMap.getGeoViewBox();
+		buildDirSvg();
+		svgMap.refreshScreen();
+	}
+
+}
+
+
+function removeChildElements(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function screenRefreshedFunc(){
+	console.log("wind: screenRefreshed : svgImageProps:", svgImageProps);
+	
+}
+
+function makeWindStrColor(){
+	for ( var i = 0 ; i <= 7 ; i++ ){
+		var hue = (7-i) / 8 * 270;
+		var rgb = hsvToRgb(hue,1,1);
+		var color ="#"+zeroPadding(rgb[0].toString(16),2)+zeroPadding(rgb[1].toString(16),2)+zeroPadding(rgb[2].toString(16),2);
+		windStrColor.push(color);
+		windStrColorVal.push(rgb);
+	}
+}
+
+function loadJson(url,callback){
+	// メソモデル（MSM）
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/msm/info/surf.json?_=1570679941253
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/msm/2019100921/surf.json?_=1570679941254
+	
+	// 日本域（RSM）
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/rsm/info/surf.json?_=1570679941255
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/rsm/2019100921/surf.json?_=1570679941256
+	
+	// 全球モデル（GSM）
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/gsm/info/surf.json?_=1570679941257
+	// http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/gsm/2019100918/surf.json?_=1570679941258
+	
+//	var url = "data.json";
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET",svgMap.getCORSURL(url),true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send();
+	
+}
+
+
+function makeMap(json){
+	geoViewBox = svgMap.getGeoViewBox();
+//	console.log("makeMap:", json);
+	buildTyphoonImage(json);
+//	buildSvg();
+	buildDirSvg();
+	
+	testCanvas();
+}
+
+var windStr=[]; // 0?..7
+var windDir=[]; // 0..f
+
+var areaOrigin=[];
+var areaStep=[];
+var areaSize=[];
+
+
+function buildTyphoonImage(typhoonJson){
+	windStr=[];
+	windDir=[];
+	imgIndex=0;
+	areaOrigin = [typhoonJson.west, typhoonJson.north];
+	areaStep = [typhoonJson.w_rate, typhoonJson.h_rate];
+	areaSize = [typhoonJson.width,typhoonJson.height];
+	for ( var y = 0 ; y<typhoonJson.height ; y++ ){
+		var strRow=[];
+		var dirRow=[];
+		for ( var x = 0 ; x<typhoonJson.width ; x++ ){
+			strRow.push(parseInt(typhoonJson.speed.substring(imgIndex,imgIndex+1),16));
+			dirRow.push(parseInt(typhoonJson.direction.substring(imgIndex,imgIndex+1),16));
+			++imgIndex
+		}
+		windStr.push(strRow);
+		windDir.push(dirRow);
+	}
+//	console.log(windStr,areaOrigin,areaStep,areaSize);
+//	console.log(windDir);
+	
+}
+
+var step = 5;
+function buildSvg(){
+//	console.log("buildSvg   svgImage",svgImage, svgImage.documentElement);
+	var root = svgImage.documentElement;
+	for ( var py = 0 ; py < windStr.length ; py=py+step ){
+		var strRow = windStr[py];
+		var lat = areaOrigin[1] - py*areaStep[1];
+		for ( var px = 0 ; px < strRow.length ; px=px+step ){
+			var rct = svgImage.createElement("rect");
+			
+			var lng = areaOrigin[0]+ px*areaStep[0];
+
+			rct.setAttribute("x",(lng-areaStep[0]*step*0.5) * 100);
+			rct.setAttribute("y",-(lat+areaStep[1]*step*0.5) * 100);
+			rct.setAttribute("width",areaStep[0] * 100 * step);
+			rct.setAttribute("height",areaStep[1] * 100 * step);
+			rct.setAttribute("fill",windStrColor[windStr[py][px]]);
+			rct.setAttribute("style","image-rendering:pixelated");
+			root.appendChild(rct);
+		}
+	}
+	
+	console.log("done");
+}
+
+var showDir = true;
+function buildDirSvg(){
+	geoViewBox = svgMap.getGeoViewBox();
+	var root = svgImage.getElementById("dir");
+	removeChildren(root);
+	if ( showDir == false ){
+		return;
+	}
+//	console.log("buildDirSvg");
+	var dirs = [];
+	for ( var i = 0 ; i < 16 ; i++ ){
+		var dpx = Math.sin( Math.PI * i / 8 );
+		var dpy = -Math.cos( Math.PI * i / 8 );
+		dirs.push([dpx,dpy]);
+	}
+	
+	/**
+	var dataArea = {
+		lngMin: areaOrigin[0],
+		lngMax: areaOrigin[0] + (windStr[0].length-1)*areaStep[0],
+		latMin: areaOrigin[1] - (windStr.length-1)*areaStep[1],
+		latMax: areaOrigin[1]
+	}
+	**/
+	
+	var dirStep=1;
+	var xcount = geoViewBox.width / (dirStep * areaStep[0]);
+	while ( xcount > 64 ){
+		++ dirStep;
+		xcount = geoViewBox.width / (dirStep * areaStep[0]);
+	}
+	
+//	console.log("dirStep:",dirStep,"  geoViewBox:",geoViewBox);
+	
+	for ( var py = 0 ; py < windStr.length ; py=py+dirStep ){
+		var strRow = windStr[py];
+		var lat = areaOrigin[1] - py*areaStep[1];
+		if ( lat < geoViewBox.y || lat > (geoViewBox.y+geoViewBox.height) ){
+			continue;
+		}
+		for ( var px = 0 ; px < strRow.length ; px=px+dirStep ){
+			var lng = areaOrigin[0]+ px*areaStep[0];
+			if ( lng < geoViewBox.x || lng > (geoViewBox.x+geoViewBox.width) ){
+				continue;
+			}
+			var rct = svgImage.createElement("path");
+			
+			var wstr = windStr[py][px];
+			var wstrColor = windStrColor[wstr];
+			var wdir = windDir[py][px];
+			// console.log("wdir:",wdir," wstr:",wstr);
+			
+			var dpy = wstr * 4  * dirs[wdir][1];
+			var dpx = wstr * 4  * dirs[wdir][0];
+			
+			rct.setAttribute("d","M0,0 L" + dpx + "," + dpy );
+			rct.setAttribute("stroke-width","1");
+			rct.setAttribute("vector-effect","non-scaling-stroke");
+//			rct.setAttribute("transform","ref(svg,"+ ((lng-areaStep[0]*dirStep*0.5) * 100) +","+ (-(lat+areaStep[1]*dirStep*0.5) * 100)+")");
+			rct.setAttribute("transform","ref(svg,"+ ((lng) * 100) +","+ (-(lat) * 100)+")");
+			rct.setAttribute("stroke","red");
+			// rct.setAttribute("marker-end","url(#Arrow)");
+			/**
+			rct.setAttribute("x",(lng-areaStep[0]*dirStep*0.5) * 100);
+			rct.setAttribute("y",-(lat+areaStep[1]*dirStep*0.5) * 100);
+			rct.setAttribute("width",areaStep[0] * 100 * dirStep);
+			rct.setAttribute("height",areaStep[1] * 100 * dirStep);
+			rct.setAttribute("fill",windStrColor[windStr[py][px]]);
+			rct.setAttribute("style","image-rendering:pixelated");
+			**/
+			// console.log(rct);
+			root.appendChild(rct);
+		}
+	}
+//	console.log("svgImage:",svgImage);
+//	console.log("done");
+}
+
+
+function hsvToRgb(H,S,V) {
+	// https://qiita.com/hachisukansw/items/633d1bf6baf008e82847
+	//https://en.wikipedia.org/wiki/HSL_and_HSV#From_HSV
+
+	var C = V * S;
+	var Hp = H / 60;
+	var X = C * (1 - Math.abs(Hp % 2 - 1));
+
+	var R, G, B;
+	if (0 <= Hp && Hp < 1) {
+		R=C;
+		G=X;
+		B=0;
+	};
+	if (1 <= Hp && Hp < 2) {
+		R=X;
+		G=C;
+		B=0;
+	};
+	if (2 <= Hp && Hp < 3) {
+		R=0;
+		G=C;
+		B=X;
+	};
+	if (3 <= Hp && Hp < 4) {
+		R=0;
+		G=X;
+		B=C;
+		
+	};
+	if (4 <= Hp && Hp < 5) {
+		R=X;
+		G=0;
+		B=C;
+	};
+	if (5 <= Hp && Hp < 6) {
+		R=C;
+		G=0;
+		B=X;
+	};
+
+	var m = V - C;
+	R = R+m;
+	G = G+m;
+	B = B+m;
+
+	R = Math.floor(R * 255);
+	G = Math.floor(G * 255);
+	B = Math.floor(B * 255);
+
+	return [R ,G, B];
+}
+
+function zeroPadding(num,length){
+    return ('0000000000' + num).slice(-length);
+}
+
+function testCanvas(){
+	var canvas = document.getElementById('wcanvas');
+	canvas.width=areaSize[0];
+	canvas.height=areaSize[1];
+	var context = canvas.getContext('2d');
+	var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+	// console.log("canvas imagedata:",imageData);
+	var width = imageData.width, height = imageData.height;
+	var pixels = imageData.data; 
+	for (var y = 0; y < height; ++y) {
+		for (var x = 0; x < width; ++x) {
+			
+			var base = (y * width + x) * 4;
+			
+			var wColor = windStrColorVal[windStr[y][x]];
+			//console.log("wColor:",wColor);
+			
+			// なんかピクセルに書き込む
+			pixels[base + 0] = wColor[0];  // Red
+			pixels[base + 1] = wColor[1];  // Green
+			pixels[base + 2] = wColor[2];  // Blue
+			pixels[base + 3] = 255;  // Alpha
+		}
+	}
+	context.putImageData(imageData, 0, 0);
+	var uri = canvas.toDataURL('image/png');
+//	console.log("dataURI:",uri);
+	buildSvgImage(uri);
+}
+
+function removeChildren(pElem){
+	
+	while (pElem.firstChild) pElem.removeChild(pElem.firstChild);
+}
+
+function  buildSvgImage(imageDataUri){
+	var rct = svgImage.getElementById("strImg");
+	// console.log("rct:",rct);
+	rct.setAttribute("x",(areaOrigin[0]-0.5*areaStep[0]) * 100);
+	rct.setAttribute("y",-(areaOrigin[1]+0.5*areaStep[1]) * 100);
+	rct.setAttribute("width",areaSize[0]*areaStep[0] * 100);
+	rct.setAttribute("height",areaSize[1]*areaStep[1] * 100);
+	rct.setAttribute("xlink:href",imageDataUri);
+	rct.setAttribute("style","image-rendering:pixelated");
+//	console.log(rct);
+	
+	// console.log("svgImage:",svgImage);
+	svgMap.refreshScreen();
+}
+
+var currentModel = "";
+
+function initModel(){
+	currentModel = modelSel.options[modelSel.selectedIndex].value;
+	console.log("currentModel:",currentModel);
+	loadJson("http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/" + currentModel + "/info/surf.json?_=" + new Date().getTime(), setTimeInfo);
+	document.getElementById("timeSel").focus()
+	
+}
+
+function changeTime(){
+	var time = timeSel.options[timeSel.selectedIndex].value;
+	ctime=Number( timeSel.options[timeSel.selectedIndex].getAttribute("data-ctime"))-1;
+	console.log("time:",time, "     currentModel:",currentModel);
+	loadJson("http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/" + currentModel + "/" + time+"/surf.json?_=" + new Date().getTime(), makeMap);
+}
+
+function changeDir(event){
+	var checked = event.target.checked;
+	// console.log("changeDir checked:",checked);
+	showDir = checked;
+	buildDirSvg();
+	svgMap.refreshScreen();
+}
+
+</script>
+<body>
+<h3>NII's digital Typhoon</h3>
+<p>GPVから風速を表示します</p>
+<select  id="modelSel" onchange="initModel()">
+	<option value="msm" >メソモデル（MSM）- 高精細</option>
+	<option value="rsm" selected>日本域（RSM）- 中精細</option>
+	<option value="gsm">全球モデル（GSM）- 全地球</option>
+</select>
+
+<select  id="timeSel" onchange="changeTime()">
+</select>
+<div style="font-size:10px">カーソルキーで時間を前後できます</div>
+<p>
+凡例：風速[m/s]　　　風向表示:<input type="checkbox" onclick="changeDir(event)" checked></input>
+<table style="font-size:8px"><tr id="legend"></tr></table>
+<p>
+<canvas id="wcanvas"  width="400" height="300" style="display:none"></canvas>
+</body>
+</html>

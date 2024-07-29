@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="meshCode" data-controller="kuwanauchi.html#exec=appearOnLayerLoad&amp;requiredHeight=400">
+
+<!--
+ 統計局の市区町村コード1Kmメッシュデータを用いて、データを色塗りする（境界ポリゴン版 jpn_lg_a.svgに対して、同等機能のラスタ版)
+ 小縮尺表示時にも小さな町がかき消されないとか、大縮尺表示時に隣接境界のずれが生じないとかのメリットがあるのではと思う。
+ ただ、分解能が1Kmなのが残念。
+ -->
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<defs>
+<g id="p0">
+<circle cx="0" cy="0" r="3" fill="purple"></circle>
+</g>
+ <g id="p1">
+  <circle cx="0" cy="0" r="5" fill="green" stroke="none"/>
+ </g>
+ <g id="p2">
+  <circle cx="0" cy="0" r="3" fill="red" stroke="none"/>
+ </g>
+ <g id="p3">
+  <circle cx="0" cy="0" r="5" fill="blue" stroke="none"/>
+ </g>
+ <g id="p4">
+  <circle cx="0" cy="0" r="5" fill="yellow" stroke="none"/>
+ </g>
+ <g id="p5">
+  <circle cx="0" cy="0" r="5" fill="purple" stroke="none"/>
+ </g>
+ <g id="indexPoi">
+  <circle cx="0" cy="0" r="15" fill="blue" stroke="none" opacity="0.7"/>
+ </g>
+  <g id="ap1" >
+   <image xlink:href="./Xcursor1.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  <g id="ap2" >
+   <image xlink:href="./Xcursor2.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+</defs>
+<g id="areas" opacity="0.7"></g> <!-- 自治体ポリゴン -->
+
+<g id="distg" opacity="0.7"></g>
+
+<g id="indexg"></g>  <!-- 図葉選択ポイント-->
+
+<g id="aping" opacity="1"> <!-- 任意座標データの基準点を入れるグループ-->
+</g>
+
+<g id="poig" opacity="0.5"> <!-- 地図が載る -->
+</g>
+
+<g id="dmys" opacity="0.25"> <!-- 使われていない-->
+</g>
+</svg>

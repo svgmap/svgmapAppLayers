@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>windy.js test</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="windy.js">
+</script>
+
+<script>
+// NIIの世界版リアルタイム風向き情報をparticle stream animationレイヤー化
+// Programmed by Satoru Takagi
+// License: It is an MIT license in respect to the license of the original code.
+//
+// svgMap.jsのレイヤーcanvasをHackしてそこにWindyを描かせる　というのはどうだろう。
+// まずは無理やりでも、コアフレームワークを全くいじらずに実装できるかを試してみる。
+// canvasに、hasdrawing="true" 属性が無いと消されてしまう。
+// canvasのIDはsvgImagesProps[docId].rootLayer + "_canvas";
+
+// 2023/08/17 1st working release
+// 2023/08/29 Support mercator proj.
+
+var wcan;
+var windy;
+
+function getLayerCanvas(){
+	var layerCanvas = window.parent.document.getElementById(layerID+"_canvas");
+	return (layerCanvas);
+}
+
+function maintainCanvas(){
+	var gc = svgMap.getGeoViewBox();
+	var cm = svgImage.getElementById("canvasMarker");
+	cm.setAttribute("cx",gc.cx);
+	cm.setAttribute("cy",-gc.cy);
+
+	var bm = svgImage.getElementById("bgMask");
+	bm.setAttribute("x",gc.x);
+	bm.setAttribute("y",-gc.y-gc.height);
+	bm.setAttribute("width",gc.width);
+	bm.setAttribute("height",gc.height);
+}
+
+var animStarted = false;
+
+function zpmc(){
+	var lc = getLayerCanvas();
+	var cw = lc.width;
+	var ch = lc.height;
+	var gvb = svgMap.getGeoViewBox();
+//	windy.clear();
+	windy.start([[0,0],[cw,ch]],cw,ch,[[gvb.x,gvb.y],[gvb.x + gvb.width, gvb.y + gvb.height]]); // OK
+	animStarted = true;
+}
+
+function preRenderFunction(){
+	console.log("preRenderFunction : windy", typeof windy);
+	maintainCanvas();
+	if ( typeof windy !="object"){return;}
+	windy.stop();
+	animStarted = false;
+//	windy.clear();
+	setTimeout(function(){
+		if ( !animStarted){
+			zpmc()
+		}
+	},500);
+}
+
+</script>
+
+<script>
+// https://github.com/Esri/wind-js
+// http://esri.github.io/wind-js/
+var isMercator = false;
+onload=async function(){
+	initModel();
+	addEventListener("zoomPanMapCompleted",zpmc);
+	isMercator = svgMap.getSvgImagesProps()["root"].CRS.mercator;
+}
+
+
+function startWindy(json){
+	console.log("startWindy");
+	if ( typeof windy =="object"){
+		windy.stop();
+		windy.clear();
+	}
+	maintainCanvas();
+	svgMap.refreshScreen();
+	setTimeout(function(){
+		console.log("startWindy ph2");
+		var lc = getLayerCanvas();
+		console.log(lc, typeof lc);
+		var plateCarree = true;
+		if ( isMercator ){
+			plateCarree = false;
+		}
+		console.log("plateCarree:",plateCarree);
+		windy = new Windy({ canvas:lc , data: json , plateCarree});
+		zpmc();
+	},500);
+}
+
+</script>
+
+
+<script>
+// GPV
+
+var currentModel = "";
+windVal={};
+var ctime=-1;
+
+async function initModel(){
+	currentModel = modelSel.options[modelSel.selectedIndex].value;
+	console.log("currentModel:",currentModel);
+	var json = await loadJson("http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/" + currentModel + "/info/surf.json?_=" + new Date().getTime());
+	setTimeInfo(json);
+	document.getElementById("timeSel").focus()
+}
+
+async function changeTime(){
+	var time = timeSel.options[timeSel.selectedIndex].value;
+	ctime=Number( timeSel.options[timeSel.selectedIndex].getAttribute("data-ctime"))-1;
+	console.log("time:",time, "     currentModel:",currentModel);
+	var json = await loadJson("http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/" + currentModel + "/" + time+"/surf.json?_=" + new Date().getTime());
+	makeMap(json);
+}
+
+function makeMap(json){
+	console.log("json:",json);
+	var windyJson = buildWindyJson(json);
+	console.log("windyJson:",windyJson);
+	startWindy(windyJson);
+}
+
+function setTimeInfo(json){
+	addWindVal(json);
+	console.log("setTimeInfo:",json);
+	//setLegend(json);
+	if ( ctime==-1){
+		ctime = Math.floor(((new Date()).getTime() )/1000) ;
+	}
+	console.log("testInfo:",json);
+	var sel = document.getElementById("timeSel");
+	removeChildElements(sel);
+	var tselected = false;
+	for ( var i = 0 ; i <json.data.length ; i++ ){
+		var jstStr = json.data[i].l;
+		var timeStr = json.data[i].d;
+		var opt = document.createElement("option");
+		if ( !tselected && Number(json.data[i].s)>ctime){
+			tselected=true;
+			opt.selected=true;
+		}
+		opt.value=timeStr;
+		opt.innerText=jstStr;
+		opt.setAttribute("data-ctime",json.data[i].s);
+		sel.appendChild(opt);
+	}
+	changeTime();
+}
+
+function addWindVal(json){
+	for ( var i = 0 ; i < json.category.length ; i++ ){
+		var cval = (json.category[i].l).split("-");
+		cval=Number(cval[0])+1;
+		json.category[i].val=cval;
+		windVal[json.category[i].c]=cval;
+	}
+	console.log(windVal);
+}
+
+function buildWindyJson(typhoonJson){
+	var dirs = [];
+	for ( var i = 0 ; i < 16 ; i++ ){
+		var dpx = -Math.sin( Math.PI * i / 8 );
+		var dpy = -Math.cos( Math.PI * i / 8 );
+		dirs.push([dpx,dpy]);
+	}
+	
+	var windX=[];
+	var windY=[];
+	var imgIndex = 0;
+	for ( var y = 0 ; y<typhoonJson.height ; y++ ){
+		for ( var x = 0 ; x<typhoonJson.width ; x++ ){
+			var windLevel = (parseInt(typhoonJson.speed.substring(imgIndex,imgIndex+1),16));
+			var windSpeed = windVal[windLevel]; // 風速m/s
+			
+			var windDir = (parseInt(typhoonJson.direction.substring(imgIndex,imgIndex+1),16));
+			
+			var dpx = windSpeed  * dirs[windDir][0];
+			var dpy = windSpeed  * dirs[windDir][1];
+			windX.push(dpx);
+			windY.push(dpy);
+			++imgIndex
+		}
+	}
+	
+	var uHeader=makeWindyHeader(typhoonJson, 2);
+	uData = {header:uHeader , data:windX}; // 東西
+	var vHeader=makeWindyHeader(typhoonJson, 3);
+	vData = {header:vHeader , data:windY}; // 南北
+	
+	var wJson = [uData,vData];
+	
+	return wJson;
+}
+
+function makeWindyHeader(tj, pn){
+	var ans ={
+		lo1:tj.west,
+		la1:tj.north,
+		dx:tj.w_rate,
+		dy:tj.h_rate,
+		nx:tj.width,
+		ny:tj.height,
+		refTime: new Date(ctime*1000).toISOString() ,
+		forecastTime:0, //refTimeの n時間先の意味
+		parameterCategory:2,
+		parameterNumber:pn, // U:2, V:3
+	}
+	return ans;
+}
+
+
+async function loadJson(url){
+	var curl = svgMap.getCORSURL(url);
+	var json = await ( await fetch(curl)).json();
+	return ( json );
+}
+
+function removeChildElements(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+
+</script>
+
+
+
+<body>
+<h5><a href="http://agora.ex.nii.ac.jp/digital-typhoon/gpv/wind/" target="_blank">NIIの世界版リアルタイム風向きマップ</a>をアニメ化(α版)</h5>
+
+<div >
+<select  id="modelSel" onchange="initModel()">
+	<option value="msm" >メソモデル（MSM）- 高精細</option>
+	<option value="rsm" >日本域（RSM）- 中精細</option>
+	<option value="gsm" selected>全球モデル（GSM）- 全地球</option>
+</select>
+
+<select  id="timeSel" onchange="changeTime()">
+</select>
+<div style="font-size:10px">カーソルキーで時間を前後できます</div>
+</div>
+<ul style="font-size:9px">
+<li>実験的なレイヤーです
+<li>NIIで公開されているデータは風向や風速がかなり離散的な値のため、高精細モデルだとがたついてしまう感じ(全球モデルのほうがむしろ補完が効いてなめらか？)ちゃんとした数値データが欲しいところ
+<li>流線アニメーション化のライブラリ
+  <ul>
+  <li><a href="https://github.com/Esri/wind-js" target="_blank">こちらのコード</a>をベースに、改造したものです
+  <li>更にそのオリジナルは<a href="https://github.com/cambecc/earth" target="_blank">こちら</a>だとのこと。
+  <li>また、そのコードは、Windy.comのベースになっているものとのことです。(<a href="https://ja.wikipedia.org/wiki/%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%87%E3%82%A3_(%E6%B0%97%E8%B1%A1%E3%82%B5%E3%83%BC%E3%83%93%E3%82%B9)" target="_blank">wikipediaより</a>)
+  </ul>
+ </ul>
+
+
+</body>
+</html>

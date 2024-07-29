@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>スターリンク地上局情報</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./unescapeJs_browserify.js">
+// unescapeJs_browserify.jsはgoogleマイマップのヘンなjsエスケープ付きjson的文字列データをエスケープ外して読み込むnodeライブラリをbrowserifyしたもの
+// unescape-js: https://github.com/iamakulov/unescape-js
+</script>
+
+<script>
+// Description: Starlink Insider: Starlink Ground Station Locations: An Overview　の地図データをSVGMapレイヤー化する
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+//var srcurl="https://www.google.com/maps/d/viewer?mid=1805q6rlePY4WZd8QMOaNe2BqAgFkYBY&femb=1&ll=-3.81666561775622e-14%2C-113.27077465000002&z=1";
+var srcurl="https://starlinkinsider.com/starlink-gateway-locations/";
+
+onload=async function(){
+	var gjs=await getGoogleMymap(srcurl);
+	console.log(gjs);
+	var schema=Object.keys(gjs.features[0].properties);
+	svgImage.documentElement.setAttribute("property",schema.join());
+	svgMapGIStool.drawGeoJson(gjs,layerID,"red",2,"orange","p0","title",null,null,schema);
+	svgMap.refreshScreen();
+}
+
+
+async function getGoogleMymap(srcUrl){
+	var dom = await loadHtml(svgMap.getCORSURL(srcUrl));
+	var ifrs = dom.getElementsByTagName("iframe");
+	for ( var ifr of ifrs){
+		if ( ifr.src.indexOf("https://www.google.com/maps")==0){
+			break;
+		}
+	}
+	var gmDom = await loadHtml(svgMap.getCORSURL(ifr.src));
+	var scrs = gmDom.getElementsByTagName("script");
+	for ( var scr of scrs){
+		var src = scr.innerText;
+		var pageDataIndex = src.indexOf("_pageData"); // googleMyMapのデータ：_pageData変数の文字列に決め打ち
+		if ( pageDataIndex>0){
+			//console.log(src);
+			src = src.substring(pageDataIndex);
+			break;
+		}
+	}
+//	console.log(src);
+	ps = src;
+	src = src.substring(src.indexOf('"')+1,src.indexOf('";')+1);
+	src = src.substring(0,src.lastIndexOf('"'));
+	//console.log(src);
+	var gmPOIrawSrc = JSON.parse(unescapeJs(src));
+	
+	//console.log(gmPOIrawSrc);
+	var gmPOIsrc = traverseArray(gmPOIrawSrc); // 配列の構造が意味不明（というより解析がもう面倒なので・・）1次元配列化し、前後関係だけから適当にPOIを抜き出すことにする
+	console.log(gmPOIsrc);
+	
+	var POIs = serarchPOIs(gmPOIsrc);
+	//console.log(POIs);
+	return ( POIs);
+}
+
+function serarchPOIs(gmPOIsrcArray){
+	var pois={
+		type:"FeatureCollection",
+		features:[]
+	};
+	
+	var aIdx=0;
+	while( aIdx < gmPOIsrcArray.length){
+		var poiD=searchPOI(gmPOIsrcArray,aIdx);
+		aIdx = poiD.index;
+		if ( poiD.poi){
+			pois.features.push(poiD.poi);
+		}
+//		console.log(poiD.poi, aIdx, gmPOIsrcArray.length);
+	}
+//	console.log("completed");
+	return pois;
+}
+
+function searchPOI(gmPOIsrcArray,initialIndx){
+	var name, Status, nameIndex, Location, Freq, Application, Notes, Date;
+	for ( var i = initialIndx ; i < gmPOIsrcArray.length ; i++){
+		if ( gmPOIsrcArray[i]=="Description" ){
+			name = gmPOIsrcArray[i+1];
+			nameIndex = i;
+		} else if ( gmPOIsrcArray[i]=="Status" ){
+			Status = gmPOIsrcArray[i+1];
+		} else if ( gmPOIsrcArray[i]=="Location" ){
+			Location = gmPOIsrcArray[i+1];
+		} else if ( gmPOIsrcArray[i]=="Application" ){
+			Application = gmPOIsrcArray[i+1];
+		} else if ( gmPOIsrcArray[i]=="Notes" ){
+			Notes = gmPOIsrcArray[i+1];
+		} else if ( gmPOIsrcArray[i]=="Date" ){
+			Date = gmPOIsrcArray[i+1];
+		} else if ( gmPOIsrcArray[i]=="Freq" ){
+			Freq = gmPOIsrcArray[i+1];
+		}
+		if ( name && Freq){
+			break;
+		}
+	}
+	var endIndex = i+1;
+	//console.log(name, url, endIndex);
+	
+	if ( !name){
+		return {
+			poi:null,
+			index:endIndex
+		}
+	}
+	
+	var lat,lng;
+	for ( var i = nameIndex-1 ; i > nameIndex - 6 ; i--){
+		if ( typeof gmPOIsrcArray[i] =="number" && gmPOIsrcArray[i] % 1 != 0){
+			if ( !lng){
+				lng = gmPOIsrcArray[i];
+			} else {
+				lat = gmPOIsrcArray[i];
+				break;
+			}
+		}
+	}
+	return {
+		poi:{
+			type:"Feature",
+			geometry:{
+				type:"Point",
+				coordinates:[lng,lat],
+			},
+			properties:{
+				title:name, Status, Location, Freq, Application, Notes, Date
+			}
+		},
+		index:endIndex
+	}
+}
+
+async function loadHtml(url){
+	var res = await fetch(url);
+	var text = await res.text();
+	var dom = new DOMParser().parseFromString(text, "text/html");
+	return dom;
+}
+
+function traverseArray(ar){
+	var ans =[];
+	for (var el of ar){
+		if ( el instanceof Array){
+			ans = ans.concat(traverseArray(el));
+		} else {
+			ans.push(el);
+		}
+	}
+	return ans;
+}
+</script>
+<body>
+<h3>StarLinkGS</h3>
+Reference: <a href="https://starlinkinsider.com/starlink-gateway-locations/" target="_blank">Starlink Insider: Starlink Ground Station Locations: An Overview</a>
+</body>
+</html>

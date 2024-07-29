@@ -1,0 +1,335 @@
+<!doctype html>
+<html>
+<head>
+<title>NII's weather warning layer controller</title>
+</head>
+<style>
+#loader{
+    margin:auto;
+    width:30px;
+    height:30px;
+    border-radius:30px;
+    border:8px solid #17cddd;
+    border-right-color:transparent;
+    animation:spin 1s infinite linear;
+}
+#loader{
+    animation:spin 1s infinite linear;
+}
+@keyframes spin{
+    0%{transform:rotate(0deg); opacity:0.4;}
+    50%{transform:rotate(180deg); opacity:1;}
+    100%{transform:rotate(360deg); opacity:0.4;}
+    
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// http://agora.ex.nii.ac.jp/cps/weather/warning-map/
+// http://agora.ex.nii.ac.jp/cgi-bin/cps/warning_bbx_json.pl?sw_lat=23.241346102386135&sw_lng=111.79687500000001&ne_lat=46.37725420510028&ne_lng=167.73925781250003&_=1571812421516
+
+
+windStrColor=[]; // 0...7
+windStrColorVal=[];
+
+onload=function(){
+	setTimeout(loadWarnigData,100);
+}
+
+function loadWarnigData(){
+	svgImage.documentElement.setAttribute("property", svgImage.documentElement.getAttribute("property")+",warning");
+	console.log("loadWarnigData:");
+	var url = "http://agora.ex.nii.ac.jp/cgi-bin/cps/warning_bbx_json.pl?sw_lat=23.241346102386135&sw_lng=111.79687500000001&ne_lat=46.37725420510028&ne_lng=167.73925781250003&_="+ (new Date()).getTime() ;
+	message.innerText="データ読み込み中です";
+	loadJson( svgMap.getCORSURL(url) , showWarning );
+}
+
+var warnCats = [];
+
+function showWarning(json){
+	console.log("WarnigData:",json);
+	loader.style.display="none";
+	message.innerText="データ読み込み完了";
+	var paths = svgImage.getElementsByTagName("path");
+	for ( var i = 0 ; i < paths.length ; i++ ){
+		var path = paths[i];
+		var meta = path.getAttribute("content");
+		var metaSplit = meta.split(",");
+		var jcode = metaSplit[0];
+		var hasWarn=false;
+		if ( json.a[jcode] ){
+			hasWarn = true;
+		} else if( metaSplit[4] ){ // 政令指定都市
+			// はひとくくりになってるので下二桁を00にして再弁別？
+			jcode = jcode.substring(0,3)+"00";
+			if (json.a[jcode] ){
+				hasWarn = true;
+			}
+		}
+//		console.log("jcode:",jcode);
+		if ( hasWarn ){
+			var warnStr=warnListToStr((json.a[jcode]).list);
+//			console.log("Hit:",jcode);
+			if ( warnStr.indexOf("警報")>=0){
+				path.setAttribute("fill","purple");
+				path.setAttribute("stroke","red");
+				path.setAttribute("stroke-width","6");
+			} else {
+				path.setAttribute("fill","yellow");
+				path.setAttribute("stroke","orange");
+//				path.setAttribute("stroke-width","6");
+			}
+			path.setAttribute("content",meta+","+warnStr);
+			path.setAttribute("xlink:title",warnStr);
+		} else {
+			path.setAttribute("content",meta+",--");
+			path.setAttribute("visibility","hidden");
+		}
+	}
+	setWarnMenu();
+	svgMap.refreshScreen();
+}
+
+
+function warnListToStr(list){
+	var ansDic=[];
+	for ( var i = 0 ; i < list.length ; i++){
+		ansDic[list[i]]=true;
+		
+		if ( !warnCats[list[i]] ){
+			warnCats[list[i]] = true;
+		}
+	}
+	
+	var ans = "";
+	var firstAns = true;
+	for ( var warnStr in ansDic){
+		if ( firstAns){
+			ans = warnStr;
+			firstAns = false;
+		} else {
+			ans = ans+":"+warnStr;
+		}
+	}
+	return ( ans );
+}
+
+function setWarnMenu(){
+	for ( var warnCat in warnCats ){
+		var opt = document.createElement("option");
+		if ( warnCat.indexOf("警報")>=0){
+			opt.style.color="red";
+		}
+		opt.setAttribute("value",warnCat);
+		opt.innerText=warnCat;
+		warnCatSel.appendChild(opt);
+	}
+}
+
+function changeView(){
+	var warnVal=(warnCatSel.options[warnCatSel.selectedIndex]).value;
+	console.log("called:changeView:", warnVal);
+	
+	var paths = svgImage.getElementsByTagName("path");
+	for ( var i = 0 ; i < paths.length ; i++ ){
+		var wvl=(paths[i].getAttribute("content").split(","));
+		var wv=wvl[wvl.length-1];
+		if ( wv !="--"){
+//			console.log("wv:",wv, "   ::",paths[i].getAttribute("content"));
+			if ( warnVal == "all"){
+				paths[i].setAttribute("visibility","visible");
+			} else {
+				if ( wv.indexOf(warnVal)>=0){
+					paths[i].setAttribute("visibility","visible");
+				} else {
+					paths[i].setAttribute("visibility","hidden");
+				}
+			}
+		}
+	}
+	svgMap.refreshScreen();
+}
+
+function zoomPanMapFunc(){
+	console.log("wind: zoomPanMap : window:",window);
+}
+
+
+function removeChildElements(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function screenRefreshedFunc(){
+	console.log("wind: screenRefreshed : svgImageProps:", svgImageProps);
+	
+}
+
+
+function loadJson(url,callback){
+	console.log("loadJson:",url);
+	
+//	var url = "data.json";
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET",url,true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send();
+	
+}
+
+
+function makeMap(json){
+//	console.log("makeMap:", json);
+	buildTyphoonImage(json);
+//	buildSvg();
+	testCanvas();
+}
+
+var windStr=[]; // 0?..7
+var windDir=[]; // 0..f
+
+var areaOrigin=[];
+var areaStep=[];
+var areaSize=[];
+
+
+function buildTyphoonImage(typhoonJson){
+	windStr=[];
+	windDir=[];
+	imgIndex=0;
+	areaOrigin = [typhoonJson.west, typhoonJson.north];
+	areaStep = [typhoonJson.w_rate, typhoonJson.h_rate];
+	areaSize = [typhoonJson.width,typhoonJson.height];
+	for ( var y = 0 ; y<typhoonJson.height ; y++ ){
+		var strRow=[];
+		var dirRow=[];
+		for ( var x = 0 ; x<typhoonJson.width ; x++ ){
+			strRow.push(parseInt(typhoonJson.speed.substring(imgIndex,imgIndex+1),16));
+			dirRow.push(parseInt(typhoonJson.direction.substring(imgIndex,imgIndex+1),16));
+			++imgIndex
+		}
+		windStr.push(strRow);
+		windDir.push(dirRow);
+	}
+//	console.log(windStr,areaOrigin,areaStep,areaSize);
+//	console.log(windDir);
+	
+}
+
+var step = 5;
+function buildSvg(){
+//	console.log("buildSvg   svgImage",svgImage, svgImage.documentElement);
+	var root = svgImage.documentElement;
+	for ( var py = 0 ; py < windStr.length ; py=py+step ){
+		var strRow = windStr[py];
+		var lat = areaOrigin[1] - py*areaStep[1];
+		for ( var px = 0 ; px < strRow.length ; px=px+step ){
+			var rct = svgImage.createElement("rect");
+			
+			var lng = areaOrigin[0]+ px*areaStep[0];
+
+			rct.setAttribute("x",(lng-areaStep[0]*step*0.5) * 100);
+			rct.setAttribute("y",-(lat+areaStep[1]*step*0.5) * 100);
+			rct.setAttribute("width",areaStep[0] * 100 * step);
+			rct.setAttribute("height",areaStep[1] * 100 * step);
+			rct.setAttribute("fill",windStrColor[windStr[py][px]]);
+			rct.setAttribute("style","image-rendering:pixelated");
+			root.appendChild(rct);
+		}
+	}
+	
+	console.log("done");
+}
+
+function hsvToRgb(H,S,V) {
+	// https://qiita.com/hachisukansw/items/633d1bf6baf008e82847
+	//https://en.wikipedia.org/wiki/HSL_and_HSV#From_HSV
+
+	var C = V * S;
+	var Hp = H / 60;
+	var X = C * (1 - Math.abs(Hp % 2 - 1));
+
+	var R, G, B;
+	if (0 <= Hp && Hp < 1) {
+		R=C;
+		G=X;
+		B=0;
+	};
+	if (1 <= Hp && Hp < 2) {
+		R=X;
+		G=C;
+		B=0;
+	};
+	if (2 <= Hp && Hp < 3) {
+		R=0;
+		G=C;
+		B=X;
+	};
+	if (3 <= Hp && Hp < 4) {
+		R=0;
+		G=X;
+		B=C;
+		
+	};
+	if (4 <= Hp && Hp < 5) {
+		R=X;
+		G=0;
+		B=C;
+	};
+	if (5 <= Hp && Hp < 6) {
+		R=C;
+		G=0;
+		B=X;
+	};
+
+	var m = V - C;
+	R = R+m;
+	G = G+m;
+	B = B+m;
+
+	R = Math.floor(R * 255);
+	G = Math.floor(G * 255);
+	B = Math.floor(B * 255);
+
+	return [R ,G, B];
+}
+
+function zeroPadding(num,length){
+    return ('0000000000' + num).slice(-length);
+}
+
+
+function removeImages(){
+	var imgs = svgImage.getElementsByTagName("image");
+//	console.log(imgs.length , imgs);
+	if ( imgs.length > 0 ){
+		for ( var i = imgs.length - 1 ; i >= 0 ; i-- ){
+			imgs[i].parentNode.removeChild(imgs[i]);
+			// element.parentNode.removeChild(element);
+		}
+	}
+}
+
+</script>
+<body>
+<h3><a target="_blank" href="http://agora.ex.nii.ac.jp/cps/weather/warning-map/">NII's weather warning data</a> SVGMap visualizer</h3>
+<p>気象の警報注意報を可視化してます。</p>
+<p>凡例：　<span style=" background-color:yellow;color:orange;">注意報</span>, <span style="background-color:purple;color:red;">警報 </span>
+<p>
+<div id="message"></div>
+<div id="loader"></div>
+</p>
+
+警報注意報の選択：
+<select  id="warnCatSel" onchange="changeView()">
+	<option value="all" style="color:brown" selected>全警報注意報</option>
+</select>
+
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0,-10,10,10" >
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)" />
+
+<animation x="-300000" y="-300000" width="600000" height="600000" xlink:href="bitimageSub.svg" title="bimg" class="img clickable" visibility="visible"/>
+
+
+</svg>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+
+// 海しるの情報からハックした、気象庁の衛星タイルデータ他へのアクセス
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2020-2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// 2020/07/30 1st rev
+// 2020/11/16 rev2 data-controllerの　#オプションで、 cat=数字:その数字のカテゴリでデフォルト起動 , autoupdate:自動更新モードで起動
+// 2022/04/05 降水ナウキャストは本家のほうと同じサイトに変更されたようなので廃止予定
+
+var baseURL = "https://www.data.jma.go.jp/tile/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/[[category2]]/[[zoom]]/[[tx]]/[[ty]].png";
+var cats0 = [
+	"satimg","satimg","satimg","satimg",
+	"satprod","satprod","satprod","satprod","satprod",
+	"satprod","satprod","satprod",
+	"nowc"];
+var cats1 = [
+	"fd","jp","fd","jp",
+	"FD","FD","FD","FD","FD",
+	"FD","JP","JP",
+	"none"];
+var cats2 = [
+	"B13/TBB","B13/TBB","B03/ALBD","B03/ALBD",
+	"HCAI/HTC","HCAI/CLM","HCAI/CLC","HCAI/DUST","HCAI/SIM",
+	"HRP/HRP","CCI/CCI","FOG/FGNM",
+	"surf/hrpns"];
+var zoomLimits = [
+	5,6,5,6,
+	5,5,5,5,5,
+	5,6,6,
+	9];
+var catsExp = [
+	"衛星画像 雲 赤外","衛星画像 雲 赤外(日本)","衛星画像 雲 可視光","衛星画像 雲 可視光(日本)",
+	"衛星解析 CloudTop(雲の高さ)","衛星解析 CloudMask(曇の有無)","衛星解析 CloudType(雲の種別)","衛星解析 Dust(塵)","衛星解析 Snow_Ice(雪・氷)",
+	"衛星解析 強雨域","衛星解析 積乱雲","衛星解析 霧",
+	"高解像度降水ナウキャスト"];
+
+var subps =[
+	"tile/satimg/targetTimes_fd.json",
+	"tile/satimg/targetTimes_fd.json",
+	"tile/satimg/targetTimes_fd.json",
+	"tile/satimg/targetTimes_fd.json",
+	
+	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	
+	"omaad/rsmc_nowcast/en/jmatile/data/hrp/targetTimes.json",
+	"omaad/aviation/jp/jmatile/data/cci/targetTimes.json",
+	"omaad/aviation/jp/jmatile/data/fog/targetTimes.json",
+	
+	"tile/nowc/targetTimes.json"
+]
+
+var legends =[
+	"","","","",
+	
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_htc.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_clm.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_clc.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_dust.svg",
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hcai/images/legend_en_normal_sim.svg",
+	
+	"https://www.data.jma.go.jp/omaad/rsmc_nowcast/en/hrp/images/legend_en_normal_hrp.svg",
+	"https://www.data.jma.go.jp/omaad/aviation/jp/cci/images/legend_jp_normal_cci.svg",
+	"https://www.data.jma.go.jp/omaad/aviation/jp/fog/images/legend_jp_normal_fog.svg",
+	
+	"https://www.msil.go.jp/legend/10074j.png"
+]
+
+var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
+
+
+var defaultCat = 1;
+
+onload=function(){
+	setTimeout(changeMap,100);
+	setTimeout(function(){
+		setDefaultParams();
+		prepCatSel();
+	},20);
+}
+
+function setDefaultParams(){
+	var hashs;
+	if ( location.hash!=""){
+		hashs = location.hash.split("&");
+	} else {
+		var nhash=svgImageProps.controller.split("#")[1];
+		hashs = nhash.split("&");
+	}
+	for ( var i = 0 ; i < hashs.length ; i++ ){
+		if ( hashs[i].indexOf("cat")==0){
+			try{
+				var catNum = Number((hashs[i].split("="))[1]);
+				if ( catNum < cats0.length ){
+					defaultCat = catNum;
+				}
+			} catch (e){
+				console.log("cat parse err");
+			}
+		} else if ( hashs[i].indexOf("autoupdate")==0){
+			console.log("autoupdate enabled on startup");
+			realtime_checked.checked=true;
+			setTimeout(changeRealTimeUpdate,updateCheckInterval);
+		}
+	}
+	console.log("defaultCat:",defaultCat);
+}
+
+function prepCatSel(){
+	for (var i = 0 ; i < cats2.length ; i++ ){
+		var opt = document.createElement("option");
+		opt.value=cats2[i];
+		opt.innerText=catsExp[i];
+		catSel.appendChild(opt);
+		if ( i==defaultCat){
+			opt.selected=true;
+		}
+	}
+}
+
+var timeData;
+var lastCat = -1; // 以前のカテゴリ
+var lastUpdateTime; // そのデータの最新更新日時
+
+function changeMap(){
+	var subPath = subps[catSel.selectedIndex];
+	loadJson("https://www.data.jma.go.jp/"+subPath ,changeMapPh2);
+}
+
+function changeMapPh2(tData){
+	timeData = tData;
+	timeData.sort(function(a,b){
+		return (Number(a.validtime) - Number(b.validtime));
+	});
+	
+	// console.log("timeData:",timeData);
+	
+	var latestBaseTime = getLastUpdate(tData);
+	console.log("latestBaseTime:",latestBaseTime);
+	if ( lastCat == catSel.selectedIndex && latestBaseTime == lastUpdateTime ){
+		// カテゴリ変更がなく、更新もされてなければ変更する必要はない。
+		// changeMapがリアルタイム更新するために呼ばれるようになるためこのケースがでてくる。
+		console.log("no update.. skip");
+		return;
+	}
+	lastCat = catSel.selectedIndex;
+	lastUpdateTime = latestBaseTime;
+	
+	prepTimeSel(tData);
+	hanrei.src=legends[catSel.selectedIndex];
+	change();
+}
+
+
+function getLastUpdate(tData){
+	var bt = tData[tData.length-1].basetime;
+	var latestBaseTime = bt.substring(0,4)+"-"+bt.substring(4,6)+"-"+bt.substring(6,8)+"T"+bt.substring(8,10)+":"+bt.substring(10,12)+":"+bt.substring(12,14)+"+0000";
+	latestBaseTime = (new Date(latestBaseTime)).toLocaleString();
+	return ( latestBaseTime );// 文字列で出すのはちょっと手抜き・・
+}
+
+function prepTimeSel(tData){
+	while (timeSel.firstChild) timeSel.removeChild(timeSel.firstChild);
+	var initSel=false;
+	for (var i = tData.length-1 ; i >=0 ; i-- ){
+		var opt = document.createElement("option");
+		var vt = tData[i].validtime;
+		var bt = tData[i].basetime;
+		opt.value= vt;
+
+		var tTxt = vt.substring(0,4)+"-"+vt.substring(4,6)+"-"+vt.substring(6,8)+"T"+vt.substring(8,10)+":"+vt.substring(10,12)+":"+vt.substring(12,14)+"+0000";
+		tTxt = (new Date(tTxt)).toLocaleString();
+		tTxt = tTxt.substring(0,tTxt.length-3);
+		if ( bt == vt){
+			opt.innerText=tTxt;
+			if ( !initSel ){
+				opt.selected=true;
+				initSel=true;
+			}
+		} else {
+			opt.innerText=tTxt + " 予想";
+		}
+		timeSel.appendChild(opt);
+	}
+	lastupdatetimespan.innerText="更新:"+lastUpdateTime.substring(0,lastUpdateTime.length-3);
+}
+
+var guardMin = 30;
+function change(){
+	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	var trIndex = timeData.length - timeIndex -1;
+	var cat0 = cats0[catSel.selectedIndex];
+	var cat1 = cats1[catSel.selectedIndex];
+	var cat2 = cats2[catSel.selectedIndex];
+	var zoomLimit = zoomLimits[catSel.selectedIndex];
+	
+	
+	var newPath = baseURL.replace("[[category0]]",cat0);
+	newPath = newPath.replace("[[category1]]",cat1);
+	newPath = newPath.replace("[[category2]]",cat2);
+	newPath = newPath.replace("[[basetime]]",timeData[trIndex].basetime);
+	newPath = newPath.replace("[[validtime]]",timeData[trIndex].validtime);
+	
+	// console.log( newPath);
+	
+	svgImageProps.script.setServerParams(newPath,zoomLimit,3);
+	console.log(svgImageProps.script.getServerParams());
+	svgMap.refreshScreen();
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+
+function loadJson(url,callback){
+	var xhr = new XMLHttpRequest();
+	
+	xhr.open("GET",svgMap.getCORSURL(url)+"?t="+(new Date()).getTime(),true);
+	xhr.onreadystatechange = function(){
+		if( xhr.readyState === 4 && xhr.status === 200 ){
+//			console.log(url,xhr.responseText);
+			json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send();
+	
+}
+
+var realTimeUpdateFlag=false;
+function changeRealTimeUpdate(){
+	var rt = document.getElementById("realtime_checked").checked;
+	console.log("realTime?:",rt);
+	realTimeUpdateFlag = rt;
+	if ( realTimeUpdateFlag && !checkLoopRunning){
+		checkLoop();
+	}
+}
+
+var checkLoopRunning=false;
+function checkLoop(){
+	if ( realTimeUpdateFlag ){
+		checkLoopRunning=true;
+		changeMap();
+		setTimeout(checkLoop,updateCheckInterval);
+	} else {
+		checkLoopRunning=false;
+	}
+}
+
+</script>
+<body>
+<h3>気象庁タイルデータレイヤー</h3>
+<p><a href="https://www.msil.go.jp/" target="_blank">海しる</a>より解析した、<a href="https://www.data.jma.go.jp" target="_blank">気象庁衛星関連データ</a></p>
+<select id="catSel" onchange="changeMap()"></select> 
+<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
+<label for="realtime_checked">自動更新</label>
+<br>
+<select id="timeSel" onchange="change()"></select>(JST) <span id="lastupdatetimespan" style="font-size:11px"></span><br>
+<img id="hanrei" style="display:true">
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+<title>警察庁交通事故オープンデータマップ</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module">
+// Description:
+// 警察庁交通事故オープンデータを表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import {ZipDataDownloader} from "./ZipDataDownloader.js";
+
+import { parseAcData , buildCodesDict} from "./taDataGenerator.js";
+
+import { initSvgMapTile} from "./dynamicSvgMapTile.js";
+
+import { initTaShowPoiProperty} from "./taShowPoiProperty.js";
+
+
+addEventListener("load",async function(){
+	var messageDiv = document.getElementById("messageDiv");
+	messageDiv.innerText="スキーマ情報を読み込み中";
+	await buildCodesDict();
+	messageDiv.innerText="2021年の事故情報データ(zip)を読み込み中";
+	var r = await ZipDataDownloader.download("honhyo_2021.zip",{charset:"shift-jis",progress:zipDLprogress});
+//	var r = await ZipDataDownloader.download("test.zip",{charset:"shift-jis"});
+	messageDiv.innerText="CSVデータパース中";
+	var aData = parseAcData(r[0].content);
+//	console.log(aData.schema);
+	messageDiv.innerText="タイルピラミッド構築中";
+	var schema = await initSvgMapTile(aData, progressCBF);
+	initTaShowPoiProperty(aData.codeTables, schema);
+	messageDiv.innerText="";
+});
+
+function zipDLprogress(p){
+	messageDiv.innerText=(`2021年の事故情報データ(zip)を読み込み中 : ${Math.floor(p*100)}%`);
+}
+
+function progressCBF(pg){
+	messageDiv.innerText="タイルピラミッド構築中 " + pg;
+}
+
+
+</script>
+<body>
+<h3>交通事故統計情報</h3>
+<ul style="font-size:10px">
+<li>警察庁 交通事故統計情報の 元データを直接可視化します。
+<ul>
+	<li>元データの中間処理自体をWebApp内で自動化しています。
+	<li>オリジナルデータをなるべくそのまま使う機構を公開するメリット
+	<ul>
+		<li>中間加工処理のノウハウ自体のオープンソース化
+		<li>劣化・アウトデートの可能性があるデータ複製を作らない
+	</ul>
+</ul>
+<li>出典(参照先)：警察庁 <a href="https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html" target="_blank">交通事故統計情報のオープンデータ</a>
+</ul>
+<div id="messageDiv" style="font-size:12px">-</div>
+</body>
+</html>

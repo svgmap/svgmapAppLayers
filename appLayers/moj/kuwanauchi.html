@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>桑名打データ直ビューア</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./gsiGeoCoder.js"></script>
+<script src="./geoJsonMetaSchemaGenerator.js"></script>
+
+<script type="module">
+window.jpn_lg_m_disable_customShowPoiProperty4index=true;
+import {initKuwanauchiIndex, showKuwanauchiIndex, customShowPoiPropertyKuwanauchiFactory} from "./kuwanauchiIndexViewer.js";
+
+import {getMOJindex, drawIndexData, showMojMap, openBitImagePanel, initEvent, removeChildren} from "./mojDataViewer.js";
+
+onload=async function(){
+	await initKuwanauchiIndex();
+	await showKuwanauchiIndex();
+	initEvent(openImageBtn);
+	setTimeout(function(){
+		svgMap.setShowPoiProperty( 
+			customShowPoiPropertyKuwanauchiFactory(
+				customShowPoiProperty4index,
+				customShowPoiProperty4map
+			),
+			layerID
+		); // jpn_lg_m.jsのsetShowPoiPropertyとコンフリクトしている(TBD)
+		msgDiv.innerText=`エリアを選択してください`;
+		areaSelectMenuBtn.addEventListener("click",gotoAreaSelect);
+	},100);
+}
+
+function gotoAreaSelect(){
+	svgImage.getElementById("areas").setAttribute("display","");
+	removeChildren(svgImage.getElementById("indexg"));
+	svgMap.refreshScreen();
+	mapDataPanel.style.visibility="hidden";
+	msgDiv.innerText=`エリアを選択してください`;
+}
+
+var selectedAreaCsvURL;
+
+window.selectAreaCsv= async function(event){
+	selectedAreaCsvURL = event.target.value;
+	var titleTxt=event.target.getAttribute("data-title");
+	showAreaCsv(titleTxt,selectedAreaCsvURL);
+}
+async function showAreaCsv(titleTxt,areaCsvURL){
+	msgDiv.innerText=`${titleTxt}のインデックスデータを読み込み中`;
+	console.log("to load:", areaCsvURL);
+	var MOJindex = await getMOJindex(areaCsvURL, mojIndexProgress);
+	msgDiv.innerText=`${titleTxt}を選択`;
+	console.log("MOJindex:",MOJindex);
+	svgImage.getElementById("areas").setAttribute("display","none");
+	mapDataPanel.style.visibility="";
+	drawIndexData(MOJindex);
+	svgMap.refreshScreen();
+}
+
+async function customShowPoiProperty4index(ans){
+	if ( ans[0].length==1){
+		selectedAreaCsvURL = ans[2][0]
+		showAreaCsv(ans[0][0],selectedAreaCsvURL);
+		return;
+	}
+	var message = "<div>エリアを選択してください</div><table>";
+	for ( var i = 0 ; i < ans[0].length ; i++){
+		message+=`<tr><td><input name="zipSelectRadios" style="width:90%;font-size:11px;align-items:right" id="F_${ans[2][i]}" type="radio" onclick="selectAreaCsv(event)" value="${ans[2][i]}" data-title="${ans[0][i]}"></input></td><td><label for="F_${ans[2][i]}">${ans[0][i]}</label></td></tr>`;
+	}
+	message+="</table>";
+	console.log("customShowPoiProperty4index:",ans);
+	msgDiv.innerHTML=message;
+}
+
+function mojIndexProgress(msg){
+	msgDiv.innerText=msg;
+}
+function customShowPoiProperty4map(target){
+	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(",");
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	console.log(metaSchema , metaData  );
+	if ( metaData[0].indexOf("zip")>0){
+		console.log("show map : ",metaData[0], selectedAreaCsvURL);
+		var zipURL = new URL(metaData[0], selectedAreaCsvURL);
+		showMojMap(zipURL.href);
+	} else {
+		console.log("customShowPoiProperty4map : ",metaData);
+		var tbl="<table  style='width:100%' border='1'>";
+		for ( var i = 0 ; i < metaData.length ; i++ ){
+			tbl+=`<tr><td>${metaSchema[i]}</td><td>${metaData[i]}</td></tr>`;
+		}
+		tbl+="</table>";
+		svgMap.showModal(tbl,400,600);
+	}
+}
+
+</script>
+
+</script>
+<body>
+<h5><a href="https://github.com/amx-project/kuwanauchi" target="_blank">法務省 登記所備付地図データ・アーカイブ</a>の直可視化</h5>
+<ul style="font-size:11px">
+<li><a href="https://github.com/amx-project" target="_blank">法務省地図XMLアダプトプロジェクト</a>データ・アーカイブを可視化
+<li>同プロジェクトのデータの出典:<a href="https://www.moj.go.jp/MINJI/minji05_00494.html" target="_blank">登記所備付地図データ</a>
+</ul>
+
+<div id="msgDiv" style="font-size:10px">初期化中</div>
+
+<div style="visibility:hidden" id="mapDataPanel">
+	<div id="messageDiv" style="font-size:10px">図葉の代表点<span style="color:blue">(青●)</span>を選択してください</div>
+
+	<input id="openImageBtn" type="button" value="Open SubPanel" ></input>
+	<input id="areaSelectMenuBtn" type="button" value="Return to Top" ></input>
+	<div style="position:relative" id="alignmentDiv">
+		<button id="point1" onClick="setPoint(1)"  style="left :5px; top: 10px; position: absolute; width :120px; height: 20px;border-color:#00ff00;background-color:#60ff60;opacity:0.75">setPoint1(green)</button>
+		<button id="point2" onClick="setPoint(2)"  style="left :5px; top: 35px; position: absolute; width :120px; height: 20px;border-color:#ff00ff;background-color:#ff60ff;opacity:0.75">setPoint2(purple)</button>
+
+		  <font id="point1t" size="-1" color="green" style="left: 130px; top: 10px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x1,y1</font>
+		  <font id="point2t" size="-1" color="purple" style="left: 130px; top: 35px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x2,y2</font>
+	</div>
+</div>
+</body>
+</html>

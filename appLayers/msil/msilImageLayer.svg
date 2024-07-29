@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" >
+<script>
+	// msil.go.jpからimageコンテンツを取得する(天気図オンリー？) 2020/2/4
+	
+	
+	var useImageProxy = false;
+	var proxyPath = "https://www.msil.go.jp/arcgis/rest/services/Msil/";
+	
+//	var imageSR = '{"wkt":"PROJCS[\"WGS_1984_Web_Mercator_Auxiliary_Sphere\",GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]],PROJECTION[\"Mercator_Auxiliary_Sphere\"],PARAMETER[\"False_Easting\",0.0],PARAMETER[\"False_Northing\",0.0],PARAMETER[\"Central_Meridian\",123.46683928434184],PARAMETER[\"Standard_Parallel_1\",0.0],PARAMETER[\"Auxiliary_Sphere_Type\",0.0],UNIT[\"Meter\",1.0]]"}';
+	
+	var basePath = '{layerName0}/ImageServer//exportImage?token={token}&f=image&renderingRule={"rasterFunction":"{layerName1}"}{timePart}&bbox={mapBbox}&imageSR=' + imageSR + '&bboxSR=' + imageSR + '&size={imageSize}';
+	var imageSR = "102100";
+	var jsonSrc;
+	var docPath, docDir;
+	
+	var layerName0= "WeatherImg8";
+	var layerName1= layerName0;
+	var withTime = true;
+	
+    function getHashParams( hash ){
+    	hash = hash.substring(1);
+    	hash = hash.split("&");
+		for ( var i = 0 ; i < hash.length ; i++ ){
+			hash[i] = hash[i].split("=");
+			if ( hash[i][1] ){
+				hash[hash[i][0]] = hash[i][1];
+			} else {
+				hash[hash[i][0]] = true;
+			}
+		}
+//    	console.log(hash);
+    	return ( hash );
+    }
+    
+    
+	function onload(){ 
+		console.log("msilImageLayer: HelloOnloadFUNC! jsonXhr:" , this.location ,  document.firstChild.getAttribute("property") , this.verIE);
+		var hParams = getHashParams(this.location.hash);
+		console.log("hParams:",hParams);
+		if ( hParams["layerName"] ){
+			layerName0 = hParams["layerName"] ;
+			layerName1 = layerName0 ;
+		}
+		
+		if ( hParams["time"] && hParams["time"] == "false" ){
+			withTime = false;
+		}
+		
+		
+		docPath = this.location.pathname;
+		if ( docPath.indexOf("?") >= 0){
+			docPath = docPath.substring(0,docPath.indexOf("?"));
+		}
+		if ( docPath.indexOf("#") >= 0 ){
+			docPath = docPath.substring(0,docPath.indexOf("#"));
+		}
+		
+		docDir = docPath.substring(0,docPath.lastIndexOf("/")+1);
+		
+		canvasSize = getCanvasSize();
+		
+		console.log("docPath:",docPath, "  docDir:",docDir,"  canvasSize:",canvasSize,"  geoViewBox:",geoViewBox);
+		
+		loadJSONpost( "https://www.msil.go.jp/msilwebtoken/api/token/new" , handleResult);
+		
+		
+	}
+	
+	function removeChildren( targetElem ){
+		for (var i =targetElem.childNodes.length-1; i>=0; i--) {
+			targetElem.removeChild(targetElem.childNodes[i]);
+		}
+	}
+	
+	function getTimeSpan(){
+//		return ("1580752800000,1580752800000");
+		
+		var dt = new Date();
+		var guardTime = 3 * 60 * 60 * 1000; // 3時間のガードタイム？
+		dt = new Date(dt.getTime() - guardTime);
+		
+		// 3時から6時間飛びの時間を作り出す・・
+		var sftMsec = ((dt.getHours() +3) % 6)*60*60*1000;
+		
+		var dt0 = new Date(dt.getFullYear() , dt.getMonth() , dt.getDate(), dt.getHours());
+		var dt1 = new Date(dt0.getTime() - sftMsec );
+//		console.log(dt1,dt1.getTime());
+		
+		return ( dt1.getTime() +","+ dt1.getTime());
+	}
+	
+	onzoom = function(){
+		console.log("call onzoom: geoViewBox.height: ",geoViewBox.height);
+		canvasSize = getCanvasSize();
+		removeChildren(document.getElementById("mapContents"));
+		if ( geoViewBox.height<4 ){ // 緯度スパンが4度以下だったら歪みを無視する
+			buildPartialImage(geoViewBox, canvasSize.height,"0");
+		} else { // それを超えたら歪みを無視しない
+			var parts = Math.floor(geoViewBox.height/4);
+			var partialHeight = canvasSize.height / parts;
+			for ( var i = 0 ; i < parts ; i++ ){
+				var partialGeoViewBox ={
+					x:geoViewBox.x,
+					y:(geoViewBox.y + i * geoViewBox.height / parts),
+					width:geoViewBox.width,
+					height:(geoViewBox.height / parts)
+				}
+				buildPartialImage(partialGeoViewBox, partialHeight,"i");
+			}
+		}
+	}
+	
+	function buildPartialImage(geoVB, canvasHeight,imgId){
+		// メルカトルなので帯状のものを・・・　たぶんplateCareeでも対応できるんだと思うけど>ARC面倒なので
+		pMin = latLng2XY(geoVB.y,geoVB.x);
+		pMax = latLng2XY(geoVB.y+geoVB.height,geoVB.x+geoVB.width)
+		// console.log( "  webMercatorXY1,2:",pMin,pMax);
+		
+		var mAspect = (pMax.y - pMin.y)/(pMax.x - pMin.x);
+		
+		var reqH = canvasHeight;
+		var reqW = Math.floor(canvasHeight / mAspect);
+		// console.log("px:",reqW,reqH);
+		
+		var reqBbox = pMin.x + "," + pMin.y + "," + pMax.x + "," + pMax.y;
+		var reqIsize = reqW + "," + reqH;
+		
+		var reqMsg = basePath.replace("{imageSize}",reqIsize);
+		reqMsg = reqMsg.replace("{mapBbox}",reqBbox);
+		reqMsg = reqMsg.replace("{layerName0}",layerName0);
+		reqMsg = reqMsg.replace("{layerName1}",layerName1);
+		if ( withTime ){
+			var timePart = "&time="+getTimeSpan();
+			reqMsg = reqMsg.replace("{timePart}",timePart);
+		} else {
+			reqMsg = reqMsg.replace("{timePart}","");
+		}
+		// console.log("reqMsg:",reqMsg);
+		if ( token){
+			
+			var img = document.createElement("image");
+			img.setAttribute("id","mapContent"+imgId);
+			
+			reqMsg = reqMsg.replace("{token}",token);
+			
+//			console.log("reqMsg0:",reqMsg);
+			
+			reqMsg = proxyPath + (reqMsg);
+			if ( useImageProxy ){
+				reqMsg = getCORSURL(reqMsg);
+			}
+//			console.log("reqMsg:",reqMsg," token:",token);
+			img.setAttribute("xlink:href",reqMsg);
+			img.setAttribute("x",geoVB.x*100);
+			img.setAttribute("y",-(geoVB.y+geoVB.height)*100);
+			img.setAttribute("width",geoVB.width*100);
+			img.setAttribute("height",geoVB.height*100);
+			document.getElementById("mapContents").appendChild(img);
+			// console.log("imageElem:",img);
+		}
+		
+	}
+	
+	
+	onscroll = onzoom;
+	
+	function loadJSON(jsonSrc,cbFunc){
+//	console.log("loadJSON : SRC: ", jsonSrc);
+		var httpObj = new XMLHttpRequest();
+		if ( httpObj ) {
+			httpObj.onreadystatechange = function(){ cbFunc( this ) } ;
+			httpObj.open("GET", jsonSrc , true );
+			httpObj.send(null);
+		}
+	}
+	
+	function loadJSONpost(jsonSrc,cbFunc){
+		console.log("loadJSONpost : SRC: ", jsonSrc);
+		var httpObj = new XMLHttpRequest();
+		if ( httpObj ) {
+			httpObj.onreadystatechange = function(){ cbFunc( this ) } ;
+			httpObj.open("POST", getCORSURL(jsonSrc) , true );
+			httpObj.setRequestHeader('content-type', 'application/json');
+//			httpObj.setRequestHeader('content-length', '0');
+			httpObj.send("");
+		}
+	}
+	
+	var token = "";
+	
+	function handleResult( httpRes ){
+//	console.log("handleResult");
+		if (( httpRes.readyState == 4 ) ){
+			if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
+				console.log( "loadJSON : File get failed : stat : ", httpRes.status);
+				return;
+			}
+//			console.log("xhrRes: resonseText",httpRes.responseText);
+			var jst = httpRes.responseText;
+			jst = unescape(jst);
+			json = JSON.parse(jst);
+			console.log("Json:",json);
+			token = json.token;
+			onzoom();
+			refreshScreen();
+		}
+	}
+	
+	
+	
+	function mlitKinkiRoadJson2svg( json ){
+		console.log("called mlitKinkiRoadJson2svg",json);
+		
+		var schema = {};
+		var schemaStr="";
+		
+		var lat, lon;
+		var setProp;
+		
+		for ( var i = 0 ; i < json.body.length ; i++ ){
+			var poi = json.body[i];
+			var k=-1;
+			var commonProps = [];
+			for (var propName in poi){
+				switch ( propName ){
+				case "lat":
+					lat = Number(poi.lat);
+					setProp = false;
+					break;
+				case "lon":
+					lon = Number(poi.lon);
+					setProp = false;
+					break;
+				default:
+					propValue = poi[propName];
+					setProp = true;
+					++k;
+					break;
+				}
+				
+				if ( i == 0 && setProp ){
+					if ( k == 0 ){
+						schemaStr = propName;
+					} else {
+						schemaStr +=","+propName;
+					}
+					schema[propName]=k;
+				}
+				
+				
+				if ( propName in schema ){
+					commonProps[ schema[propName] ] = propValue;
+//						console.log( " set:",propName,":",propValue);
+				} else {
+//						console.log( "NOT set:",propName,":",propValue);
+				}
+			}
+			
+			var propStr ="";
+			for ( var j = 0 ; j &lt;  commonProps.length ; j++ ){
+				if ( j == 0 ){
+					propStr = commonProps[j];
+				} else {
+					propStr += "," + commonProps[j];
+				}
+			}
+			
+			var addPOI = getPOI( lat , lon , iconNumber , commonProps[schema[titlePropName]], propStr); 
+			document.getElementsByTagName("svg")[0].appendChild(addPOI);
+			
+		}
+		
+		document.firstChild.setAttribute("property", schemaStr);
+		
+	}
+	
+	function getPOI( latitude , longitude , icon , title , metadata){
+//		console.log("call getPOI:");
+		
+		var tf = "ref(svg," + (longitude * 100) + "," + ( latitude * -100 ) + ")";
+//		console.log("getPOI, tf:",tf);
+		
+		var cl;
+		cl = document.createElement("use"); // Edgeで不具合発生＆すべてのケースでもはやdocumentはSVG文書ではなく単なるwell formed XML文書化したためSVGネームスペース宣言不要
+		cl.setAttribute("x" , 0);
+		cl.setAttribute("y" , 0);
+		cl.setAttribute("transform" , tf);
+		cl.setAttribute("xlink:href" , "#"+(category[icon]));
+		cl.setAttribute("xlink:title" , title);
+		if ( metadata ){
+			cl.setAttribute("content" , metadata);
+		}
+//		cl.setAttribute("opacity" , "0.5");
+		return ( cl );
+	}
+	
+	function remoeAllPOIs(){
+		var pois=document.getElementsByTagName("use");
+		for ( var i = pois.length -1  ; i >=0 ; i-- ){
+			(document.getElementsByTagName("svg")[0]).removeChild(pois[i]);
+		}
+	}
+	
+	
+	function latLng2XY( Latitude , Longitude){
+		var a = 6378137;
+		Latitude =Latitude  * Math.PI / 180.0;
+		Longitude =Longitude  * Math.PI / 180.0;
+		var Mercator_x = a * Longitude;
+		var Mercator_y = a * Math.log(Math.tan(Math.PI / 4 + Latitude / 2))
+			return {
+				x: Mercator_x,
+				y: Mercator_y
+			}
+	}
+		
+</script>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<defs>
+ <g id="p0" >
+  <image xlink:href="kouji_24_24.png" preserveAspectRatio="none" x="-11" y="-23" width="24" height="24"/>
+ </g>
+ <g id="p1" >
+  <image xlink:href="kisei_24_24.png" preserveAspectRatio="none" x="-11" y="-23" width="24" height="24"/>
+ </g>
+ <g id="p2" >
+  <image xlink:href="mappin2.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ </g>
+ <g id="p3" >
+  <image xlink:href="mappin3.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ </g>
+ <g id="p4" >
+  <image xlink:href="mappin4.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ </g>
+ <g id="p5" >
+  <image xlink:href="mappin5.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ </g>
+</defs>
+
+<g id="mapContents">
+</g>
+</svg>

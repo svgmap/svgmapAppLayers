@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+
+// NIIのMSM降雨データへのアクセス
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+//var baseURL = "http://agora.ex.nii.ac.jp/cgi-bin/tile/msmr.pl?z=[[zoom]]&x=[[tx]]&y=[[ty]]&t=[[date]]&l=surf"; // https強制のため・・
+var baseURL = "http://agora.ex.nii.ac.jp/cgi-bin/tile/msmr.pl?z=[[zoom]]&x=[[tx]]&y=[[ty]]&t=[[date]]&l=surf";
+
+onload=function(){
+	setTimeout(setTimeSel,30);
+}
+
+var timeData;
+
+function setTimeSel(){
+	timeData = [];
+	var ct = (new Date()).getTime();
+	for ( var h = -24 ; h < 39 ; h++ ){
+		var hms= h * 60 * 60 * 1000;
+		var st = ct + hms;
+		var sd = new Date(st);
+//		console.log("sd:",sd);
+		var ssy = sd.getUTCFullYear();
+		var ssm = zPad(sd.getUTCMonth()+1,2);
+		var ssd = zPad(sd.getUTCDate(),2);
+		var ssh = zPad(sd.getUTCHours(),2);
+		var sts = ssy+""+ssm+""+ssd+""+ssh;
+		console.log(sts);
+		var gd = new Date(0);
+		gd.setUTCFullYear(sd.getUTCFullYear());
+		gd.setUTCMonth(sd.getUTCMonth());
+		gd.setUTCDate(sd.getUTCDate());
+		gd.setUTCHours(sd.getUTCHours());
+		gd.setUTCMinutes(0);
+		gd.setUTCSeconds(0);
+		gd.setUTCMilliseconds(0);
+		if(h==0){
+			timeData.push({tstr:sts,date:gd,current:true});
+		} else {
+			timeData.push({tstr:sts,date:gd,current:false});
+		}
+	}
+	prepTimeSel2(timeData);
+}
+
+function prepTimeSel2(tData){
+	while (timeSel.firstChild) timeSel.removeChild(timeSel.firstChild);
+	var initSel=false;
+	var past = true;
+	for (var i = 0  ; i <tData.length ; i++ ){
+		var opt = document.createElement("option");
+		var vt = tData[i];
+		opt.value= vt.tstr;
+
+		var tTxt = vt.date.toLocaleString();
+		if ( vt.current==true ){
+			opt.innerText=tTxt;
+			past = false;
+			opt.selected=true;
+		} else if ( past == true ){
+			opt.innerText=tTxt;
+		} else {
+			opt.innerText=tTxt + " 予想";
+		}
+		timeSel.appendChild(opt);
+	}
+	change();
+}
+
+var guardMin = 30;
+function change(){
+	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	var tstr = (timeSel.options[timeIndex]).value;
+	
+	console.log(tstr);
+	newPath = svgMap.getCORSURL(baseURL.replace("[[date]]",tstr));
+	
+	console.log( newPath);
+	
+	svgImageProps.script.setServerParams(newPath,8,5,{crossorigin:true});
+	console.log(svgImageProps.script.getServerParams());
+	svgMap.refreshScreen();
+}
+
+function zPad(num,length){
+    return ('0000' + num).slice(-length);
+}
+
+
+
+</script>
+<body>
+<h3>GPV MSMの降雨予想レイヤー</h3>
+<p><a href="http://agora.ex.nii.ac.jp/earthquake/201103-eastjapan/weather/gpv/rain/" target="_blank">NIIの福島第一原発周辺の雨量マップ（Google Mapsタイリング版）</a>のデータ</p>
+<select id="timeSel" onchange="change()"></select><br>
+<p>
+1時間雨量（降水量）
+	  <table class="COLOR" cellspacing="1" style="font-size:9px">
+	    <tr >
+	      <th>-0</th>
+	      <th>0-1</th>
+	      <th>1-2</th>
+	      <th>2-4</th>
+	      <th>4-8</th>
+	      <th>8-12</th>
+	      <th>12-16</th>
+	      <th>16-24</th>
+	      <th>24-32</th>
+	      <th>32-40</th>
+	      <th>40-48</th>
+	      <th>48-56</th>
+	      <th>56-64</th>
+	      <th>64-80</th>
+	      <th>80-</th>
+	    </tr>
+	    <tr height="10">
+	      <td style="background: #ffffff"> </td>
+	      <td style="background: #00ffff"> </td>
+	      <td style="background: #0077c6"> </td>
+	      <td style="background: #003c6c"> </td>
+	      <td style="background: #0006f0"> </td>
+	      <td style="background: #009375"> </td>
+	      <td style="background: #00b347"> </td>
+	      <td style="background: #00ff0c"> </td>
+	      <td style="background: #46ff09"> </td>
+	      <td style="background: #7cce02"> </td>
+	      <td style="background: #ffff00"> </td>
+	      <td style="background: #ff8000"> </td>
+	      <td style="background: #ff86ff"> </td>
+	      <td style="background: #fe45a2"> </td>
+	      <td style="background: #ff0000"> </td>
+	    </tr>
+	  </table>
+
+</body>
+</html>

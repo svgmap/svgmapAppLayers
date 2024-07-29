@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<title>警察庁交通事故オープンデータCSVの緯度経度カラムを度少数点数に、文字コードをUTF-8に変換するだけ</title>
+<meta charset="utf-8"></meta>
+</head>
+<script type="module">
+import {ZipDataDownloader} from "../moj/ZipDataDownloader.js";
+import {parseCsv} from "./csvParser.js";
+
+var aData;
+onload=async function(){
+	message.innerText="ソースデータの読み込み中";
+	var r = await ZipDataDownloader.download("honhyo_2021.zip",{charset:"shift-jis"});
+	message.innerText="パース中";
+	aData = parseAcData(r[0].content);
+	message.innerText="読み込み完了";
+	console.log(aData);
+}
+
+/**
+async function loadCsv(URL){
+	var response = await fetch(URL);
+	var txt = await response.text();
+	return (parseCsv(txt));
+}
+**/
+
+function parseAcData(txt){
+	var aCsv = parseCsv(txt);
+	var schemaRow = aCsv.shift();
+	console.log(aCsv, schemaRow);
+	var latCol,lngCol;
+	for ( var i = 0 ; i< schemaRow.length ; i++){
+		if ( schemaRow[i].indexOf("緯度")>=0){latCol=i};
+		if ( schemaRow[i].indexOf("経度")>=0){lngCol=i};
+	}
+	console.log({latCol,lngCol});
+	for ( var row of aCsv){
+		if ( row.length < latCol){continue}
+		row[latCol]=parseDMS(row[latCol]);
+		row[lngCol]=parseDMS(row[lngCol]);
+	}
+	return {schema:schemaRow, data:aCsv};
+}
+
+function parseDMS(dmstr){
+	var sl = dmstr.length;
+	var sec = Number(dmstr.substring(sl - 5))/1000;
+	var min = Number(dmstr.substring(sl-7,sl-5));
+	var deg = Number(dmstr.substring(0,sl-7));
+	
+	var ans = deg + min/60 + sec / 3600;
+	return ( ans );
+}
+
+
+function downloadCsv(){ // 読み込み済みのcsvをDLする
+	var crlf="\n";
+	var content = aData.schema.join(",")+crlf;
+	for ( var row of aData.data){
+		var rstr = row.join(",");
+		content += row.join(",") + crlf;
+	}
+	var blob = new Blob([content],{"type" : "text/plain"});
+	if (window.navigator.msSaveBlob) { 
+		window.navigator.msSaveBlob(blob, "data.csv"); 
+	} else {
+		document.getElementById("downloadAnchor").href = window.URL.createObjectURL(blob);
+		document.getElementById("downloadAnchor").click();
+	}
+}
+
+window.downloadCsv = downloadCsv;
+</script>
+<body>
+		<input type="button" onClick="downloadCsv()" value="CSVをダウンロード" /><br>
+		<a id="downloadAnchor" href="" download="data.csv" style="display:none" >hiddenDL</a>
+		<div id="message"></div>
+</body>
+</html>

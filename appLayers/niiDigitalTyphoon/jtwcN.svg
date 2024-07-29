@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="18.909293001327928,-62.231743151681286,201.32786951645718,123.18379994453834" about="root" data-controller="jtwcN.html#exec=appearOnLayerLoad">
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)"/>
+
+
+ <image id="timg" xlink:href="https://www.metoc.navy.mil/jtwc/products/abpwsair.jpg" x="18.2" y="-62.231743151681286" width="199.5" height="123.18379994453834" preserveAspectRatio="none" title="image" opacity="0.5" />
+ 
+ <!--
+ test data<image id="timg" xlink:href="abpwsair_2021060801.jpg" x="18.2" y="-62.231743151681286" width="199.5" height="123.18379994453834" preserveAspectRatio="none" title="image" opacity="0.5" />
+ 
+ 
+ XXX<image id="timg" xlink:href="https://www.metoc.navy.mil/jtwc/products/abpwsair.jpg" x="18.909293001327928" y="-62.231743151681286" width="201.32786951645718" height="123.18379994453834" preserveAspectRatio="none" title="image" opacity="0.5" />
+-->
+
+</svg>

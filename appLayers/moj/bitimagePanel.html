@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bitimage2GeoInfo subWindow</title>
+<meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0,maximum-scale=1.0" />
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body bgcolor="#ffffff" style="overflow:hidden;" >
+<script type="text/javascript" src="https://unpkg.com/jsts@1.6.1/dist/jsts.min.js"></script>
+<script type="module">
+import { svgMap } from 'https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/SVGMapLv0.1_r18module.js';
+import { SvgMapGIS } from 'https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/SVGMapLv0.1_GIS_r4_module.js';
+window.svgMap=svgMap
+window.svgMapGIStool = new SvgMapGIS(svgMap,jsts);
+</script>
+
+<script type="text/javascript" >
+//
+// Description:
+// Bitimage2GeoInfo subWindow
+//
+//  Copyright (C) 2014 by Satoru Takagi
+//
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// history:
+// 2023/5/12 1st release
+// 2024/7/25 ESM版に切り替え
+
+onload=function(){
+	window.addEventListener("message", receiveMessage, false);
+	window.setTimeout(function(){
+		console.log("init");
+		rootImage = svgMap.getSvgImages()["i0"];
+		rootsvg = rootImage;
+		if ( window.opener){
+			window.opener.postMessage("ready","*");
+		}
+	},500);
+	window.addEventListener('beforeunload',function(event){
+		if ( window.opener){
+			window.opener.postMessage("closed","*");
+		}
+	});
+}
+
+var rootImage;
+
+function receiveMessage(event) {
+	console.log("event.data:",event.data);
+	if ( event.data == "closed" ){
+		window.close();
+	} else if ( event.data.geojson ){
+		var bbox = event.data.geojson.properties.bbox;
+		var vp = {
+			x:bbox.minx,
+			y:bbox.miny,
+			width:bbox.maxx-bbox.minx,
+			height:bbox.maxy-bbox.miny
+		}
+		initPoints();
+		console.log ("receiveMessage GEOJSON: viewBox, data",vp, event.data.geojson );
+		var md = rootImage.getElementById("mapdata");
+		removeChildren(md);
+		
+		var schema = (event.data.schema);
+		svgMap.getSvgImages()["i0"].documentElement.setAttribute("property",schema.join(","));
+		svgMapGIStool.drawGeoJson(event.data.geojson,"i0","blue",2,"pink","p0","title",null,md,schema);
+		
+//		svgMap.setGeoViewPort(vp.y-vp.height,vp.x,vp.height,vp.width);
+		svgMap.setGeoViewPort(vp.y,vp.x,vp.height,vp.width);
+		
+	} else {
+		console.log(event.data);
+	}
+}
+
+
+var count = 0;
+function sendOpener(msg){
+	if ( !window.opener){
+		return;
+	}
+	if (!msg ){
+		msg = "SET from Child!!! "+count+" times"
+	}
+	window.opener.document.getElementById("mapTitle").innerHTML= msg ;
+	++count;
+}
+
+var rootsvg;
+
+function setImageToSvg( srcPath , nwidth , nheight ){
+	var si = svgMap.getSvgImages();
+	rootsvg = si["i0"];
+//	console.log("svgImages[root]",rootsvg);
+	var imgs = rootsvg.getElementsByTagName("image");
+	
+	var img;
+	for ( var i = 0 ; i < imgs.length ; i++ ){
+		if ( imgs[i].getAttribute("xlink:title")=="image"){
+			img = imgs[i];
+			break;
+		}
+	}
+	
+	
+	img.setAttribute("xlink:href", srcPath );
+	img.setAttribute("width",nwidth);
+	img.setAttribute("height",nheight);
+//	console.log("img",img);
+	svgMap.setGeoViewPort( -Number(nheight), 0 , Number(nheight) , Number(nwidth));
+//	console.log(svgMap.getGeoViewBox());
+}
+
+function flip(){
+	window.opener.postMessage("flip","*");
+}
+
+var point1,point2;
+
+function setPoint( numb ){
+//	console.log(numb,svgMap.getCentralGeoCoorinates());
+	if ( numb == 1 ){
+		var point1g = svgMap.getCentralGeoCoorinates();
+		point1=getLocalPoint(point1g);
+		document.getElementById("point1t").innerHTML=point1.x.toFixed(2)+", "+point1.y.toFixed(2);
+		setMarker( 1, point1 );
+		
+		if ( window.opener){
+			window.opener.postMessage({imagePoint1:point1},"*");
+		}
+		
+	} else if ( numb == 2 ){
+		var point2g = svgMap.getCentralGeoCoorinates();
+		point2=getLocalPoint(point2g);
+		document.getElementById("point2t").innerHTML=point2.x.toFixed(2)+", "+point2.y.toFixed(2);
+		setMarker( 2, point2 );
+		
+		if ( window.opener){
+			window.opener.postMessage({imagePoint2:point2},"*");
+		}
+	}
+	svgMap.dynamicLoad();
+}
+
+function getLocalPoint(gp){
+	var ans ={
+		x: gp.lng,
+		y: gp.lat
+	}
+	return ( ans );
+}
+
+function setMarker( numb , point ){
+	var uses = rootsvg.getElementsByTagName("use");
+	var use;
+	for ( var i = 0 ; i < uses.length ; i++ ){
+		if ( uses[i].getAttribute("xlink:title")==("point"+numb)){
+			use = uses[i];
+			break;
+		}
+	}
+//	console.log(use.getAttribute("transform"),use.getAttribute("xlink:title"));
+	use.setAttribute("transform", "ref(svg,"+point.x+","+point.y+")");
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function initPoints(){
+	point1=null;
+	point2=null;
+	document.getElementById("point1t").innerText="";
+	document.getElementById("point2t").innerText="";
+}
+</script>
+<!-- TO DO: http://www.yoheim.net/labo/html5/fileapi/fileapiImage.html -->
+<!-- functions of svgMapLv0.1 should be called using svgMap.* namespace (from rev8) 2014.6.6 -->
+<!--
+<script type="text/javascript" src="yahooGeocode.js"></script>
+-->
+ <img src ="" id="bi" style="opacity:0.0"/>
+ <div id="mapcanvas" title="bitimage.svg"></div>
+ <div id="gui">
+  <img id="zoomupButton" style="left: 5px; top: 5px; position: absolute;" src="./zoomup.png" onclick="svgMap.zoomup()" width="20" height="20" />
+  <img id="zoomdownButton" style="left: 5px; top: 25px; position: absolute;" src="./zoomdown.png" onclick="svgMap.zoomdown()" width="20" height="20" />
+  <img id="centerSight" style="opacity:0.5" src="./Xcursor.png" width="15" height="15"/>
+  <img id="3DviewButton" class="customButton"  style="left: 5px; top:65px; position: absolute;display:none;" width="20" height="20" />
+
+  <font id="posCmt" size="-2" color="brown" style="left: 5px; bottom: 5px; position: absolute;">Y,X:</font>
+  <font id="centerPos" size="-2" color="brown" style="left: 50px; bottom: 5px; position: absolute;" >lat , lng</font>
+  
+<button id="flipBtn" onClick="flip()"  style="left :35px; top: 5px; position: absolute; width :120px; height: 20px;border-color:#ffffff;background-color:#606060;opacity:0.75">FLIP</button>
+<button id="point1" onClick="setPoint(1)"  style="left :5px; top: 50px; position: absolute; width :120px; height: 20px;border-color:#00ff00;background-color:#60ff60;opacity:0.75">setPoint1(green)</button>
+<button id="point2" onClick="setPoint(2)"  style="left :5px; top: 75px; position: absolute; width :120px; height: 20px;border-color:#ff00ff;background-color:#ff60ff;opacity:0.75">setPoint2(purple)</button>
+<!--<button id="point2" onClick="setPoint(3)"  style="left :5px; top: 100px; position: absolute; width :120px; height: 20px;border-color:#0000ff;background-color:#6060ff;opacity:0.75">setPoint3(blue)</button>-->
+
+  <font id="point1t" size="-1" color="green" style="left: 130px; top: 50px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x1,y1</font>
+  <font id="point2t" size="-1" color="purple" style="left: 130px; top: 75px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x2,y2</font>
+<!--  <font id="point3t" size="-1" color="blue" style="left: 130px; top: 100px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x3,y3</font>-->
+
+ </div>
+ 
+ <div  style="left :0px; top: 0px; position: absolute;">
+ </div>
+ 
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Layer specific UI for CsvXHR.html</title>
+
+	<!-- ジオコーダのライブラリ　それぞれ data , chomokuData ディレクトリがdocumentのディレクトリ直下に必要・・-->
+	<script src="../localGeocoder/dist/tokoro.js"></script>
+	<script src="../localGeocoder/oazaGeocoderXHR.js"></script>
+	<script src="../localGeocoder/compositeGeocoder.js"></script>
+
+
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// CSVを地図表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+window.onload = function(){
+	// 少し後でないと設定されない。
+	setTimeout(testSvgMap,200);
+	
+}
+
+function testSvgMap(){ // 初期化
+//	console.log("iframe's svgMap:",svgMap,"  id:",layerID," svgImageProps:",svgImageProps," svgImage:",svgImage);
+//	console.log(svgImage, svgImage.documentElement,svgImageProps.Path,svgImageProps.script,"\n",svgImageProps.script.location,svgImageProps.script.csvPath);
+	svgImageProps.script.TestFunc("From LayerUI!");
+	if ( !svgImageProps.script.csvPath ){ 
+		(document.getElementById("csvInputUI")).style.display="";
+		(document.getElementById("csvDataUI")).style.display="none";
+		document.getElementById("csvArea").addEventListener("input",setSchema,false);
+		setSchema();
+	} else { // あらかじめcsvが指定され、読み込まれていた場合はcsv手動入力UIは動かさない
+		(document.getElementById("csvInputUI")).style.display="none";
+		(document.getElementById("csvDataPath")).innerHTML="表示中のCSV:"+svgImageProps.script.csvPath;
+		(document.getElementById("csvDataUI")).style.display="";
+	}
+	
+	// ローカルジオコーダ追加 そのイニシャライズ
+	tokoro({ data: '../localGeocoder/data' });
+	oazaGeocoder.setDBpath('../localGeocoder/chomokuData/');
+}
+
+
+var addrCol = -1; // ジオコーダ用にグローバル化・・
+function setSchema(){
+	var carea = document.getElementById("csvArea");
+	var csvData = carea.value;
+	var schema = csvData.split(String.fromCharCode(10))[0].split(",");
+	console.log("Set Schema : ", schema);
+	
+	var dataLength = schema.length;
+	var latCol = -1;
+	var lngCol = -1;
+	var nameCol = -1;
+	addrCol = -1;
+	for ( var i = 0 ; i < dataLength ; i++ ){
+		switch( schema[i] ){
+		case "latitude":
+		case "lat":
+		case "lati":
+		case "緯度":
+			if ( latCol == -1 ){
+				latCol = i;
+			}
+			break;
+		case "longitude":
+		case "lon":
+		case "lng":
+		case "long":
+		case "経度":
+			if ( lngCol == -1){
+				lngCol = i;
+			}
+			break;
+		case "title":
+		case "name":
+		case "タイトル":
+		case "名称":
+		case "名前":
+			if ( nameCol == -1 ){
+				nameCol = i;
+			}
+			break;
+		case "address":
+		case "addr":
+		case "アドレス":
+		case "住所":
+			if ( addrCol == -1 ){
+				addrCol = i;
+			}
+			break;
+		}
+	}
+	console.log("Schema : latCol:",latCol,"  lngCol:",lngCol,"  nameCol:",nameCol);
+	
+	refreshSelect( document.getElementById("nameCol") , "名前カラム:", dataLength, nameCol);
+	refreshSelect( document.getElementById("latCol") , "緯度カラム:", dataLength, latCol);
+	refreshSelect( document.getElementById("lngCol") , "経度カラム:", dataLength, lngCol);
+	refreshSelect( document.getElementById("addrCol") , "住所カラム:", dataLength, addrCol);
+}
+
+function refreshSelect( sel, message, length, selected ){
+	removeChildren(sel);
+	for ( var i = -1 ; i < length ; i++ ){
+		var opt = document.createElement("option");
+		opt.setAttribute("value",i);
+		if ( i == -1 ){
+			opt.innerHTML= message + "-";
+		} else {
+			opt.innerHTML= message + i;
+		}
+		if ( i == selected ){
+			opt.setAttribute("selected",true);
+		}
+		sel.appendChild(opt);
+	}
+}
+
+
+function removeChildren(parent){
+	for ( var i = parent.childNodes.length -1; i>=0 ; i-- ){
+		parent.removeChild(parent.childNodes[i]);
+	}
+}
+
+
+function viewCsv(){
+	var carea = document.getElementById("csvArea");
+	var csvData = carea.value;
+	
+	var latC = Number(document.getElementById("latCol").selectedIndex)-1;
+	var lngC = Number(document.getElementById("lngCol").selectedIndex)-1;
+	var titleC = Number(document.getElementById("nameCol").selectedIndex)-1;
+	var icon = 0;
+	
+//	console.log("csvData:",csvData);
+	console.log("latC:",latC," lngC:",lngC," titleC:",titleC);
+	svgImageProps.script.initCsv(csvData, latC,lngC,titleC,icon);
+	svgMap.refreshScreen();
+}
+
+
+var resolvedPos;
+var resolvedRows;
+var threads=15;
+function geoCode(){
+	resolvedRows = 1;
+	resolvedPos = [];
+	resolvedPos[0]="latitude,longitude,resolvedLevel";
+	if ( addrCol >=0 ){
+		var carea = document.getElementById("csvArea");
+		var csvData = carea.value;
+		csvData = csvData.split(String.fromCharCode(10));
+	}
+	
+	var part = Math.ceil((csvData.length-1) / threads);
+	console.log("part:",part);
+	
+	for ( var i = 0 ; i < threads ; i++){
+		var start = i * part+1;
+		var end = i * part + part;
+		if ( end >= csvData.length-1 ){
+			end = csvData.length-1;
+			console.log("start geoCode:",start,end,"LAST");
+			geoCodeStep2(start,end,csvData);
+			break;
+		} else {
+			console.log("start geoCode:",start,end);
+			geoCodeStep2(start,end,csvData);
+		}
+	}
+}
+
+function geoCodeStep2(row,endRow,csvData){
+	var addr = csvData[row].split(",")[addrCol];
+	if ( addr ){
+		console.log("addr : ", addr);
+		compositeGeocoder.getPosition(addr, function(code) {
+			if (code) {
+				console.log("code:",code,row);
+				resolvedPos[row] = code[0]+","+code[1]+","+code[2];
+			} else {
+				console.log("Fail:",row);
+				resolvedPos[row] = "---,---,---";
+			}
+			document.getElementById("gcPrg").innerHTML=resolvedRows+"/"+csvData.length+"completed.";
+			++ resolvedRows;
+			if ( endRow == row){
+				updateData(resolvedPos,csvData);
+			} else {
+				geoCodeStep2(row+1,endRow,csvData);
+			}
+		} );
+	} else {
+		++ resolvedRows;
+		resolvedPos[row] = "---,---,---";
+		if ( endRow == row){
+			updateData(resolvedPos,csvData);
+		} else {
+			geoCodeStep2(row+1,endRow,csvData);
+		}
+	}
+}
+
+function updateData(resolvedPos,csvData){
+	console.log("called updateData",resolvedRows,csvData.length);
+	if ( resolvedRows == csvData.length ){
+		console.log("update...",resolvedPos);
+		var csvOutData="";
+		for ( var i = 0 ; i < csvData.length ; i++ ){
+			csvOutData += csvData[i] + ","+resolvedPos[i]+ String.fromCharCode(10);
+		}
+		console.log(csvOutData);
+		document.getElementById("gcPrg").innerHTML="";
+		document.getElementById("csvArea").value=csvOutData;
+		setSchema();
+	}
+}
+function showCsv(){ // 読み込み済みのcsvをtable表示する
+//	console.log("script:",svgImageProps.script);
+//	console.log("csv:",svgImageProps.script.getCsv());
+	var srcCsv = svgImageProps.script.getCsv();
+	var tbl = document.getElementById("csvTable");
+	while (tbl.firstChild) tbl.removeChild(tbl.firstChild);
+	for ( var i = 0 ; i < srcCsv.length ; i++){
+		var csvRow = srcCsv[i].split(",");
+		var tr = document.createElement("tr");
+		for ( var j = 0 ; j < csvRow.length ; j++ ){
+			var td=document.createElement("td");
+			td.innerText=csvRow[j];
+			tr.appendChild(td);
+		}
+		tbl.appendChild(tr);
+	}
+}
+
+function downloadCsv(){ // 読み込み済みのcsvをDLする
+	var crlf="\n";
+	var srcCsv = svgImageProps.script.getCsv();
+	var content = srcCsv.join(crlf);
+//	var content = "Hello World";
+	var blob = new Blob([content],{"type" : "text/plain"});
+	if (window.navigator.msSaveBlob) { 
+		window.navigator.msSaveBlob(blob, "data.csv"); 
+	} else {
+		document.getElementById("downloadAnchor").href = window.URL.createObjectURL(blob);
+		document.getElementById("downloadAnchor").click();
+	}
+}
+
+</script>
+
+<body>
+<h2>CSVのデータをSVGMap化します</h2>
+<p><font size="-1">latitude(緯度),longitude(経度)カラムを指定、又は住所からジオコードで生成し、viewします。<a target="_blank" href="http://172.19.108.177/tomcat/svgmap/csvLocalGeocoder/help.html">本ジオコーダ</a>はブラウザ上で動作しています。</font></p>
+<div id="csvDataUI" style="display:none">
+	<span id="csvDataPath" style="display:none"></span>
+	<input type="button" onClick="showCsv()" value="CSVを表示" /><br>
+	<input type="button" onClick="downloadCsv()" value="CSVをダウンロード" /><br>
+	<table id="csvTable" border="1"></table>
+	<a id="downloadAnchor" href="" download="data.csv" style="display:none" >hiddenDL</a>
+</div>
+<div id="csvInputUI" style="display:none">
+	<div>
+	<select id="latCol"></select>
+	<select id="lngCol"></select>
+	<select id="nameCol"></select>
+	<input type="button" onClick="viewCsv()" value="view" /><br>
+	<select id="addrCol"></select>
+	<input type="button" onClick="geoCode()" value="ジオコード" /><span id="gcPrg"></span><br>
+	</div>
+	
+	<div id="csvInputDiv">
+	<textarea id="csvArea" cols="45" rows="11" wrap="off">
+	name,addr,latitude,longitude
+	北海道庁,北海道 札幌市,43.06417,141.34694
+	青森県庁,青森県 青森市,40.82444,140.74
+	岩手県庁,岩手県 盛岡市,39.70361,141.1525
+	宮城県庁,宮城県 仙台市,38.26889,140.87194
+	秋田県庁,秋田県 秋田市,39.71861,140.1025
+	山形県庁,山形県 山形市,38.24056,140.36333
+	福島県庁,福島県 福島市,37.75,140.46778
+	茨城県庁,茨城県 水戸市,36.34139,140.44667
+	栃木県庁,栃木県 宇都宮市,36.56583,139.88361
+	群馬県庁,群馬県 前橋市,36.39111,139.06083
+	埼玉県庁,埼玉県 さいたま市,35.85694,139.64889
+	千葉県庁,千葉県 千葉市,35.60472,140.12333
+	東京都庁,東京都 新宿区,35.68944,139.69167
+	神奈川県庁,神奈川県 横浜市,35.44778,139.6425
+	新潟県庁,新潟県 新潟市,37.90222,139.02361
+	富山県庁,富山県 富山市,36.69528,137.21139
+	石川県庁,石川県 金沢市,36.59444,136.62556
+	福井県庁,福井県 福井市,36.06528,136.22194
+	山梨県庁,山梨県 甲府市,35.66389,138.56833
+	長野県庁,長野県 長野市,36.65139,138.18111
+	岐阜県庁,岐阜県 岐阜市,35.39111,136.72222
+	静岡県庁,静岡県 静岡市,34.97694,138.38306
+	愛知県庁,愛知県 名古屋市,35.18028,136.90667
+	三重県庁,三重県 津市,34.73028,136.50861
+	滋賀県庁,滋賀県 大津市,35.00444,135.86833
+	京都府庁,京都府 京都市,35.02139,135.75556
+	大阪府庁,大阪府 大阪市,34.68639,135.52
+	兵庫県庁,兵庫県 神戸市,34.69139,135.18306
+	奈良県庁,奈良県 奈良市,34.68528,135.83278
+	和歌山県庁,和歌山県 和歌山市,34.22611,135.1675
+	鳥取県庁,鳥取県 鳥取市,35.50361,134.23833
+	島根県庁,島根県 松江市,35.47222,133.05056
+	岡山県庁,岡山県 岡山市,34.66167,133.935
+	広島県庁,広島県 広島市,34.39639,132.45944
+	山口県庁,山口県 山口市,34.18583,131.47139
+	徳島県庁,徳島県 徳島市,34.06583,134.55944
+	香川県庁,香川県 高松市,34.34028,134.04333
+	愛媛県庁,愛媛県 松山市,33.84167,132.76611
+	高知県庁,高知県 高知市,33.55972,133.53111
+	福岡県庁,福岡県 福岡市,33.60639,130.41806
+	佐賀県庁,佐賀県 佐賀市,33.24944,130.29889
+	長崎県庁,長崎県 長崎市,32.74472,129.87361
+	熊本県庁,熊本県 熊本市,32.78972,130.74167
+	大分県庁,大分県 大分市,33.23806,131.6125
+	宮崎県庁,宮崎県 宮崎市,31.91111,131.42389
+	鹿児島県庁,鹿児島県 鹿児島市,31.56028,130.55806
+	沖縄県庁,沖縄県 那覇市,26.2125,127.68111
+	</textarea>
+	</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0,0,10,10" >
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,1,0,0)" />
+  <defs>
+  <g id="p0" >
+   <circle cx="0" cy="0" r="5" fill="red"/><!-- red ● -->
+  </g>
+  <g id="p4" >
+   <circle cx="0" cy="0" r="5" fill="green"/><!-- green ● -->
+  </g>
+  <g id="p1" >
+   <image xlink:href="./Xcursor1.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  <g id="p2" >
+   <image xlink:href="./Xcursor2.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  <g id="p3" >
+   <image xlink:href="./Xcursor3.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/><!-- blue + -->
+  </g>
+  
+  </defs>
+
+<!-- <image xlink:href="../null.png" x="0" y="0" width="10" height="10" preserveAspectRatio="none" xlink:title="image"/> -->
+
+
+
+
+<g id="mapdata">
+<path d="M0,0 L3,0 0,3Z" fill="yellow"/>
+<!-- <circle cx="5" cy="5" r="3" fill="green" stroke="orange" stroke-width="1"></circle>-->
+<use x="0" y="0" transform="ref(svg,9,9)" xlink:href="#p4"></use>
+<use x="0" y="0" transform="ref(svg,5,5)" xlink:href="#p0"></use>
+<use x="0" y="0" transform="ref(svg,0,0)" xlink:href="#p3"></use>
+<!-- <use x="0" y="0" transform="ref(svg,5,5)" xlink:href="#p0" xlink:title="title" content="" stroke="none"/>-->
+</g>
+
+<use transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p1" xlink:title="point1"/>
+<use transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p2" xlink:title="point2"/>
+<use transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p3" xlink:title="point3"/>
+
+</svg>

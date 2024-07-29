@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+<title>OpenInfrastructureMap</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<!-- 以下をもとに生成したライブラリ -->
+<!-- https://gist.github.com/satakagi/436838ae91522eecd333441bced06ff1 -->
+<script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js"></script>
+<script src="./mbvt.js"></script>
+<script type="module">
+// Description:
+// OpenInfrastructureMapレイヤー
+//  
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import { zoomPanMapFunction, setFilter, initPbfTile } from "./tiledGeoJsonPbf.js";
+import {customShowPoiProperty} from "./customShowPoiProperty.js";
+
+var defaultVisibleLayers=["power_line","power_substation_point","power_plant_point"];
+
+var oimInfo;
+
+onload=async function(){
+	await initOIM();
+	addEventListener("zoomPanMap",zoomPanMapFunction);
+	setTimeout(changeLayer,20);
+}
+
+var metaArray=['subLayer', 'area', 'circuits', 'construction', 'diameter', 'electrical_output', 'frequency', 'is_node', 'line', 'location', 'method', 'name', 'name_de', 'name_en', 'name_es', 'name_fr', 'name_ja', 'name_ru', 'name_zh', 'operator', 'osm_id', 'output', 'ref', 'ref_len', 'source', 'start_date', 'substance', 'substation', 'tunnel', 'type', 'url', 'usage', 'voltage', 'voltage_2', 'voltage_3', 'wikidata', 'wikipedia'];
+
+async function initOIM(){
+	oimInfo = await (await fetch("https://openinframap.org/map.json")).json();
+	window.changeLayer = changeLayer;
+	console.log(oimInfo);
+	buildLayerListTable();
+	var targetG = svgImage.getElementById("areas");
+	var template = oimInfo.tiles[0].replaceAll("{","${t"); 
+	console.log(template,oimInfo);
+	initPbfTile(template, targetG,metaArray)
+	setTimeout(zoomPanMapFunction,20);
+	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+}
+
+function changeLayer(event){
+	var cks = layerListTable.getElementsByTagName("input");
+	var layersVisibility={};
+	for ( var layerCk of cks){
+		var id = layerCk.id.substring(2);
+		var checked = layerCk.checked;
+		console.log(id,checked);
+		layersVisibility[id]=checked;
+	}
+	setFilter(
+		function(key){
+			console.log("LayerKey:",key);
+			if ( layersVisibility[key]==true){
+				return true;
+			} else {
+				return false;
+			}
+		},
+		null
+	);
+	zoomPanMapFunction({totallyRefresh:true});
+}
+
+function buildLayerListTable(){
+	var tbl ="";
+	for ( var layerInfo of oimInfo.vector_layers){
+		var cked="";
+		if ( defaultVisibleLayers.indexOf(layerInfo.id)>=0){
+			cked = "checked=true";
+		}
+		tbl+=`<tr><td><input type="checkbox" id="c_${layerInfo.id}" onchange="changeLayer(event)" ${cked}></input><label for="c_${layerInfo.id}">${layerInfo.id}</label></td><td>${layerInfo.description}</td></tr>`;
+	}
+	layerListTable.insertAdjacentHTML("beforeend",tbl);
+}
+
+</script>
+<body>
+<h4><a href="https://openinframap.org/" target="_blank">Open Infrastructure Map</a> Layer</h4>
+<ul style="font-size:10px" >
+<li>Currently no styling
+<li><a href="https://gist.github.com/satakagi/436838ae91522eecd333441bced06ff1" target="_blank">How to load mapbox's vector map tile pbf format data as geoJSON.</a>
+</ul>
+<table border="1" id="layerListTable" style="font-size:11px;width:100%"></table>
+<!--
+<table border="1" id="categoryFilterTable" style="font-size:11px;width:100%"></table>
+-->
+</html>
