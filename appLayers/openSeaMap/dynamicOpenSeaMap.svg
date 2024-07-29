@@ -186,7 +186,6 @@
 		);
 	var svNumb = 0;
 	var culture ="en-US";
-	var bingRoadSearchPart = ".jpeg?g=849&amp;mkt=" + culture + "&amp;shading=hill";
 	
 	function getURL( tx , ty , lvl ){
 		var tile_ans = getKey( tx , ty , lvl );

@@ -410,7 +410,6 @@ var dynamicWebTile = function(){
 	
 	var svNumb = 0;
 	var culture ="en-US";
-	var bingRoadSearchPart = ".jpeg?g=849&amp;mkt=" + culture + "&amp;shading=hill";
 	
 	// タイルのXYとズームレベルからURLを返却する
 	function getURL( tx , ty , lvl ){
