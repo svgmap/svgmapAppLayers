@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bitimage2GeoInfo subWindow</title>
+<meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0,maximum-scale=1.0" />
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body bgcolor="#ffffff" style="overflow:hidden;" >
+<script type="text/javascript" src="https://unpkg.com/jsts@1.6.1/dist/jsts.min.js"></script>
+<script type="module">
+import { svgMap } from 'https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/SVGMapLv0.1_r18module.js';
+window.svgMap=svgMap
+</script>
+<script type="text/javascript" >
+//
+// Description:
+// Bitimage2GeoInfo subWindow
+//
+//  Copyright (C) 2014- by Satoru Takagi
+//
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// HISTORY
+// r2以前もっと昔から作っているようだが・・・
+// 2023/4/11 : r2 release
+// 2024/7/25 : svgMap ESM版に切り替え
+
+onload=function(){
+	window.addEventListener("message", receiveMessage, false);
+}
+
+function receiveMessage(event) {
+	console.log("event.data:",event.data);
+	if ( event.data == "closed" ){
+		window.close();
+	}
+}
+
+
+var count = 0;
+function sendOpener(msg){
+	if ( !window.opener){
+		return;
+	}
+	if (!msg ){
+		msg = "SET from Child!!! "+count+" times"
+	}
+	window.opener.document.getElementById("mapTitle").innerHTML= msg ;
+	++count;
+}
+
+function loadImage(){
+	var img = document.getElementById("bi");
+	img.setAttribute("src", document.getElementById("bitimagePath").value);
+	img.addEventListener('load', handleLoadSuccess);
+	localBitImageFileName=null;
+}
+function handleLoadSuccess(obj){
+	var target = obj.target || obj.srcElement;
+//	console.log("w:",target.naturalWidth ," h:", target.naturalHeight)
+//	sendOpener("w:"+target.naturalWidth +" h:"+ target.naturalHeight);
+//	console.log("src:",target.getAttribute("src"));
+	var srcImageURI = target.getAttribute("src");
+	setImageToSvg( srcImageURI , target.naturalWidth , target.naturalHeight);
+	target.style.display="none";
+	if ( window.opener){
+//		window.opener.imagePath = document.getElementById("bitimagePath").value;
+		window.opener.imagePath = srcImageURI;
+		window.opener.imageWidth = target.naturalWidth;
+		window.opener.imageHeight = target.naturalHeight;
+		window.opener.update();
+		window.opener.localBitImageFileName = localBitImageFileName;
+	}
+}
+
+var rootsvg;
+
+function setImageToSvg( srcPath , nwidth , nheight ){
+	var si = svgMap.getSvgImages();
+	rootsvg = si["root"];
+//	console.log("svgImages[root]",rootsvg);
+	var imgs = rootsvg.getElementsByTagName("image");
+	
+	var img;
+	for ( var i = 0 ; i < imgs.length ; i++ ){
+		if ( imgs[i].getAttribute("xlink:title")=="image"){
+			img = imgs[i];
+			break;
+		}
+	}
+	
+	
+	img.setAttribute("xlink:href", srcPath );
+	img.setAttribute("width",nwidth);
+	img.setAttribute("height",nheight);
+//	console.log("img",img);
+	svgMap.setGeoViewPort( -Number(nheight), 0 , Number(nheight) , Number(nwidth));
+//	console.log(svgMap.getGeoViewBox());
+}
+
+var point1,point2,point3;
+
+function setPoint( numb ){
+//	console.log(numb,svgMap.getCentralGeoCoorinates());
+	if ( numb == 1 ){
+		point1 = svgMap.getCentralGeoCoorinates();
+		document.getElementById("point1t").innerHTML=point1.lng.toFixed(2)+", "+point1.lat.toFixed(2);
+		setMarker( 1, point1 );
+		
+		if ( window.opener){
+			window.opener.imagePoint1 = point1;
+			window.opener.update();
+		}
+		
+	} else if ( numb == 2 ){
+		point2 = svgMap.getCentralGeoCoorinates();
+		document.getElementById("point2t").innerHTML=point2.lng.toFixed(2)+", "+point2.lat.toFixed(2);
+		setMarker( 2, point2 );
+		
+		if ( window.opener){
+			window.opener.imagePoint2 = point2;
+			window.opener.update();
+		}
+	} else if ( numb == 3 ){
+		point3 = svgMap.getCentralGeoCoorinates();
+		document.getElementById("point3t").innerHTML=point3.lng.toFixed(2)+", "+point3.lat.toFixed(2);
+		setMarker( 3, point3 );
+		
+		if ( window.opener){
+			window.opener.imagePoint3 = point3;
+			window.opener.update();
+		}
+	}
+	svgMap.dynamicLoad();
+}
+
+function setMarker( numb , point ){
+	var uses = rootsvg.getElementsByTagName("use");
+	var use;
+	for ( var i = 0 ; i < uses.length ; i++ ){
+		if ( uses[i].getAttribute("xlink:title")==("point"+numb)){
+			use = uses[i];
+			break;
+		}
+	}
+//	console.log(use.getAttribute("transform"),use.getAttribute("xlink:title"));
+	use.setAttribute("transform", "ref(svg,"+point.lng+","+point.lat+")");
+}
+
+var localBitImageFileName;
+function loadLocalImage(event){
+	// https://www.html5rocks.com/ja/tutorials/file/dndfiles//
+	console.log("loadLocalImage:",event.target.files[0]);
+	localBitImageFileName = event.target.files[0].name;
+	var fileReader = new FileReader() ;
+	fileReader.onload = function() {
+		var dataUri = this.result ;
+		//console.log("dataUri:",dataUri);
+		console.log("onload file");
+		var img = document.getElementById("bi");
+		img.addEventListener('load', handleLoadSuccess);
+		img.setAttribute("src", dataUri);
+		
+	}
+	var targetFile = event.target.files[0]
+	if ( targetFile.type.match('image.*') ){
+		fileReader.readAsDataURL( targetFile ) ;
+	} else {
+		console.log("NOT image file");
+	}
+}
+
+
+</script>
+<!-- TO DO: http://www.yoheim.net/labo/html5/fileapi/fileapiImage.html -->
+<!-- functions of svgMapLv0.1 should be called using svgMap.* namespace (from rev8) 2014.6.6 -->
+<!--
+<script type="text/javascript" src="yahooGeocode.js"></script>
+-->
+ <img src ="" id="bi" style="opacity:0.0"/>
+ <div id="mapcanvas" title="bitimage.svg"></div>
+ <div id="gui">
+  <img id="zoomupButton" style="left: 5px; top: 5px; position: absolute;" src="/devinfo/devkddi/lvl0.1/zoomup.png" onclick="svgMap.zoomup()" width="20" height="20" />
+  <img id="zoomdownButton" style="left: 5px; top: 25px; position: absolute;" src="/devinfo/devkddi/lvl0.1/zoomdown.png" onclick="svgMap.zoomdown()" width="20" height="20" />
+  <img id="centerSight" style="opacity:0.5" src="/devinfo/devkddi/lvl0.1/Xcursor.png" width="15" height="15"/>
+  <img id="3DviewButton" class="customButton"  style="left: 5px; top:65px; position: absolute;display:none;" width="20" height="20" />
+  <font id="posCmt" size="-2" color="brown" style="left: 5px; bottom: 5px; position: absolute;">Y,X:</font>
+  <font id="centerPos" size="-2" color="brown" style="left: 50px; bottom: 5px; position: absolute;" >lat , lng</font>
+  
+  <font size="-1" style="left: 40px; top: 10px; position: absolute;">URL:</font>
+  <input id="bitimagePath" type="text" style="left :70px; top: 5px; position: absolute; width :200px; height: 20px" value="https://www.toshiseibi.metro.tokyo.lg.jp/bosai/chousa_6/parts/kikendo_map.png"/>
+  <button id="loadImage" onclick="loadImage()"  style="left :280px; top: 5px; position: absolute; width :160px; height: 20px">Load Image from URL</button>
+  
+  <input id="loadLocalImageButton" type="file" onchange="loadLocalImage(event)" onclick="this.value=null;" style="font-size:10px; left :280px; top: 25px; position: absolute; width :200px; height: 20px">
+  
+<!--  <button id="bitimage" onClick="sendOpener()"  style="left :80px; top: 35px; position: absolute; width :100px; height: 20px">send opener</button> -->
+
+<button id="point1" onClick="setPoint(1)"  style="left :5px; top: 50px; position: absolute; width :120px; height: 20px;border-color:#00ff00;background-color:#60ff60;opacity:0.75">setPoint1(green)</button>
+<button id="point2" onClick="setPoint(2)"  style="left :5px; top: 75px; position: absolute; width :120px; height: 20px;border-color:#ff00ff;background-color:#ff60ff;opacity:0.75">setPoint2(purple)</button>
+<button id="point2" onClick="setPoint(3)"  style="left :5px; top: 100px; position: absolute; width :120px; height: 20px;border-color:#0000ff;background-color:#6060ff;opacity:0.75">setPoint3(blue)</button>
+
+  <font id="point1t" size="-1" color="green" style="left: 130px; top: 50px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x1,y1</font>
+  <font id="point2t" size="-1" color="purple" style="left: 130px; top: 75px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x2,y2</font>
+  <font id="point3t" size="-1" color="blue" style="left: 130px; top: 100px; position: absolute;background-color:#FFFFFF;opacity:0.7;">x3,y3</font>
+
+ </div>
+ 
+ <div  style="left :0px; top: 0px; position: absolute;">
+ </div>
+ 
+</body>
+</html>

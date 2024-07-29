@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="12078.24557, -4750.342539, 2637.1512, 2526.396468" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" data-controller="routingD.html#exec=appearOnLayerLoad">
+ <metadata>
+  <rdf:RDF xmlns:rdf="http://www.w3.og/1999/02/22-rdf-syntax-ns#" xmlns:crs="http://www.ogc.org/crs" xmlns:svg="http://www.w3.org/svg">
+   <rdf:Description>
+    <crs:CoordinateReferenceSystem rdf:resource="http://purl.org/crs/84"  svg:transform="matrix(100,0,0,-100,0,0)" />
+   </rdf:Description>
+  </rdf:RDF>
+ </metadata>
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+ <defs>
+  <g id="syl5" > 
+   <image xlink:href="mappin1.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl6" > 
+   <image xlink:href="mappin2.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl7" > 
+   <image xlink:href="mappin2.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl8" > 
+   <image xlink:href="mappin3.png" preserveAspectRatio="none" x="-5.6" y="-17.5" width="13.3" height="18.9"/>
+  </g>
+  <g id="syl9" > 
+   <image xlink:href="mappin4.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl10" > 
+   <image xlink:href="mappin4.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl11" > 
+   <image xlink:href="mappin4.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl12" > 
+   <image xlink:href="mappin5.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl13" > 
+<!--   <image xlink:href="mappin3.png" preserveAspectRatio="none" x="-4" y="-12.5" width="9.5" height="13.5"/>-->
+	<circle cx="0" cy="0" r="3" fill="purple"/>
+  </g>
+ </defs>
+
+
+<g id="routingResultGroup"></g>
+ 
+</svg>

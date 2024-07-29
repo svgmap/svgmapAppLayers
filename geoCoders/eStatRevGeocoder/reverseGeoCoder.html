@@ -1,0 +1,293 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./japanMesh_r2.js"></script>
+<script src="./meshLib.js"></script>
+<script src="./indexDBpromise.js"></script>
+
+<script src="https://unpkg.com/shapefile@0.6">
+// https://github.com/mbostock/shapefile
+// https://qiita.com/frogcat/items/b3235c06d64cee01fa47
+</script>
+
+<script src="./jsts.min.js"></script>
+
+<script type="module">
+import {unzip, HTTPRangeReader} from './unzipit.module.js';
+window.unzip = unzip;
+window.HTTPRangeReader = HTTPRangeReader;
+</script>
+
+<script>
+// e-statの街区データを使ったリバースジオコーダ
+// shapefile(https://github.com/mbostock/shapefile)と、unzipit(https://github.com/greggman/unzipit)を使用
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2023- by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+// History:
+// 2023/11/15 ist rel.
+// 2023/11/16 未ロードのエリアを高速に検索すると同じファイルを何度もfetchしようとするのを解消
+// 
+// Issue:
+//
+var EStatURL="https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=B002005212020&code={ADMINCODE}&coordSys=1&format=shape&downloadType=5&datum=2000";
+
+// もしもローカルミラーを使う場合・・
+//var EStatURL="mirror/gaikuPop/data%3fdlserveyId=B002005212020&code={ADMINCODE}&coordSys=1&format=shape&downloadType=5&datum=2000";
+//var meshMirror=new URL("mirror/admMesh3/",location).href;
+
+
+// Global var
+var estatSchema;
+var GMjson;
+
+var mr,meshList;
+var japanMeshDbName={dbName:"estatMeshDB",tableName:"japanMeshRawData"};
+var japanGaikuDbName={dbName:"estatGaikuDB",tableName:"lgGeojson"};
+var meshDB, gaikuDB;
+
+var featureReader = new jsts.io.GeoJSONReader(); // featureReader.read(geometry);
+var featureWriter = new jsts.io.GeoJSONWriter(); // featureWriter.write(feature);
+
+onload=async function(){
+	estatSchema = await buildEstatSchema();
+	await initJpMesh();
+	await initGaikuDB();
+}
+
+async function initGaikuDB(){
+	gaikuDB=getDB(japanGaikuDbName);
+	await gaikuDB.connect();
+}
+
+async function initJpMesh(){
+	meshDB=getDB(japanMeshDbName);
+	await meshDB.connect();
+	mr = stdJpMesh(meshDB);
+	//console.log("onload japanMesh_r3 :mr:",mr);
+	await getDataFromStatGo();
+	addEventListener("zoomPanMap",zpmFunc);
+	zpmFunc();
+}
+
+async function getDataFromStatGo(){
+	console.log("stat.go.jpからメッシュデータCSV読み込み中:");
+	if (typeof meshMirror !="undefined" ){
+		console.log("Use Mesh Mirror:",meshMirror);
+		await mr.buildMeshData(pcf,null,meshMirror);
+	} else {
+		await mr.buildMeshData(pcf);
+	}
+}
+function pcf(ans){
+	//console.log(ans);
+	document.getElementById("msg2").innerText=ans.message;
+}
+
+var currentVisibleAreas={};
+
+async function zpmFunc(){
+	console.log("called preRenderFunction of japanMeshGridController");
+//	console.log("scale :",svgImageProps.scale );
+	var geoViewBox = svgMap.getGeoViewBox();
+	var searchPoint = [geoViewBox.cx,geoViewBox.cy];
+	var ans = await reverseGeocode(searchPoint);
+	var ansStr = getAddress(ans);
+	console.log ( "リバースジオコード結果:" , ans, ansStr );
+	msg.innerText=ansStr;
+	if ( putGlobalMessage ){
+		putGlobalMessage("e-stat rev.geocode: "+ansStr);
+	}
+}
+
+function getAddress(ft){
+	// 基本単位区境界データの仕様について・・・
+	// https://www.e-stat.go.jp/help/data-definition-information/downloaddata/B002005212020.pdf
+	// https://www.stat.go.jp/data/kokusei/2010/users-g/word7.htm
+	// https://www.pref.tottori.lg.jp/secure/109753/yougo.pdf
+	// KIHON3の最後の桁を除くと、
+	// >> 街区が設定されている場合はその街区番号、それ以外の場合は万位及び千位のけたが示す地域ごとの一連番号
+	// https://business.mapfan.com/blog/detail/2254 より、これは地番？
+	
+	
+	if ( !ft){return null}
+	var addr = `${ft.properties.PREF_NAME} ${ft.properties.CITY_NAME} ${ft.properties.S_NAME} `;
+	var partNum = ` ${ft.properties.KIHON3.substring(ft.properties.KIHON3.length-1)}`;
+	if ( partNum==" 0"){partNum=""}
+	if (ft.properties.S_NAME.indexOf("丁目")>0){
+		addr +=  `${ft.properties.KIHON3.substring(0,ft.properties.KIHON3.length-1)}${partNum}`;
+	} else {
+		addr +=  `${ft.properties.KIHON2} ${ft.properties.KIHON3.substring(0,ft.properties.KIHON3.length-1)}${partNum}`;
+	}
+	return addr;
+}
+
+async function reverseGeocode(searchPoint){
+	var mesh3= latLng2Mesh(searchPoint[1],searchPoint[0],3);
+	var lgCodes = structuredClone(await mr.isLandMesh(mesh3));
+	for ( var lgCode in lgCodes ){
+		var gjs = await getEstatGeojson(lgCode);
+		var area = searchIncludedArea(gjs,searchPoint);
+		if (area){
+			return area;
+		}
+	}
+	return null;
+}
+
+function searchIncludedArea(geojson, point){
+	// jstsでgeojsonのPolygonと、pointのIntersectionをみていく
+	var pg = {
+		type:"Point",
+		coordinates:point
+	}
+	var poi = featureReader.read(pg);
+	for ( var ft of geojson.features){
+		var poly = featureReader.read(ft.geometry);
+		if ( poly.intersects(poi) ){
+			return ft;
+		}
+	}
+	return null;
+}
+
+function showDownloading(){
+	var dln= Object.keys(downloadings);
+	if ( dln.length == 0){
+		msg2.innerText="";
+	} else {
+		msg2.innerText="読み込み中 : " + dln;
+	}
+}
+
+var downloadings={};
+async function getEstatGeojson(adminCode){
+	var dlURL=EStatURL.replace("{ADMINCODE}",adminCode);
+	//console.log(dlURL);
+	var geojson=null;
+	try{
+		var geojsonData =await gaikuDB.get(adminCode); // IndexedDBのキャッシュを調べてあればそっちで取得
+		if ( !geojsonData){
+			if ( !downloadings[adminCode] ){ // 読み込み中のものが無ければ読み込む
+				downloadings[adminCode]=true;
+				showDownloading()
+				var zipArchive =await unzip(svgMap.getCORSURL(dlURL));
+				//console.log (zipArchive);
+				geojson = await getGeoJsonFromShapefile(zipArchive);
+				//console.log(geojson);
+				gaikuDB.put({idCol:adminCode,data:geojson}); 
+				delete downloadings[adminCode];
+				showDownloading();
+			} else { // 同じものがダウンロード中の場合はそれのDLを待って返却　2023/11/16
+				geojson = await waitDownloadAndGet(adminCode);
+			}
+		} else {
+			geojson = geojsonData.data;
+		}
+	} catch(e){
+		console.warn("estat data get error:", adminCode,e);
+		delete downloadings[adminCode];
+	}
+	return geojson;
+}
+
+async function waitDownloadAndGet(adminCode){
+	// ダウンロー途中のデータの管理を行い(downloadings)重複を防ぐ
+	//console.log("waitDownloadAndGet: start ");
+	var timeoutCount=0;
+	while ( downloadings[adminCode] ){
+		await sleep(100);
+		++timeoutCount;
+		if ( timeoutCount > 30*10 ) { console.warn("waitDownloadAndGet: timeout");return null }
+	}
+	var geojsonData =await gaikuDB.get(adminCode); 
+	//console.log("waitDownloadAndGet: return : ",geojsonData);
+	return ( geojsonData.data);
+}
+
+const sleep = ms => new Promise(res => setTimeout(res, ms))
+
+async function getGeoJsonFromShapefile(zipArchive){
+	var shpPath,dbfPath;
+	for (var fn in zipArchive.entries){
+		if (fn.endsWith("polbnda_jpn.shp")){
+			shpPath = fn;
+		} else if (fn.endsWith("polbnda_jpn.dbf")){
+			dbfPath = fn;
+		}
+	}
+	if ( !shpPath && !dbfPath){
+		for (var fn in zipArchive.entries){
+			if (fn.endsWith("shp")){
+				shpPath = fn;
+			} else if (fn.endsWith("dbf")){
+				dbfPath = fn;
+			}
+		}
+	}
+	
+	const shpAB = await zipArchive.entries[shpPath].arrayBuffer();
+	const dbfAB = await zipArchive.entries[dbfPath].arrayBuffer();
+	//console.log(shpAB,dbfAB);
+	var geojs = await shapefile.read(shpAB,dbfAB,{encoding: "shift_jis"});
+	return geojs;
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+async function buildEstatSchema(){
+	var stxt = await(await fetch("schema.csv")).text();
+	stxt=stxt.split("\n");
+	var schema={};
+	stxt.forEach(function(value, index, array) {
+		var val = value.trim();
+		val = val.split(",");
+		var key=val[1];
+		array[index]=val;
+		schema[key]=val;
+	});
+	console.log(stxt,schema);
+	return schema;
+}
+
+</script>
+
+
+<body>
+<h4>e-statの街区境界データを用いたリバースジオコーダ</h4>
+<ul style="font-size:9px">
+<li>出典1：詳細データ:<a href="https://www.e-stat.go.jp/gis/statmap-search?page=1&type=2&aggregateUnitForBoundary=A&toukeiCode=00200521&toukeiYear=2020&serveyId=B002005212020&coordsys=1&format=shape&datum=2000" target="_blank">e-stat 国勢調査 境界データ2020</a> (<a href="estatPolygonDownloadLink.html" target="_blank">全データURL取得</a>）
+<li>出典2：インデックスデータ:<a href="https://www.stat.go.jp/data/mesh/m_itiran.html" target="_blank">e-stat 市区町村別メッシュ・コード</a>
+<li>丁目のある場所の末尾の洋数字は街区番号 2桁 (と分割番号 1桁:0の場合省略) <br>(KIHON3)
+<li>丁目のない場所の末尾の洋数字は基本単位区コード<br>(KIHON2:字などの番号 2桁, KIHON3: 2桁+1桁:0の場合省略)
+</a>
+</ul>
+<div id="msg" style="color:blue;font-size:11px">-</div>
+<div id="msg2" style="color:red;font-size:11px"></div>
+
+</body>
+</html>

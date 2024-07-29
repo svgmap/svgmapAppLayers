@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+<title>CSISシンプルジオコーディング実験を利用したジオコーダ</title>
+<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://cdn.jsdelivr.net/openlocationcode/latest/openlocationcode.js"></script>
+
+<script type="module">
+import {decode , encode} from "./plusCoder.js";
+
+var cg;
+var messageDiv;
+
+window.onload = function () {
+	console.log("ONLOAD");
+	document.getElementById("posSearchButton").addEventListener("click",geocode);
+	document.getElementById("codeSearchButton").addEventListener("click",revGeocode);
+	window.addEventListener("zoomPanMap", revGeocode);
+	messageDiv = document.getElementById("messageDiv");
+	revGeocode();
+}
+
+var geocodeForcePan=false;
+async function geocode(event){
+	console.log(event.target);
+	var pcode = document.getElementById("plusCodeInput").value.trim();
+	if ( !pcode ){
+		messageDiv.innerText="plus codeを入力欄に記載してください";
+		return;
+	}
+	try{
+		var ans = await decode(pcode);
+	} catch ( e ){
+		messageDiv.innerText="解決できませんでした";
+		return;
+	}
+	console.log(ans);
+	if ( !ans ){
+		messageDiv.innerText="解決できませんでした";
+		return;
+	}
+	
+	var radiusKm = (ans.latitudeHi - ans.latitudeLo) * 111.111 / 2;
+	messageDiv.innerText=`中心 緯度,経度: ${ans.latitudeCenter.toFixed(6)},${ans.longitudeCenter.toFixed(6)}　半径${(radiusKm*1000).toFixed(1)}m`;
+	if ( radiusKm < 1){
+		radiusKm = 1;
+	}
+	geocodeForcePan=true;
+	setCenter(ans.latitudeCenter, ans.longitudeCenter, radiusKm);
+}
+
+async function revGeocode(event){
+	console.log(event?.target, event?.target?.id);
+	if ( geocodeForcePan ){
+		// geocodeによって強制的にpanしたので、処理をスキップする
+		geocodeForcePan = false;
+		return;
+	}
+	var lat, lng;
+	if (  event?.target?.id =="codeSearchButton"){
+		var latLng = document.getElementById("latLngInput").value.trim();
+		if ( !latLng){
+			if ( window.svgMap){
+				latLng = window.svgMap.getCentralGeoCoorinates()
+				lat = latLng.lat;
+				lng = latLng.lng;
+			}
+		} else {
+			latLng = latLng.split(",");
+			if ( !isNaN(latLng[0]) && !isNaN(latLng[1]) ){
+				lat = Number(latLng[0]);
+				lng = Number(latLng[1]);
+			} else {
+				messageDiv.innerText="半角カンマ区切りで、半角英数字の緯度経度情報を入力してください";
+				return;
+			}
+		}
+	} else {
+		if ( window.svgMap){
+			latLng = window.svgMap.getCentralGeoCoorinates()
+			lat = latLng.lat;
+			lng = latLng.lng;
+		}
+	}
+	
+	var ans = encode(`${lat},${lng}`);
+	if ( ans ){
+		var msg = `plus code: ${ans}`;
+		messageDiv.innerText=msg;
+		if ( window.putGlobalMessage ){
+			window.putGlobalMessage(msg);
+		}
+	} else {
+		messageDiv.innerText=`plus codeを生成できませんでした`;
+	}
+}
+
+/**
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+**/
+
+function setCenter(lat,lng,radiusKm){
+	console.log("setCenter:",lat,lng,radiusKm);
+	
+	if ( window.svgMap){
+		window.svgMap.setGeoCenter(lat,lng,radiusKm/111);
+	}
+}
+
+</script>
+<body>
+<h3>plus code ジオコーダ /  リバースジオコーダ</h3>
+<div>
+<a href="https://support.google.com/maps/answer/7047426?hl=ja&co=GENIE.Platform%3DDesktop" target="_blank">plus codeとは</a>
+</div>
+<div>
+<input type="text" style="width:300px" id="plusCodeInput" placeholder="plus code (例: MP43+V5 渋谷区、東京都)"></input><input type="button" value="地図を移動" id="posSearchButton"></input>
+</div>
+<div>
+<input type="text" style="width:300px" id="latLngInput" placeholder="緯度,経度入力"></input><input type="button" value="plus codeを検索" id="codeSearchButton"></input>
+</div>
+<div id="messageDiv">
+</div>
+</body>
+</html>

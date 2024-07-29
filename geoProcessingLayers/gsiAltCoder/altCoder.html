@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 地理院標高タイルから任意地点の標高を算出するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+標高タイル
+https://maps.gsi.go.jp/development/ichiran.html#dem
+
+標高タイル（基盤地図情報数値標高モデル）
+URL：https://cyberjapandata.gsi.go.jp/xyz/dem5a/{z}/{x}/{y}.txt（DEM5A テキスト形式）
+URL：https://cyberjapandata.gsi.go.jp/xyz/dem5b/{z}/{x}/{y}.txt（DEM5B テキスト形式）
+URL：https://cyberjapandata.gsi.go.jp/xyz/dem/{z}/{x}/{y}.txt（DEM10B テキスト形式）
+
+標高タイル（地球地図全球版標高第2版）
+URL：https://cyberjapandata.gsi.go.jp/xyz/demgm/{z}/{x}/{y}.txt （テキスト形式）
+**/
+
+onload = function(){
+	window.addEventListener("zoomPanMap", testZoom);
+	
+	setTimeout(initPOIUI,100);
+}
+
+async function testZoom(){
+	var vb = svgMap.getGeoViewBox();
+	var lat = vb.cy;
+	var lng = vb.cx;
+	latI.value=lat;
+	lngI.value=lng;
+	var alt = await getAltitude(lat,lng);
+	if ( alt == 0 || alt ){
+	} else {
+		alt = "NO DATA";
+	}
+	if ( putGlobalMessage ){
+		putGlobalMessage("altitude: "+alt);
+	}
+	mapcodeI.value=alt;
+}
+
+function initPOIUI(){
+	poiUI=document.getElementById("poiUI");
+	getPointOnly = false;
+	if ( svgMapAuthoringTool ){
+		svgMapAuthoringTool.initPOIregistTool(poiUI,svgImageProps.rootLayer,"poi0","p0","title","",cbFunc,"cbFuncParam",getPointOnly);
+	}
+}
+
+function cbFunc(param1,param2){
+	console.log(param1,param2);
+	var latlngs=(poiUI.getElementsByTagName("input")[2].value).split(",");
+	console.log(latlngs);
+	var lat=Number(latlngs[0]);
+	var lng=Number(latlngs[1]);
+	latI.value=latlngs[0];
+	lngI.value=latlngs[1];
+	button_click();
+}
+
+var demLevel = 14;
+var tilePix = 256;
+
+async function getAltitude(lat,lng){
+	var tlxy = latLng2XY( lat , lng , demLevel);
+	var tileTLxy = XY2TileXY( tlxy );
+	var url = `https://cyberjapandata.gsi.go.jp/xyz/dem/${demLevel}/${tileTLxy.x}/${tileTLxy.y}.txt`;
+	var tLatLng = XY2latLng( tileTLxy.x * tilePix , tileTLxy.y * tilePix, demLevel );
+	var tLatLngBR = XY2latLng( tileTLxy.x * tilePix + tilePix , tileTLxy.y * tilePix + tilePix , demLevel  );
+ 	console.log(url);
+	var xy = getPxy(lat,lng, tLatLng, tLatLngBR)
+	try{
+		var response = await fetch(url);
+		if (response.status!=200){
+			throw "File is not exist.";
+		}
+		var csv = await response.text();
+		var altTable = parseCsv(csv);
+	} catch ( e ){
+		return ( null );
+	}
+	console.log(altTable);
+	console.log(tLatLng,tLatLngBR,xy);
+	var ans = altTable[xy.y][xy.x];
+	console.log(ans);
+	return ( ans );
+}
+
+function getPxy(lat,lng, tl, br){
+	var xs = (br.lng-tl.lng) / tilePix;
+	var ys = (tl.lat-br.lat) / tilePix;
+	
+	var px = Math.floor((lng - tl.lng)/xs);
+	var py = Math.floor((-lat + tl.lat)/ys);
+	return {x:px,y:py};
+}
+
+
+function parseCsv(csv){
+	csv = csv.split("\n");
+	//console.log( csv );
+	var ans = [];
+	for ( var i = 0; i < csv.length ; i++ ){
+		if ( csv[i]==""){
+			continue;
+		}
+		var line = csv[i].split(",");
+		//console.log(line);
+		var col = [];
+		for ( var j = 0 ; j < line.length ; j++ ){
+			if ( line[j]==""){
+				continue;
+			}
+			var al = Number(line[j]);
+			col.push(al);
+		}
+		ans.push(col);
+	}
+	//console.log(ans);
+	return ( ans );
+}
+
+async function button_click(){
+	var lat = Number(latI.value);
+	var lng = Number(lngI.value);
+	console.log("lat,lng:",lat,lng);
+	var alt = await getAltitude(lat,lng);
+	if ( alt == 0 || alt ){
+		mapcodeI.value=alt;
+	} else {
+		mapcodeI.value="no data";
+	}
+}
+
+
+
+function latLng2XY( lat , lng , lvl ){
+	var size = lvl2Res(lvl);
+//		console.log("size:" + size);
+	var sinLat = Math.sin(lat * Math.PI / 180.0);
+	var pixelX = (( lng + 180.0 ) / 360.0 ) * size;
+	var pixelY = (0.5 - Math.log((1 + sinLat) / (1.0 - sinLat)) / (4 * Math.PI)) * size;
+	return {
+		x : pixelX ,
+		y : pixelY
+	}
+}
+
+
+function XY2TileXY( xy ){
+	var tileX = Math.floor(xy.x / tilePix);
+	var tileY = Math.floor(xy.y / tilePix);
+	return {
+		x : tileX ,
+		y : tileY
+	}
+}
+
+function XY2latLng( px , py , lvl ){
+	var size = lvl2Res(lvl);
+	var x = ( px / size ) - 0.5;
+	var y = 0.5 - ( py / size);
+	var lat = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
+	var lng = 360 * x;
+	return{
+		lat : lat ,
+		lng : lng
+	}
+}
+
+function lvl2Res( lvl ){
+	var j = 1;
+	for(var i = 0 ; i < lvl ; i++){
+		j = j * 2;
+	}
+	return ( j * tilePix );
+}
+
+
+
+</script>
+
+<body>
+<h3>alt coder</h3>
+<p><a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院 標高タイル</a>（基盤地図情報数値標高モデル）DEM10Bから標高を得ます</p>
+    <input type="text" id="latI" value="35" />
+    <input type="text" id="lngI" value="135" />
+    <button onclick="button_click();">標高取得</button>
+    <hr>
+    標高: <input type="text" id="mapcodeI" value="" />
+    <hr>
+    地図から標高を得る
+    <div id="poiUI"></div>
+</body>
+</html>

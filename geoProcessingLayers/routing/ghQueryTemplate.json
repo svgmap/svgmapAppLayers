@@ -1,0 +1,33 @@
+{
+	"points": [
+		[139.7047228471286, 35.801990633619525],
+		[139.6574655911961, 35.75609294147361]
+	],
+	"points_encoded": false,
+	"profile": "car",
+	"custom_model": {
+		"priority": [{ "if": "in_custom1", "multiply_by": "0.0" }],
+		"areas": {
+			"type": "FeatureCollection",
+			"features": [
+				{
+					"type": "Feature",
+					"id": "custom1",
+					"properties": {},
+					"geometry": {
+						"type": "Polygon",
+						"coordinates": [
+							[
+								[139.62129892291708, 35.800120094539345],
+								[139.72734302563632, 35.780312312254665],
+								[139.71405731800633, 35.732483764786764],
+								[139.62129892291708, 35.800120094539345]
+							]
+						]
+					}
+				}
+			]
+		}
+	},
+	"ch.disable": true
+}

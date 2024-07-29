@@ -1,0 +1,83 @@
+<!DOCTYPE html> 
+<html>
+<head>
+<meta charset="UTF-8">
+<title>bitimage to geoinfo manual</title>
+<link href="http://www.w3.org/StyleSheets/TR/base.css" rel="stylesheet" type="text/css" />
+
+
+<style type="text/css">
+<!--
+ .pop{
+      position: relative;
+      top: 0px; left: 10px;
+ }
+.ballimg{
+         position: fixed;
+        bottom: 5px; right: 5px;
+        display: none;
+
+}
+a:hover .ballimg {
+        display: block;
+}
+-->
+</style>
+</head>
+<body>
+
+<h3>Bitimage to Geospatial Information 使い方</h3>
+
+<div class="pop">
+<h4>オーサリング</h4>
+<ul>
+<li><a target="exp" href="p1.jpg">(図1)<span class="ballimg"><img src="p1.jpg" width="800"/></span></a>　ツールのレイヤーを開いたところ 
+<li><a target="exp" href="p2.jpg">(図2)<span class="ballimg"><img src="p2.jpg" width="800"/></span></a>　オーサリングタブを選んだ後（紫）、Open bitimageMapボタンを押す（青）と、ウィンドが開く
+<ul>
+<li>画像を読み込む
+<ul>
+<li><a target="exp" href="p3.jpg">(図3 紫)<span class="ballimg"><img src="p3.jpg" width="800"/></span></a>　Web上の画像の場合：　bitimage mapのURLを入力して(紫〇)、Load Image from URLボタンを押すか(紫←)
+<li><a target="exp" href="p3.jpg">(図3 青)<span class="ballimg"><img src="p3.jpg" width="800"/></span></a>　ローカルの画像の場合：[ファイルを選択](青←)してローカルのビットイメージを読み込ませる (PDF内に埋め込まれた画像などはPDF画像抽出やスクリーンキャプチャなどを駆使・・)
+</ul>
+<li><a target="exp" href="p4.jpg">(図4)<span class="ballimg"><img src="p4.jpg" width="800"/></span></a>　読み込んた状態 
+<li>画像基準点入力（少なくとも２点）
+<ul>
+<li><a target="exp" href="p5.jpg">(図5)<span class="ballimg"><img src="p5.jpg" width="800"/></span></a>　１点目：伸縮スクロールして特徴的な点を中心に持っていき（紫〇）、[setPoint1]（紫←）を押して１点目を入力
+<li><a target="exp" href="ma6.jpg">(図6 紫)<span class="ballimg"><img src="p6.jpg" width="800"/></span></a>　２点目：紫〇、紫←　（なるべく1点目と離れた対角にある点を設定します）
+<li><a target="exp" href="ma6.jpg">(図6 青)<span class="ballimg"><img src="p6.jpg" width="800"/></span></a>　３点目：青〇、青←　（オプショナル～精度が上がることがあります　なるべく大きな三角形になる点を設定）
+</ul>
+</ul>
+<li><a target="exp" href="p7.jpg">(図7)<span class="ballimg"><img src="p7.jpg" width="800"/></span></a>　元の地図ウィンドゥに戻り
+<li>地図上で　上記で設定した点に対応する点を入力する。操作方法は上と同じ
+<ul>
+<li><a target="exp" href="p8.jpg">(図8)<span class="ballimg"><img src="p8.jpg" width="800"/></span></a>　（注：上で２点しか入力していなければ２点でOK）
+<li><a target="exp" href="p9.jpg">(図9)<span class="ballimg"><img src="p9.jpg" width="800"/></span></a>　（この段階で合成されるが、精度はそれほど高くない: 拡大してずれがある様子）
+<li><a target="exp" href="p10.jpg">(図10)<span class="ballimg"><img src="p10.jpg" width="800"/></span></a>　そこで、拡大して対応するポイントを細かく調整を繰り返す（ボタンは何回押してもOK（緑、紫、青←））
+</ul>
+<li>これでOKと思ったら、以下のいずれかで内容を記録する
+<ul>
+<li><a target="exp" href="p11.jpg">(図11)<span class="ballimg"><img src="p11.jpg" width="800"/></span></a>　サーバに保存　内容を表すタイトルを記入して（紫＿）、[Register]（紫←）を押すと、登録される
+<ul>
+<li><a target="exp" href="p12.jpg">(図12 紫)<span class="ballimg"><img src="p12.jpg" width="800"/></span></a>　（Successのメッセージが出たら成功　（紫〇））
+</ul>
+<li><a target="exp" href="p12.jpg">(図12 青)<span class="ballimg"><img src="p12.jpg" width="800"/></span></a>　ソーステキストをローカルに残す　[view svg source]を押す（青←）
+<ul>
+<li><a target="exp" href="p13.jpg">(図13 紫)<span class="ballimg"><img src="p13.jpg" width="800"/></span></a>　ウィンドが開きソースが表示されるので、これをコピー([copy source])(紫_)、又はソース(緑)を全選択してコピー(CTRL-C))し、テキストエディタなどで保存する
+</ul>
+</ul>
+</ul>
+
+<h4>保存したものの表示</h4>
+<ul>
+<li>サーバに保存した場合
+<ul>
+<li><a target="exp" href="p14.jpg">(図14)<span class="ballimg"><img src="p14.jpg" width="800"/></span></a>　サーバに保存した場合：　表示タブ（紫〇）を選ぶと、追加されている（青〇）　ボタンを押せば表示される
+</ul>
+<li>ローカルで持っていたソーステキスト
+<ul>
+<li><a target="exp" href="p12.jpg">(図12 青)<span class="ballimg"><img src="p12.jpg" width="800"/></span></a>　オーサリングタブの[view svg source]を押す（青←）
+<li><a target="exp" href="p13.jpg">(図13 緑・青)<span class="ballimg"><img src="p13.jpg" width="800"/></span></a>　ソース表示欄(緑)にテキストをペーストし、[read source](青＿)を押す　([clar source]を押すと元々表示されているソースを消去できるのでペーストしやすい)
+</div>
+
+</body>
+</html>

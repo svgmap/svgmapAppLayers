@@ -1,0 +1,261 @@
+<!doctype html>
+<html>
+<head>
+<title>source window</title>
+<meta charset="utf-8"></meta>
+</head>
+<script>
+onload=function(){
+	window.addEventListener("message", receiveMessage, false);
+	if ( window.opener){
+		window.opener.postMessage("loaded","*");
+	}
+	/**
+	if ( navigator.clipboard ){ // https only API...
+		document.getElementById("clBtn").value="paste source";
+	}
+	**/
+}
+
+var localBitImageFileName = null;
+
+function receiveMessage(event) {
+	console.log("event.data:",event.data);
+	if ( event.data == "closed" ){
+		window.close();
+	}
+}
+
+function copySrc(byBitimageFileName){
+	console.log("copySrc:",byBitimageFileName);
+	var srctext = document.getElementsByTagName("textarea")[0].value;
+	
+	if ( byBitimageFileName ){
+		srctext = changeDataURI2fileName(srctext);
+	}
+	
+	copyTextToClipboard(srctext);
+}
+
+function changeDataURI2fileName(txt){
+	if ( !localBitImageFileName){
+		return txt;
+	}
+	var ans="";
+	var durIdx= txt.indexOf("data:image");
+	if ( durIdx>0){
+		var durBtmIdx = txt.indexOf('"',durIdx);
+		ans = txt.substring(0,durIdx)+localBitImageFileName+txt.substring(durBtmIdx);
+	} else {
+		return ( txt );
+	}
+	console.log("changeDataURI2fileName:\n",ans);
+	return ( ans );
+}
+
+
+function readSrc(){
+	var srctext = document.getElementsByTagName("textarea")[0].value;
+	var parser = new DOMParser();
+	var dom = parser.parseFromString(srctext, "application/xml");
+	var gcs = dom.getElementsByTagName("globalCoordinateSystem")[0];
+	
+	var valid = false;
+	if ( gcs ){
+		var tf = gcs.getAttribute("transform");
+		if ( tf == "matrix(1,0,0,-1,0,0)"){
+			valid = true;
+		}
+	}
+	
+	var img = dom.getElementsByTagName("image")[0];
+	if (!img){
+		valid = false;
+	} else {
+		if ( !img.getAttribute("xlink:href") ){
+			valid = false;
+		}
+		if ( !img.getAttribute("preserveAspectRatio") || img.getAttribute("preserveAspectRatio")!="none"){
+			valid = false;
+		}
+		if ( !img.getAttribute("x") || img.getAttribute("x")!="0"){
+			valid = false;
+		}
+		if ( !img.getAttribute("y") || img.getAttribute("y")!="0"){
+			valid = false;
+		}
+		if ( !img.getAttribute("width") ){
+			valid = false;
+		}
+		if ( !img.getAttribute("height") ){
+			valid = false;
+		}
+	}
+	var transform = img.getAttribute("transform");
+	if ( ! transform ){
+		transform = "matrix(1,0,0,1,0,0)";
+	}
+	transform = parseTransform(transform);
+	if ( !transform ){
+		valid = false;
+	}
+	
+	var width = img.getAttribute("width");
+	var height = img.getAttribute("height");
+	
+	var ap = img.getAttribute("data-anchorPoints");
+	if (!ap){
+		ap = "0,0,"+width+","+height;
+	}
+	ap = parseAp(ap);
+	if ( !ap ){
+		valid = false;
+	}
+	
+	var src = img.getAttribute("xlink:href");
+	
+	if ( valid ){
+		console.log("valid svg image : ", src, transform, width, height, ap );
+		
+		var gp = [];
+		if (ap.length == 6){
+			gp.push(calcGeoPoint(ap[0],ap[1],transform));
+			gp.push(calcGeoPoint(ap[2],ap[3],transform));
+			gp.push(calcGeoPoint(ap[4],ap[5],transform));
+		} else {
+			gp.push(calcGeoPoint(ap[0],ap[1],transform));
+			gp.push(calcGeoPoint(ap[2],ap[3],transform));
+		}
+		if ( window.opener){
+			sendOpener(src,width,height,ap,gp);
+		}
+	} else {
+		console.log("INvalid svg image");
+	}
+}
+
+
+function sendOpener(src,width,height,ap,gp){
+	window.opener.imagePath = src;
+	
+	window.opener.imageWidth = width;
+	window.opener.imageHeight = height;
+	
+	window.opener.imagePoint1 = {lng:ap[0],lat:ap[1]};
+	window.opener.imagePoint2 = {lng:ap[2],lat:ap[3]};
+	window.opener.point1 = gp[0];
+	window.opener.point2 = gp[1];
+
+	if ( gp.length == 3 ){
+		window.opener.imagePoint3 = {lng:ap[4],lat:ap[5]};
+		window.opener.point3 = gp[2];
+	}
+	
+	window.opener.update();
+}
+
+function calcGeoPoint(px,py,tf){
+	sc = transform(px,py,tf);
+	gc = transform(sc.x,sc.y,{a:1,b:0,c:0,d:-1,e:0,f:0});
+	console.log("img:",px,",",py,"  geo:", gc.x,",",gc.y);
+	return {
+		lng:gc.x,
+		lat:gc.y
+	}
+}
+
+function transform(x,y,tf){
+	tx = tf.a * x + tf.c * y + tf.e;
+	ty = tf.b * x + tf.d * y + tf.f;
+	return {
+		x:tx,
+		y:ty
+	}
+}
+
+function parseAp(aps){
+	aps = aps.split(",");
+	try{
+		for ( var i = 0 ; i < aps.length ; i++){
+			aps[i]=Number(aps[i]);
+		}
+	} catch ( e ){
+		return ( null );
+	}
+	return ( aps );
+}
+
+function parseTransform(tfs){
+	tfs=tfs.split(",");
+	if ( tfs.length != 6 ){
+		return ( null );
+	}
+	if (tfs[0].indexOf("matrix(")!=0){ // )
+		return ( null );
+	}
+	tfs[0]=tfs[0].substring(7);
+	if ( !tfs[5] ){ // (
+		if (tfs[5].indexOf(")") <=0 ){
+			return ( null );
+		}
+	} // (
+	tfs[5] = tfs[5].substring(0,tfs[5].indexOf(")"));
+	for ( var i = 0 ; i < 6 ; i++ ){
+		tfs[i] = Number(tfs[i]);
+	}
+	console.log(tfs);
+	return {
+		a: tfs[0],
+		b: tfs[1],
+		c: tfs[2],
+		d: tfs[3],
+		e: tfs[4],
+		f: tfs[5]
+	}
+}
+
+
+function clearSrc(){
+	document.getElementsByTagName("textarea")[0].value = "";
+}
+
+
+/**
+ * https://webllica.com/copy-text-to-clipboard/
+ * クリップボードコピー関数
+ * 入力値をクリップボードへコピーする
+ * [引数]   textVal: 入力値
+ * [返却値] true: 成功　false: 失敗
+ */
+function copyTextToClipboard(textVal){
+  // テキストエリアを用意する
+  var copyFrom = document.createElement("textarea");
+  // テキストエリアへ値をセット
+  copyFrom.textContent = textVal;
+ 
+  // bodyタグの要素を取得
+  var bodyElm = document.getElementsByTagName("body")[0];
+  // 子要素にテキストエリアを配置
+  bodyElm.appendChild(copyFrom);
+ 
+  // テキストエリアの値を選択
+  copyFrom.select();
+  // コピーコマンド発行
+  var retVal = document.execCommand('copy');
+  // 追加テキストエリアを削除
+  bodyElm.removeChild(copyFrom);
+  // 処理結果を返却
+  return retVal;
+}
+
+</script>
+<body>
+<h3>svg map source</h3>
+<input type="button" value="Copy source" onclick="copySrc()"/>
+<input type="button" value="Copy the source with filename instead of DataURI" onclick="copySrc(true)"/>
+<input id="clBtn" type="button" value="clear source" onclick="clearSrc()"/>
+<input type="button" value="read source" onclick="readSrc()"/>
+<span id="msg"></span>
+<textarea style="width:99%;height:330px">ソース</textarea>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" >
+<!-- htmlだとdeepLのExtensionがtextareaに余計な負荷をかけることが判明 xhtmlだと回避できることも判明 -->
+<head>
+	<meta charset="UTF-8"></meta>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+	<title>CSV Data Input UI</title>
+	<!-- ジオコーダのライブラリ　それぞれ data , chomokuData ディレクトリがdocumentのディレクトリ直下に必要・・-->
+	<script src="./gsiGeoCoder.js"></script>
+	<script src="csvInputUI_r20.js"></script>
+</head>
+<style>
+/* from https://ginpen.com/2012/12/24/fix-window-height/ , https://tmg0525.hatenadiary.jp/entry/2018/04/11/004714 , https://www.nxworld.net/tips/css-variable-width-and-fixed-width-layout.html */
+
+/**
+html, body { height:95%; margin:0; }
+
+* {
+  /* すごい重要！！ */
+  box-sizing: border-box;
+}
+**/
+
+.main {
+  width: 100%;
+  height: 220px;
+/*  background-color: orange; */
+}
+
+.ediv {
+  /* paddingで調整 */
+  padding: 10px;
+  /* height: 100%; */
+  height: 170px;
+  margin-top: -200px;
+  padding-top: 200px;
+}
+
+.editer {
+  width: 100%;
+  height: 100%;
+/*  background-color: red; */
+  caret-color: red;
+/*  caret-shape: block; */
+}
+
+
+table tr:nth-child(odd){
+  background-color:#f0f0f0;
+}
+ 
+table tr:nth-child(even){
+  background-color:white;
+}
+</style>
+
+
+<body>
+<div class="main">
+	<h3 id="frameTitle">CSVデータ入力ウィンド</h3>
+	<div id="csvInputUI" style="">
+		<p style="line-height:10px;font-size: 11px">CSVデータを可視化します。データはブラウザ上で処理されそのPCでのみ表示されます。サーバにCSVデータは送信・保存されません<br/>
+		latitude(緯度),longitude(経度)カラムを指定、又は住所からジオコードで生成し、viewします。CSV1行目として、項目名のヘッダ行が必要です。<a target="_blank" href="/csvLocalGeocoder/">Localジオコーダ</a>はブラウザ上で動作、GSIジオコーダは地理院のジオコーダサービスです<br/>
+		ダブルクオーテーションなどによるカンマのエスケープは無効です</p>
+		<div>
+			<div style="background-color:#C0FFC0">
+				緯度カラム:<select id="latCol"></select><br/>
+				経度カラム:<select id="lngCol"></select><br/>
+				名前カラム:<select id="nameCol"></select>
+				<input type="button" style="width:100px;height:20px;vertical-align: middle" onclick="viewCsv()" value="view" /><br/>
+			</div>
+			<div id="geoCoderUI">
+				住所カラム:<select id="addrCol"></select>
+				<input type="button" style="width:100px;height:20px;vertical-align: middle;font-size:10px"  id="geoCodeBtn1" onclick="geoCode('gsi')" value="GSIジオコード" />
+				<span style="display:none;">
+				<input type="button" style="width:100px;height:20px;vertical-align: middle;font-size:10px"  id="geoCodeBtn2" onclick="geoCode('local')" value="LOCALジオコード" />
+				</span>
+				<span style="line-height:11px;font-size: 11px" id="gcPrg">XXXX</span>
+			</div>
+			<div>
+				アイコン　:<select id="iconSetup" onchange="setIconSelection()"></select><span style="vertical-align: top" id="iconSample"></span>
+				
+				<span id="customIconUI">
+					<span style="font-size:11px">カスタムアイコン</span>
+					<img id="customIconPreview" height="20" style="border:2px solid #ffffff;vertical-align:top" data-meanColor="195,0,255"></img>
+					<input id="loadLocalImageButton" type="file" accept="image/*" onchange="loadLocalImage(event)" onclick="this.value=null;" style="font-size:8px; width :180px; height: 20px"></input>
+				</span>
+				
+			</div>
+		</div>
+	</div>
+</div>
+
+<textarea style="line-height:11px;font-size: 11px;width:100%;height:500px;font-family: monospace;" id="csvArea" cols="45" rows="20" wrap="off" class="editer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ></textarea>
+
+<div>
+	Load CSV:<input type="file" onchange="loadCsvFile(event)" name="select" id="fileLoadInputUI" accept=".csv, .txt, .text" ></input>
+	<span id="csvStatus" style="line-height:11px;font-size: 11px;"></span>
+	<input id="Tsv2CsvBtn" type="button" onclick="Tsv2Csv()" value="TSV⇒CSV"></input>　　
+	<input type="button" onclick="setTestCsv(testCsv)" value="ジオコーダテスト用CSVセット" style="font-size:10px"></input>
+	<input type="button" onclick="loadJpMountain()" value="主な山のCSVをセット" style="font-size:10px"></input>
+</div>
+
+</body>
+</html>

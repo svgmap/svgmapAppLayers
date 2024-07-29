@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+<title>CSISシンプルジオコーディング実験を利用したジオコーダ</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module">
+import {CsisGeocoder} from "./csisGeocoder.js";
+
+var cg;
+
+window.onload = function () {
+	console.log("ONLOAD");
+	var proxy; // 不要でした
+	cg = new CsisGeocoder(proxy);
+	document.getElementById("searchButton").addEventListener("click",searchAddress);
+	document.getElementById("addressInput").addEventListener("keydown",function(event){
+		if (event.key === 'Enter') {
+			searchAddress();
+		}
+	});
+	window.setCenter = setCenter;
+}
+
+async function searchAddress(){
+	var msg = document.getElementById("messageDiv");
+	var address=document.getElementById("addressInput").value;
+	if ( !address ){
+		msg.innerText="検索するアドレスを入力してください";
+		return;
+	} else {
+//		msg.innerText="";
+		removeChildren(msg);
+	}
+	var ret = await cg.geocode(address);
+	console.log(ret);
+	var ans =[];
+	if ( !ret.candidate ){
+		msg.innerText="検索できませんでした";
+		return;
+	}
+	if ( ret.candidate instanceof Array ){ // 回答が複数ある
+		for ( var can of ret.candidate ){
+			var latitude = Number(can.latitude);
+			var longitude = Number(can.longitude);
+			var level =  Number(can.iLvl);
+			var parsedAddress = can.address;
+			ans.push({latitude,longitude,level,parsedAddress});
+		}
+	} else {
+		var latitude = Number(ret.candidate.latitude);
+		var longitude = Number(ret.candidate.longitude);
+		var level =  Number(ret.candidate.iLvl);
+		var parsedAddress = ret.candidate.address;
+		ans.push({latitude,longitude,level,parsedAddress});
+	}
+	
+	console.log(ans);
+	
+	if ( ans.length==1 ){
+		if ( window.svgMap){
+			setCenter(ans[0].latitude,ans[0].longitude,cg.levelDict[ans[0].level][1]);
+		}
+	}
+	var tbl = document.createElement("table");
+	tbl.style.fontSize="11px";
+	tbl.insertAdjacentHTML("beforeend","<tr><th>アドレス候補</th><th>レベル</th><th></th></tr>");
+	for ( var dat of ans ){
+		var lvl=cg.levelDict[dat.level];
+		var elm=`<tr><td>${dat.parsedAddress}</td><td>${lvl[0]}</td><td><input value="表示" type="button" onclick="setCenter(${dat.latitude},${dat.longitude},${lvl[1]})"></td></tr>`;
+		tbl.insertAdjacentHTML("beforeend",elm);
+	}
+	msg.appendChild(tbl);
+};
+
+function setCenter(lat,lng,radiusKm){
+	console.log("setCenter:",lat,lng,radiusKm);
+	
+	if ( window.svgMap){
+		window.svgMap.setGeoCenter(lat,lng,radiusKm/111);
+	}
+}
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+</script>
+<body>
+<h3>CSISジオコーダ</h3>
+<div>
+<a href=" https://geocode.csis.u-tokyo.ac.jp/" target="_blank">CSISシンプルジオコーディング実験を利用</a>
+</div>
+<div>
+<input type="text" style="width:300px" id="addressInput"></input><input type="button" value="住所検索" id="searchButton"></input>
+</div>
+<div id="messageDiv">
+</div>
+</body>
+</html>

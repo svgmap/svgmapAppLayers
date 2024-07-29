@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>var GSI={}</script>
+<script src="https://maps.gsi.go.jp/js/muni.js"></script>
+
+<script>
+
+/**
+地理院ジオコーダを使ってジオコードする
+https://msearch.gsi.go.jp/address-search/AddressSearch?q=東京都港区芝公園４丁目２−８
+https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=35.658649&lon=139.745468
+**/
+
+var geoCodeUrl="https://msearch.gsi.go.jp/address-search/AddressSearch?q=[ADDR]";
+var revCodeUrl="https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=[LAT]&lon=[LON]";
+
+onload = function(){
+	window.addEventListener("zoomPanMap", testZoom);
+	
+	initPOIUI();
+}
+
+async function geoCode(address){
+	var url = geoCodeUrl.replace("[ADDR]",encodeURIComponent(address));
+	console.log("url:",url);
+	try{
+		var response = await fetch(url);
+		if (response.status!=200){
+			throw "Fetch ERROR";
+		}
+		var json = await response.json();
+		console.log(json);
+		return ( json );
+	} catch ( e ){
+		return ( null );
+	}
+}
+
+async function revGeoCode(lat,lng){
+	var url = revCodeUrl.replace("[LAT]",encodeURIComponent(lat));
+	url = url.replace("[LON]",encodeURIComponent(lng));
+	console.log("url:",url);
+	try{
+		var response = await fetch(url);
+		if (response.status!=200){
+			throw "Fetch ERROR";
+		}
+		var json = await response.json();
+		if ( json.results ){
+			var muni=GSI.MUNI_ARRAY[json.results.muniCd];
+			json.results.muni=muni.split(",");
+		}
+		console.log(json);
+		return ( json );
+	} catch ( e ){
+		return ( null );
+	}
+}
+
+async function testZoom(){
+	var vb = svgMap.getGeoViewBox();
+	var lat = vb.cy;
+	var lng = vb.cx;
+	latLngI.value=lng+","+lat;
+	revGeoCodeClick();
+}
+
+function initPOIUI(){
+	poiUI=document.getElementById("poiUI");
+	getPointOnly = false;
+	if ( svgMapAuthoringTool ){
+		svgMapAuthoringTool.initPOIregistTool(poiUI,svgImageProps.rootLayer,"poi0","p0","title","",revGCcbFunc,"cbFuncParam",getPointOnly);
+	}
+}
+
+function revGCcbFunc(param1,param2){
+	console.log(param1,param2);
+	var latlngs=(poiUI.getElementsByTagName("input")[2].value).split(",");
+	console.log(latlngs);
+	var lat=Number(latlngs[0]);
+	var lng=Number(latlngs[1]);
+	latLngI.value=lng+","+lat;
+	revGeoCodeClick();
+}
+
+async function geoCodeClick(){
+	var addr = addressI.value;
+	console.log("addr:",addr);
+	ansGeoCoder.innerText="検索中";
+	var latLng = await geoCode(addr);
+	if ( latLng ){
+		if ( latLng.length==1){
+			ansGeoCoder.innerText=latLng[0].geometry.coordinates + " : " + getAddressStr(latLng[0]);
+			var lat = latLng[0].geometry.coordinates[1];
+			var lng = latLng[0].geometry.coordinates[0];
+			svgMap.setGeoCenter(lat, lng );
+		} else {
+			prepareMultipleGeoCodeAns(latLng, addr);
+		}
+	} else {
+		ansGeoCoder.innerText="ジオコーディング失敗";
+	}
+}
+
+function getAddressStr(poi){
+	var ans ="";
+	if (poi.properties.addressCode){
+		var ma = GSI.MUNI_ARRAY[poi.properties.addressCode].split(",");
+		ans = ma[1]+ma[3];
+	}
+	ans +=poi.properties.title;
+	return ( ans );
+}
+
+function prepareMultipleGeoCodeAns(anses, addr){
+	ansGeoCoder.innerText="";
+	var sel = document.createElement("select");
+	sel.style.width="300px";
+	var opt = document.createElement("option");
+	opt.innerText=addr+" :複数の候補が見つかりました";
+	sel.appendChild(opt);
+	for ( var ans of anses){
+		var opt = document.createElement("option");
+		opt.value=ans.geometry.coordinates[0]+", "+ans.geometry.coordinates[1];
+		opt.innerText=ans.geometry.coordinates + " : " + getAddressStr(ans);
+		sel.appendChild(opt);
+	}
+	ansGeoCoder.appendChild(sel);
+	sel.onchange=function(event){
+		var lnglat=event.target.options[event.target.selectedIndex].value;
+		if ( lnglat ){
+			lnglat = lnglat.split(",");
+			svgMap.setGeoCenter(Number(lnglat[1]), Number(lnglat[0]) );
+		}
+	}
+}
+
+
+async function revGeoCodeClick(){
+	var latlng = latLngI.value;
+	latlng = latlng.split(",");
+	var lat,lng;
+	if ( latlng.length != 2 ){
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+		putGlobalMessage("");
+		return;
+	}
+	if ( isNaN(latlng[0]) || isNaN(latlng[1])){
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+		putGlobalMessage("");
+		return;
+	}
+	var lat = Number(latlng[1]);
+	var lng = Number(latlng[0]);
+	var addr = await revGeoCode(lat,lng);
+	console.log(addr);
+	if ( addr && addr.results){
+		var resolvedTxt = addr.results.muni[1]+" "+addr.results.muni[3]+" "+addr.results.lv01Nm;
+		ansRevGeoCoder.innerText=resolvedTxt;
+		putGlobalMessage(resolvedTxt);
+	} else {
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+		putGlobalMessage("");
+	}
+}
+
+</script>
+
+<body>
+<h3>GSI geocoder</h3>
+<p><a href="https://maps.gsi.go.jp/pn/meeting_partners/data/20151128/CCPN4_johoteikyo.pdf" target="_blank">地理院ジオコーダ</a></p>
+<h4>ジオコーダ(地名⇒経度緯度)</h4>
+    住所:<input type="text" id="addressI" value="東京都港区芝公園４丁目２-８" />
+    <button onclick="geoCodeClick();">ジオコーディング</button>
+    <div id="ansGeoCoder">-,-</div>
+    <hr>
+<h4>逆ジオコーダ(経度緯度⇒地名)</h4>
+    経度,緯度:<input type="text" id="latLngI" value="" />
+    <button onclick="revGeoCodeClick();">リバースジオコーディング</button>
+    <hr>
+    地図から住所を得る(リバースジオコーディング)
+    <div id="poiUI"></div>
+    <div id="ansRevGeoCoder">-</div>
+</body>
+</html>

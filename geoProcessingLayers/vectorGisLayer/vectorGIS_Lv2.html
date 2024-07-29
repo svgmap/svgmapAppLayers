@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Layer Specific UI for vector Geometry GIS Lv2</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="./layerLister.js"></script>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
+
+<script>
+// svgMapGIStool.buildIntersectionを使い、Intersectionを生成する。
+// なおvectorIntersectionGISのほうは、ポイントとポリゴンの間でのみ対応したAPIを使う(その代わり高速)が、こちらは任意のベクトルを対象。Intersectionで形状が切り抜かれる。
+// ラインやポリゴンの地物の、他のポリゴンへの包含検索に使用することを想定している
+// 2016/12/07: 1st ver　テスト ( Land Slideポリゴンが包含するActive Falutラインの部分を切り出す機能としてテスト)
+// 2020/01/08: 任意のレイヤーを選択可能にする
+// 2020/01/10: differenceを実装
+
+// TBD: 描画ツールをあえて消せる機能（クリックするとobjInfo出るようにする）
+// 
+// layerID
+// svgMap
+// svgImageProps: svgMap.getSvgImagesProps()
+// svgImages: svgMap.getSvgImages()
+//
+// event zoomPanMap
+
+onload=function(){
+	layerLister.listVisiblePoiCoverLayers("targetLayer0","targetLayer1");
+	document.addEventListener("screenRefreshed", layerLister.listVisiblePoiCoverLayers , false);
+	
+	completed=true;
+}
+
+function halt(){
+	svgMapGIStool.haltComputing();
+	document.getElementById("hlt").disabled=true;
+}
+
+var source1ID, source2ID;
+var targetLayer_0, targetLayer_1;
+
+var resultGroup, completed;
+var completedComputingCallback;
+
+var schemaAddendum; // ここに、[スキーマ名]="補遺説明"　という連想配列を入れると、スキーマ名の補遺説明がCSV2行目などに出力される
+
+function clearSearch( refresh ){
+	console.log("clearSearch");
+	var rTbl = document.getElementById("resuleTable");
+	removeChildren(rTbl);
+	if ( resultGroup ){
+		removeChildren(resultGroup);
+	}
+	
+	if ( refresh ){
+		svgMap.refreshScreen();
+	}
+	
+}
+
+function search(inverse){
+	document.getElementById("hlt").disabled=false;
+	console.log("Search POI included within this polygon");
+	try{
+		source1ID = getTargetLayerId("targetLayer0");
+		source2ID = getTargetLayerId("targetLayer1");
+	} catch ( e ) {
+		console.log("No layer specified exit");
+		document.getElementById("hitcount").innerText="Specify both target 1 and 2.";
+		return;
+	}
+	console.log("source1ID:",source1ID,"  source2ID:",source2ID, " thisLayerId:",layerID );
+	if ( source1ID == source2ID){
+		hitcount.innerText="同じレイヤーをターゲットに選んでいます。選び直してください。";
+		return;
+	}
+	var strokeColor="purple";
+	var strokeWidth="4";
+	var fillColor="orange";
+	
+	
+	var compOptions = {areaCompare:true,opacity:0.4}
+	if ( inverse ){
+		compOptions.inverse=true;
+	}
+	var uniteOptions={};
+	if ( ckUniteTargetLayer0.checked){
+		compOptions.uniteSource1=true;
+	}
+	if ( ckUniteTargetLayer1.checked){
+		compOptions.uniteSource2=true;
+	}
+	search_api(source1ID,source2ID,compOptions);
+}
+
+function search_api(source1ID,source2ID,compOptions){
+	console.log("search_int: resultGroup:",resultGroup);
+	clearSearch();
+	console.log("Search POI included within this polygon");
+	console.log("source1ID:",source1ID,"  source2ID:",source2ID, " thisLayerID:",layerID );
+	
+	var strokeColor="purple";
+	var strokeWidth="4";
+	var fillColor="orange";
+	var compProgressCBF = progrssCallback;
+	
+	if ( compOptions.strokeColor){strokeColor=compOptions.strokeColor}
+	if ( compOptions.strokeWidth){strokeWidth=compOptions.strokeWidth}
+	if ( compOptions.fillColor){fillColor=compOptions.fillColor}
+	if ( compOptions.fillColor){fillColor=compOptions.fillColor}
+	if ( compOptions.progrssCallback){compProgressCBF=compOptions.progrssCallback}
+	
+	completed=false;
+	if ( ! compOptions.inverse ){
+		resultGroup = svgMapGIStool.buildIntersection( source1ID, source2ID , layerID, strokeColor, strokeWidth, fillColor , compProgressCBF, true, null,null, compOptions);
+	} else {
+		resultGroup = svgMapGIStool.buildDifference( source1ID, source2ID , layerID, strokeColor, strokeWidth, fillColor , compProgressCBF, true, null,null,compOptions );
+	}
+	console.log("called GIS");
+	return new Promise(function(okCallback, ngCallback) {
+		completedComputingCallback = okCallback;
+	});
+}
+
+function getTargetLayerId(seledtTagId){
+	var sel = document.getElementById(seledtTagId);
+	var layerTitle = sel.options[sel.selectedIndex].value;
+	return( svgMap.getLayerId(layerTitle));
+}
+
+
+var svgImages, svgImageProps;
+
+function progrssCallback( percent ){
+//	console.log("progrssCallback:",percent);
+	if ( percent < 100 ){
+		document.getElementById("hitcount").innerHTML= "computing:"+ percent + "/100";
+	} else {
+		document.getElementById("hitcount").innerHTML= "completed!!";
+		document.getElementById("hlt").disabled=true;
+		completed=true;
+		if ( completedComputingCallback ){
+			completedComputingCallback();
+			completedComputingCallback = null;
+		}
+	}
+}
+
+function removeChildren( parent ){
+	for (var i =parent.childNodes.length-1; i>=0; i--) {
+		parent.removeChild(parent.childNodes[i]);
+	}
+}
+
+async function showCsv(visible){
+	console.log(resultGroup);
+	if ( !resultGroup){
+		hitcount.innerText="演算結果がありません";
+		return false;
+	}
+	var path = new URL("vectorGIS_Lv2_subWindow.html",this.location).href;
+	var subWin = window.open(path,"vectorGIS_Lv2_subWindow","width=800,height=600");
+	await waitReady();
+	//await sleep(1000);
+	subWin.showCsv(resultGroup, getSchemaAddendum(resultGroup.ownerDocument.documentElement.getAttribute("property")));
+	return true;
+};
+
+
+function hilightObject(targetVal){
+	console.log("called hilightObject",targetVal);
+	//var targetVal = Number((event.target.value).substring(1));
+	if ( resultGroup ){
+		var childElements=resultGroup.children;
+		var targetElement= childElements[targetVal];
+		var targetElements;
+		if (targetElement.tagName=="g"){
+			targetElements = targetElement.children;
+		} else {
+			targetElements = [targetElement];
+		}
+		
+		for ( var te of targetElements){
+			var originalFillColor = te.getAttribute("fill");
+			if ( !te.getAttribute("data-original-strokeWidth")){
+				te.setAttribute("data-original-strokeWidth",te.getAttribute("stroke-width"));
+				te.setAttribute("data-original-strokeColor",te.getAttribute("stroke"));
+				te.setAttribute("data-original-fillColor",originalFillColor);
+			}
+
+			te.setAttribute("stroke-width",14);
+			te.setAttribute("stroke","red");
+			if ( originalFillColor && originalFillColor != "none"){
+				te.setAttribute("fill","red");
+			}
+		}
+		svgMap.refreshScreen();
+		setTimeout(function(){
+			for ( var te of targetElements){
+				var sw = te.getAttribute("data-original-strokeWidth");
+				var sc = te.getAttribute("data-original-strokeColor");
+				var fc =te.getAttribute("data-original-fillColor");
+				if ( sw ){
+					te.setAttribute("stroke-width", sw);
+				} else {
+					te.removeAttribute("stroke-width");
+				}
+				if ( sc ){
+					te.setAttribute("stroke",  sc );
+				} else {
+					te.removeAttribute("stroke");
+				}
+				if ( fc ){
+					te.setAttribute("fill", fc);
+				} else {
+					te.removeAttribute("fill");
+				}
+			}
+			svgMap.refreshScreen();
+		},3000);
+	}
+}
+
+function getSchemaAddendum(schemaCsv){
+	if ( window.schemaAddendum){
+		var schemaArray = schemaCsv.split(",");
+		var ns = [];
+		for ( var sname of schemaArray){
+			if ( schemaAddendum[sname]){
+				ns.push( schemaAddendum[sname]);
+//					ns.push( `${sname} (${schemaAddendum[sname]})`);
+			} else {
+				ns.push("");
+			}
+		}
+		return (ns.join());
+	} else {
+		return null;
+	}
+}
+
+function saveCsv(bySjis){
+	if ( resultGroup ){
+		var childElements=resultGroup.children;
+		console.log(childElements);
+		var csvTxt="";
+		var schema = childElements[0].ownerDocument.documentElement.getAttribute("property");
+		csvTxt+=schema+"\n";
+		console.log(schema);
+		var scAd = getSchemaAddendum(schema);
+		if ( scAd ){
+			csvTxt+= "#"+scAd+"\n";  // 補遺情報は2行目に先頭に"#"付きで追加される
+		}
+		for ( var i = 0 ; i < childElements.length ; i++){
+			var row = childElements[i].getAttribute("content");
+			if ( childElements[i].tagName=="g"){
+				if (!row){
+					var ch = childElements[i].children;
+					if ( ch.length >0){
+						row = ch[0].getAttribute("content");
+					}
+				}
+			}
+			csvTxt+=row+"\n";
+		}
+		if ( bySjis ){
+			saveTextToFile(csvTxt, null, "sjis");
+			hitcount.innerText="シフトJIS形式で保存しました";
+		} else {
+			saveTextToFile(csvTxt);
+			hitcount.innerText="保存しました(SJISで保存は右クリック)";
+		}
+		return true;
+	} else {
+		hitcount.innerText="演算結果がありません";
+		return false;
+	}
+}
+
+async function saveTextToFile(csvString,fileName, charsetStr){
+	// https://norm-nois.com/blog/archives/5502
+	if (!fileName){
+		fileName = "output.csv";
+	}
+	if ( charsetStr ){
+		csvString = convertToCharset(csvString,charsetStr);
+	}
+	// getRootContainer()は、現在のviewPortまではまだ反映できてない。　オプション付けてでも反映できると良い。
+	var blob = new Blob([csvString],{type:"text/csv"});
+	
+	var dla=document.getElementById("downloadAnchor");
+	dla.href = window.URL.createObjectURL(blob);
+	dla.setAttribute("download",fileName);
+	dla.click();
+}
+
+function convertToCharset(text ,charsetStr){ // charsetStr: sjis
+	str = Encoding.stringToCode(text);
+	convert = Encoding.convert(str, charsetStr, 'unicode');
+	 u8a = new Uint8Array(convert);
+	return ( u8a );
+}
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+const timeout = (prom, time) => Promise.race([prom, new Promise((_r, rej) => setTimeout(rej, time))]);
+function waitReady(){
+	return new Promise(function(okCallback, ngCallback) {
+		function readyListener(event){
+			console.log(event.data);
+			if ( event.data=="ready"){
+				okCallback();
+			} else {
+				ngCallback();
+			}
+			window.removeEventListener('message', readyListener, false);
+		}
+		window.addEventListener('message', readyListener, false);
+	});
+}
+
+
+</script>
+<body>
+<h2>Full Vector GIS Lv2 UI</h2>
+<p style="font-size:10px">Target Layer1:
+<select name="targetLayer0" id="targetLayer0"  ></select><input type="checkbox" id="ckUniteTargetLayer0"></input><label for="ckUniteTargetLayer0">ポリゴン結合</lable>
+</p>
+<p style="font-size:10px">Target Layer2:
+<select name="targetLayer1" id="targetLayer1"  ></select><input type="checkbox" id="ckUniteTargetLayer1"></input><label for="ckUniteTargetLayer1">ポリゴン結合</lable>
+</p>
+<!--
+ Land slide vs Active Falut</p>
+ -->
+ <div>
+<input type="button" id="doIntersectionButton" value="包含検索" onClick="search()"/>
+<input type="button" id="doDifferenceButton" value="Target2に含まれないTarget1を検索" onClick="search(true)"/>
+<input type="button" id="hlt" value="中止" onClick="halt()" disabled/>
+<input type="button" id="clear" value="リセット" onClick="clearSearch(true)"/>
+<span id="hitcount">count</span>
+</div>
+
+<input type="button" id="showCsvBtn" value="showCsv" onClick="showCsv()"/>
+<input type="button" id="saveCsvBtn" value="saveCsv" onClick="saveCsv()" oncontextmenu="saveCsv(true)" /><a id="downloadAnchor" style="display:none"></a>
+<!--<input type="button" id="saveCsvBtn" value="saveGeoJson" onClick="saveGeoJson()"/> TBD-->
+
+<div id="csvPanel" style="display:none">
+<span>結果の要素</span>
+<table id="resuleTable" style="font-size:10pt">
+</table>
+</div>
+</body>
+</html>

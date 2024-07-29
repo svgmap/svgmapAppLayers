@@ -1,0 +1,418 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<link rel="stylesheet" href="./tabUi.css">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://unpkg.com/shapefile@0.6">
+// https://github.com/mbostock/shapefile
+// https://qiita.com/frogcat/items/b3235c06d64cee01fa47
+</script>
+<script type="module">
+import {unzip, HTTPRangeReader} from './unzipit.module.js';
+window.unzip = unzip;
+window.HTTPRangeReader = HTTPRangeReader;
+</script>
+
+<script src="tinyFileManager.js"></script>
+<script src="geoJsonMetaSchemaGenerator.js"></script>
+
+<script src="indexDBpromise.js"></script>
+<script type="module">
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+window.LocalDBFileManager = LocalDBFileManager;
+</script>
+
+
+<script>
+// Description:
+// shapefileやgeojsonを読み込み・表示・登録するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+onload=async function(){
+	console.log("ONLOAD: vectorFileLoader2");
+	await initLoader("tab2","menutbl","mapContents");
+	await sleep(100);
+	var hashStr = svgImageProps.Path;
+	if ( hashStr.indexOf("#")>0){
+		hashStr=hashStr.substring(hashStr.indexOf("#")+1);
+	} else {
+		hashStr="";
+	}
+	console.log("vectorFileLoader2 onload:",hashStr);
+	if ( hashStr.indexOf("http://")==0 || hashStr.indexOf("https://")==0){
+		setInitialDataFromHash(hashStr)
+	} else if ( hashStr.indexOf("saved:")==0){
+		console.log("Load Saved File");
+		loadByHash(hashStr.substring(6));
+	}
+}
+
+async function loadVectorFile(event){
+	document.getElementById("zipContentSelectDiv").style.display="none";
+	var files = event.target.files;
+	var geojson;
+	console.log("loadVectorFile:", files );
+	if ( files.length <1 ){console.warn("no files exit"); return}
+	// type:  "application/x-zip-compressed"(zip) , "application/json"(json), "text/csv", "text/plain" , "" (shp,dbf,geojson)
+	if ( files.length == 1 ){ // geojson || zipped shapefile || zipped geojson
+		if ( files[0].type.indexOf("zip")>0 || files[0].name.endsWith(".zip") ){ // zip file
+			await listAndselectZipContent(files[0]); // zipの場合は、loadZipで表示される
+		} else if (files[0].type.indexOf("json")>0 || files[0].type.indexOf("text")==0 || files[0].name.endsWith(".geojson") ||  files[0].name.endsWith(".json")){ // geojson
+			var gjsAB = await getArrayBuffer(files[0]);
+			geojson =loadGeoJson(gjsAB);
+		}
+		
+	} else if (files.length >= 2 ){ // shapefile: shp and dbf
+		var shpF, dbfF;
+		for ( var file of files){
+			console.log(file);
+			if (file.name.endsWith(".shp")){
+				shpF = file;
+			} else if(file.name.endsWith(".dbf")){
+				dbfF = file;
+			}
+		}
+		if(shpF.name.split(".")[0] != dbfF.name.split(".")[0]){
+			console.warn("shp and dbf file name mismatch exit");
+			fileMsgDiv.innerText="shp and dbf file name mismatch exit";
+			return;
+		}
+		if ( !shpF || !dbfF){
+			console.warn("No shp or dbf exit");
+			fileMsgDiv.innerText="No shp or dbf exit";
+			return;
+		}
+		
+		var shpAB = await getArrayBuffer(shpF);
+		var dbfAB = await getArrayBuffer(dbfF);
+		geojson = await loadShapefile(shpAB,dbfAB);
+	} else {
+		console.warn("SKIP");
+		fileMsgDiv.innerText="SKIP";
+		return;
+	}
+	console.log(geojson);
+	if ( geojson){
+		fileMsgDiv.innerText="File loading scceeded.";
+		showGeoJson(geojson);
+	} else {
+		fileMsgDiv.innerText="Some error has occured..";
+	}
+	setTimeout(function(){
+		fileMsgDiv.innerText="";
+	}, 3000);
+}
+
+function getArrayBuffer(fileData){
+	return new Promise(function(okCallback, ngCallback) {
+		var reader = new FileReader();
+		reader.onerror = function() {
+			console.log("File Read Failed");
+			ngCallback(new Error("File Read Failed"));
+		}
+		reader.onload = function(evt) {
+			console.log("fileRead onload");
+			okCallback(reader.result);
+		}
+		if (!fileData){
+			
+		} else {
+			reader.readAsArrayBuffer(fileData);
+		}
+	})
+}
+
+async function listAndselectZipContent(fileData){
+	var zipAB = await getArrayBuffer(fileData);
+	var zipArchive = await unzip(zipAB);
+	//console.log("listAndselectZipContent entries:",zipArchive.entries);
+	
+	var gjss ={};
+	
+	var shps={};
+	var dbfs={};
+	
+	for ( var entk in zipArchive.entries){
+		var ent = zipArchive.entries[entk];
+		if ( ent.name.endsWith(".json") || ent.name.endsWith(".geojson") ){
+			gjss[entk]=(ent);
+		} else if (entk.endsWith(".shp") ){
+			shps[entk.substring(0,entk.length-4)]=ent;
+		} else if (entk.endsWith(".dbf") ){
+			dbfs[entk.substring(0,entk.length-4)]=ent;
+		}
+	}
+	
+	for ( var shpk in shps){
+		if ( dbfs[shpk]){
+			gjss[shpk]={shp:shps[shpk],dbf:dbfs[shpk]};
+		}
+	}
+	
+	console.log( gjss);
+	
+	var gjssLen = Object.keys(gjss).length;
+	if ( gjssLen == 0 ){
+	} else if ( gjssLen == 1){
+		loadZip(gjss[Object.keys(gjss)[0]])
+	} else {
+		showSelectBox(gjss);
+		currentGeoZipEntries = gjss;
+	}
+}
+
+var currentGeoZipEntries;
+
+function showSelectBox(geoZipEntries){
+	document.getElementById("zipContentSelectDiv").style.display="";
+	var sel = document.getElementById("zipContentSelect");
+	removeChildren(sel);
+	var opt = document.createElement("option");
+	opt.setAttribute("value","");
+	opt.innerText="Select file";
+	opt.selected=true;
+	sel.appendChild(opt);
+	for ( var key in geoZipEntries){
+		opt = document.createElement("option");
+		opt.setAttribute("value",key);
+		opt.innerText=key;
+		sel.appendChild(opt);
+	}
+}
+
+async function selectZipContent(event){
+	var getZipEnt = currentGeoZipEntries[event.target.options[event.target.selectedIndex].value];
+	loadZip(getZipEnt);
+}
+
+async function loadZip(geoZipEntry){
+	var geojson;
+	if ( geoZipEntry.shp){ // shapefile
+		var shpAB = await geoZipEntry.shp.arrayBuffer();
+		var dbfAB = await geoZipEntry.dbf.arrayBuffer();
+		geojson = await loadShapefile(shpAB,dbfAB);
+	} else { // geojson
+		var gjsAB = await geoZipEntry.arrayBuffer();
+		geojson =loadGeoJson(gjsAB);
+		
+	}
+	console.log(geojson);
+	if ( geojson){
+		showGeoJson(geojson);
+	}
+	return geojson;
+}
+
+
+async function loadShapefile(shpAB, dbfAB, encoding){
+	console.log(shpAB,dbfAB);
+	if (!encoding){
+		encoding = "shift_jis";
+	}
+	var geojs = await shapefile.read(shpAB,dbfAB,{encoding: encoding});
+	return ( geojs );
+}
+
+function loadGeoJson(dataAB){
+	console.log("loadGeoJson");
+	var data = new Uint8Array(dataAB);
+//		var sj_td = new TextDecoder("Shift_JIS");
+	var sj_td = new TextDecoder("ms932"); // 結局これでも全角のハイフンみたいな文字は変換できてない・・・"?"になる
+	var ut_td = new TextDecoder("UTF-8");
+	
+	var txt = ut_td.decode(data);
+	console.log("fileRead decoded");
+	if ( checkMojibake(txt)==false){ // 文字化け判定で、文字コード自動判別＆変換をチャレンジ
+		console.log("テキストはUTF-8ではないようです。SJISとして変換してみます");
+		txt = sj_td.decode(data);
+	}
+	console.log("fileRead determined charset :",txt);
+	try{
+		var geojson = JSON.parse(txt);
+		return geojson;
+	} catch(e){
+		try{
+			console.warn("RETRY....");
+			var geojson = JSON.parse(txt.replaceAll("\\",""));
+			return geojson;
+		}catch(e){
+			console.warn("Can not parse as json :", e);
+			return null;
+		}
+	}
+}
+
+var replacementCharacter = '\ufffd';
+
+function checkMojibake(str){ // 文字化けチェック関数
+	var status = true;
+	for (var i = 0 ; i < str.length; i++) {
+		//console.log(str.charCodeAt(i), str[i]);
+		if ( replacementCharacter === str[i] ) {
+			status = false;
+			break;
+	    }
+	}
+	console.log("isNotMojibake:",status);
+	return ( status );
+}
+
+function removeChildren(elm){
+	while( elm.firstChild ){
+		elm.removeChild( elm.firstChild );
+	}
+}
+
+
+function showGeoJson(geojson){
+	if ( typeof svgMap !="object"){console.warn("No svgMap");return;}
+	var parentElm = svgImage.getElementById("mapContents");
+	parentElm.removeAttribute("data-contentUrl");
+	var schema = generateMetaSchema(geojson);
+	removeChildren(parentElm);
+	
+	svgImage.documentElement.setAttribute("property",schema.join(","));
+	
+	svgMapGIStool.drawGeoJson(geojson, layerID, "purple", 2, "purple", "p0",undefined,undefined,parentElm,schema);
+	svgMap.refreshScreen();
+}
+
+function setInitialDataFromHash(srcurl){
+	var srcUrlInp=document.getElementById("loadInetURL");
+	srcUrlInp.value=srcurl;
+	loadDataFromInet();
+}
+async function loadDataFromInet(){
+	var srcUrlInp=document.getElementById("loadInetURL");
+	var srcUrl = srcUrlInp.value;
+	console.log("loadDataFromInet:",srcUrl);
+	try{
+		if ( new URL(srcUrl).host == location.host){
+		} else {
+			srcUrl = svgMap.getCORSURL(srcUrl)
+		}
+		var res = await fetch(srcUrl);
+		
+		console.log(res);
+		var json = await res.json();
+		console.log(json);
+		showGeoJson(json);
+	} catch(e){
+		console.warn(e);
+		srcUrlInp.value="";
+		srcUrlInp.setAttribute("placeholder","読込失敗。geojsonデータのURLを再入力");
+	}
+}
+
+function getPermaLink(){
+	var ans;
+	var fileHash=getHash();
+	var impURL;
+	if (!fileHash){
+		impURL= document.getElementById("loadInetURL").value;
+		ans = impURL;
+	} else {
+		ans = "saved:"+fileHash;
+	}
+	console.log(ans);
+//	alert("#"+ans);
+	var lname = svgMap.getLayer(layerID).getAttribute("title");
+	var bpm = svgMap.getBasicPermanentLink()
+	var dhash = decodeURIComponent(bpm.hash);
+	if ( dhash.indexOf(lname)>=0){
+		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
+		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
+		console.log(dh1, dh2);
+		var chash = dh1 + "#"+ans+dh2;
+		var hashPath = bpm.origin + bpm.pathname + chash;
+		console.log(hashPath);
+		pathAns.innerText=hashPath;
+		navigator.clipboard.writeText(hashPath);
+//		alert(hashPath);
+	} else {
+		alert("うまく作れませんでした・・・");
+	}
+}
+
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+</script>
+
+<body>
+<h4>Shapefile, GeoJSONローカルファイルの表示</h4>
+<div class="tabs">
+	<input id="tab1" type="radio" name="tab_item" checked>
+	<label class="tab_item" for="tab1">読込・表示</label>
+
+	<input id="tab2" type="radio" name="tab_item" >
+	<label class="tab_item" for="tab2">ファイル</label>
+
+	<input id="tab3" type="radio" name="tab_item">
+	<label class="tab_item" for="tab3">管理</label>
+
+
+	<div class="tab_content" id="tab1_content" style="height:300px">
+		<div class="tab_content_description">
+			<div style="font-size:10px">ローカルにあるGeoJSON(拡張子.geojson or .json), ShapeFile(.shpと.dbfの二個を指定), 及びそれらのzipアーカイブファイル(対象は後で選択)を読み込み表示します。ネット上のgeojsonファイルも表示</div>
+
+			<div id="fromLocalUI" style="background-color:#eef">
+				Load File:<input type="file" onchange="loadVectorFile(event)" name="select" id="fileLoadInputUI" multiple></input>
+				<div id="zipContentSelectDiv" style="display:none">zip内のファイルを選択<select id="zipContentSelect" onchange="selectZipContent(event)"></select></div>
+			</div>
+			<div style="font-size:10px">もしくは</div>
+			<div id="fromInetUI" style="background-color:#dfd">
+				<input type="text" style="width:300px" placeholder="geojsonデータのURLを入力" id="loadInetURL"></input><input type="button" value="Load" onclick="loadDataFromInet()"></input>
+			</div>
+			<div id="fileMsgDiv"></div>
+		</div>
+	</div>
+
+	<div class="tab_content" id="tab2_content" style="height:300px;verflow-x: hidden; overflow-y: scroll;">
+		<div class="tab_content_description" style="font-size:12px">
+			<div style="background-color:#dfd">
+				登録済みデータ
+				<table id="menutbl" style="font-size:12px">
+					<tr><th></th><th>タイトル</th><th>登録日時</th></tr>
+				</table>
+			</div>
+			<div style="background-color:#eef">
+			<br>
+				<span id="fileSystemNote">サーバにデータを保存する</span><br>
+				<input type="text" id="dataTitle" style="width:200px;font-size:12px" placeholder="サブレイヤータイトル入力"></input><input type="button" value="save" style="font-size:12px" onclick="registMap('dataTitle','registMsg')"></input>
+				<span id="registMsg"></span>
+			</div>
+		</div>
+	</div>
+
+	<div class="tab_content" id="tab3_content" style="height:300px;verflow-x: hidden; overflow-y: scroll">
+		<div class="tab_content_description" style="font-size:12px">
+			<p class="c-txtsp">管理パネル</p>
+			<p>TBDですね。不要な登録項目の削除などは管理者に相談してみてください。</p>
+			<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
+			<p><a href="uploaded/testStore.php?sync" target="_blank">SYNC</a></p>
+		</div>
+	</div>
+</div>
+
+</body>
+</html>

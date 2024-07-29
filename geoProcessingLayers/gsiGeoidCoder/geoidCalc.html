@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+<title>Geoid Height Calc WebApp</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="geoidCalc.js"></script>
+<body>
+<h3>ジオイド高計算</h3>
+<p><a href="https://fgd.gsi.go.jp/download/geoid.php" target="_blank">地理院のジオイド・モデル「日本のジオイド2011」（Ver.2.1）の提供</a>のASCII版に同梱されているデータを用いて<a href="https://www.gsi.go.jp/buturisokuchi/grageo_geoid.html" target="_blank">ジオイド高</a>を計算します。
+</p>
+<div id="pointInputUI"></div>
+
+<div id="messageDiv"></div>
+<canvas id="geoidCanvas" style="display:none"></canvas>
+</body>
+</html>

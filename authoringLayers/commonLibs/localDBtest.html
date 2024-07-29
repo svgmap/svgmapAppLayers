@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<title>localFileTest</title>
+<meta charset="utf-8"></meta>
+</head>
+<script src="indexDBpromise.js"></script>
+<script src="localDBFS.js"></script>
+
+<script>
+
+var localDBFS;
+var cont = {
+	area:123,
+	name:"jioss",
+	ppo:true
+}
+onload = async function(){
+	localDBFS = await localDBFS("mylocalFSDBtest");
+	
+	await localDBFS.post({title:"hello01",svgmapdata:cont});
+	await localDBFS.post({title:"hello02",svgmapdata:JSON.stringify(cont)});
+	
+	console.log(await localDBFS.getIndex());
+	
+}
+
+
+</script>
+
+<body>
+<h4>localFileTest</h4>
+</body>
+</html>

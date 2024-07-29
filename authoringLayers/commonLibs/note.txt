@@ -1,0 +1,41 @@
+
+
+
+	bitimage2geoInfo	
+bitImage2geoInfo/bitimage2geo.js
+	sendData({title:dataTitle , svgmapdata:ss}...)
+   uploaded/testStore.php
+   
+	CSVデータ可視化	
+csvLayer/csvUI_r20:tineFileManagerForCsv.js 
+sendData({title:dataTitle , svgmapdata:ss, type:typeStr
+fileManage.php
+
+
+	vector BBS	
+simpleBBS/FileManager.js
+this.#sendData({
+			svgmapdata:svgContentText,
+			title:contentTitle
+		}
+ "./fileManage.php";
+ 
+	free hand BBS	(vector BBS	完全等価？）
+simpleRasterBBS/FileManager.js
+this.#sendData({
+			svgmapdata:svgContentText,
+			title:contentTitle
+		}
+ "./fileManage.php";
+
+
+	任意XYZタイル表示	
+userXYZtile/tinyFileManagerForCsv.js
+sendData({title:dataTitle , svgmapdata:ss, type:typeStr}
+uploaded/+'fileManage.php'
+
+
+	shape・GeoJSONファイル表示	
+vectorFileLoader/tinyFileManager.js
+sendData({title:dataTitle , svgmapdata:ss}
+uploaded/ +'testStore.php'

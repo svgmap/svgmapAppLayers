@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>geohash geocoder</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="geohash.js"></script>
+<script type="text/javascript">
+var zoneList;
+onload = function(){
+	window.addEventListener("zoomPanMap", testZoom);
+	initPOIUI();
+	testZoom();
+}
+
+var poiUI;
+
+function initPOIUI(){
+	poiUI=document.getElementById("poiUI");
+	getPointOnly = false;
+	svgMapAuthoringTool.initPOIregistTool(poiUI,svgImageProps.rootLayer,"poi0","p0","title","",cbFunc,"cbFuncParam",getPointOnly);
+}
+
+function cbFunc(param1,param2){
+	console.log(param1,param2);
+	var latlngs=(poiUI.getElementsByTagName("input")[2].value).split(",");
+	console.log(latlngs);
+	var lat=Number(latlngs[0]);
+	var lng=Number(latlngs[1]);
+	latI.value=latlngs[0];
+	lngI.value=latlngs[1];
+	button_click();
+}
+
+function button_click(){
+	try{
+		var mapcode = encodeGeoHash(latI.value, lngI.value);
+		console.log("geohash:",mapcode);
+		console.log("latlng:",decodeGeoHash(mapcode));
+		resultP.innerText="geohash: "+ mapcode;
+		geohashI.value=mapcode;
+	} catch ( err ){
+		resultP.innerText="No geohash";
+		geohashI.value="-";
+	}
+}
+
+function button_click2(){
+	var latlng = decodeGeoHash(geohashI.value);
+	var mapcode = encodeGeoHash(latlng.latitude, latlng.longitude);
+	console.log("geohash:",mapcode);
+	console.log("latlng:",decodeGeoHash(mapcode));
+	latI.value=latlng.latitude;
+	lngI.value=latlng.longitude;
+	resultP.innerText="lat,lng: "+latlng.latitude[2]+","+latlng.longitude[2];
+	svgMap.setGeoCenter( Number(latlng.latitude[2]) , Number(latlng.longitude[2]) );
+}
+
+function testZoom(){
+	if ( putGlobalMessage ){
+		var vb = svgMap.getGeoViewBox();
+		var mapcode = encodeGeoHash(vb.cy, vb.cx);
+		putGlobalMessage("geohash: "+mapcode);
+		resultP.innerText="geohash: "+ mapcode;
+	}
+}
+
+
+</script>
+
+<body>
+    <input type="text" id="latI" value="35" />
+    <input type="text" id="lngI" value="135" />
+    <button onclick="button_click();">geohash取得</button>
+    <hr>
+    <a href="https://ja.wikipedia.org/wiki/%E3%82%B8%E3%82%AA%E3%83%8F%E3%83%83%E3%82%B7%E3%83%A5" target="_blank">geohash</a>: <input type="text" id="geohashI" value="wypzpgxczbzu" />
+    <button onclick="button_click2();">緯度経度取得・地図移動</button>
+    <hr>
+    <p id="resultP" style="font-family:monospace;font-weight: bold;font-size:18px;"></p>
+    <hr>
+    地図からgeohashを得る
+    <div id="poiUI"></div>
+</body>
+
+</html>

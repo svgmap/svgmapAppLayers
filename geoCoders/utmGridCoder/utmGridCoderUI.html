@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="./UTMLatLng.js"></script>
+<script type="text/javascript" src="./UTMGrid.js"></script>
+<script type="text/javascript">
+
+var utmg;
+
+onload = function(){
+	window.addEventListener("zoomPanMap", testZoom);
+	utmg=new UTMGrid(); 
+	setTimeout(initPOIUI,100);
+}
+
+var poiUI;
+
+function initPOIUI(){
+	console.log("initPOIUI:",typeof(svgMapAuthoringTool));
+	poiUI=document.getElementById("poiUI");
+	getPointOnly = false;
+	if ( typeof(svgMapAuthoringTool)=="object" ){
+		svgMapAuthoringTool.initPOIregistTool(poiUI,svgImageProps.rootLayer,"poi0","p0","title","",cbFunc,"cbFuncParam",getPointOnly);
+	}
+	setTimeout(testZoom,1000);
+}
+
+function cbFunc(param1,param2){
+	console.log(param1,param2);
+	var latlngs=(poiUI.getElementsByTagName("input")[2].value).split(",");
+	console.log(latlngs);
+	var lat=Number(latlngs[0]);
+	var lng=Number(latlngs[1]);
+	latI.value=latlngs[0];
+	lngI.value=latlngs[1];
+	button_click();
+}
+
+function button_click(){
+	try{
+		var ugcode = utmg.getGridStringFromLngLat(lngI.value, latI.value, 1);
+		console.log("ugcode:",ugcode);
+		resultP.innerText="ugcode: "+ ugcode;
+		utmcodeI.value=ugcode;
+	} catch ( err ){
+		resultP.innerText="マップコードはありません";
+		utmcodeI.value="";
+	}
+}
+
+function button_click2(){
+	console.log("button_click2 :", utmcodeI.value);
+	var latlng = utmg.getLngLatFromGridString(utmcodeI.value);
+	console.log("latlng :", latlng);
+	var utmgCode = utmg.getGridStringFromLngLat(latlng.lng, latlng.lat,1);
+	console.log("utmgCode:",utmgCode,  utmcodeI.value);
+//	console.log("latlng:",dutmgCoder.getLatLng(utmgCode));
+	latI.value=latlng.lat;
+	lngI.value=latlng.lng;
+	resultP.innerText="lat,lng: "+latlng.lat+","+latlng.lng;
+	svgMap.setGeoCenter( Number(latlng.lat) , Number(latlng.lng) );
+}
+
+function testZoom(){
+	if ( putGlobalMessage ){
+		var vb = svgMap.getGeoViewBox();
+		var utmgCode = utmg.getGridStringFromLngLat(vb.cx, vb.cy,1);
+		putGlobalMessage("MGRScode: "+utmgCode);
+		document.getElementById("resultP").innerText=utmgCode;
+	}
+}
+
+</script>
+</head>
+
+<body>
+    緯度<input style="width:100px" type="text" id="latI" value="35" />, 
+    経度<input style="width:100px" type="text" id="lngI" value="135" />
+    <button onclick="button_click();">UTMグリッド(MGRS)コード取得</button>
+    <hr>
+    <a href="https://maps.gsi.go.jp/help/pdf/grid.pdf" target="_blank">UTMグリッド</a>(<a href="https://en.wikipedia.org/wiki/Military_Grid_Reference_System" target="_blank">MGRS</a>)コード: <input type="text" id="utmcodeI" value="54SUE8224140361" />
+    <button onclick="button_click2();">緯度経度取得・地図移動</button>
+    <hr>
+    <p id="resultP"></p>
+    <hr>
+    地図からUTMグリッド(MGRS)コードを得る
+    <div id="poiUI"></div>
+</body>
+
+</html>

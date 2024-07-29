@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Layer specific UI for CsvXHR.html</title>
+<link rel="stylesheet" href="../vectorFileLoader/tabUi.css">
+<!--<link rel="stylesheet" href="./csvEditMainPanel.css">-->
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="dynamicXYZtile.js"></script>
+
+<script src="tinyFileManagerForCsv.js"></script>
+
+<script src="indexDBpromise.js"></script>
+<script type="module">
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+window.LocalDBFileManager = LocalDBFileManager;
+</script>
+
+
+<script>
+// Description:
+// よくあるウェブメルカトルXYZタイルを表示・レ部レイヤーとして登録するSVGMapレイヤー
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//=========================================================================================
+//=========================================================================================
+// usrXYZtileのメインUI部
+//=========================================================================================
+//=========================================================================================
+
+window.onload = function(){
+	console.log("userXYZtile onload");
+	initUI();
+}
+
+async function initUI(){
+	console.log("OPEN subWindow : csvInputUI_r18.html");
+	
+	await initLoader("tab2","menutbl", getSourceFunc, showMapFunc, clearMapFunc); // tinyFileManagerForCsv.js 
+	
+	
+	for ( var i = 3 ; i < 20 ; i++ ){
+		var minSel="";
+		var maxSel="";
+		if ( i==6){minSel="selected"}
+		if ( i==16){maxSel="selected"}
+		var optmin = `<option value="${i}" ${minSel}>${i}</option>`;
+		minZoomSel.insertAdjacentHTML("beforeEnd",optmin);
+		var optmax = `<option value="${i}" ${maxSel}>${i}</option>`;
+		maxZoomSel.insertAdjacentHTML("beforeEnd",optmax);
+	}
+	
+	processPermaLink();
+	//clearMap();
+}
+
+async function showMapFunc(localPath){
+	var srcJson;
+	console.log("showMapFunc:",localPath, typeof localPath);
+	if ( _int_localFileMode){
+		srcJson = JSON.parse(localPath); // ここがあえてJSON.parseになるのはgetSourceFunc()が雑なため
+	} else {
+		srcJson = await ( await fetch(localPath)).json();
+	}
+	tileInfo.baseURL=decodeURIComponent(new URL(srcJson.baseURL).href);
+	tileInfo.minLevel=Number(srcJson.minLevel);
+	tileInfo.maxLevel=Number(srcJson.maxLevel);
+	clearTiles();
+	svgMap.refreshScreen();
+}
+
+function clearMapFunc(){
+	console.log("clearMapFunc");
+	tileInfo.baseURL="";
+	tileInfo.minLevel=3;
+	tileInfo.maxLevel=16;
+	clearTiles();
+	svgMap.refreshScreen();
+}
+
+function openXYZtile(){
+	tileInfo.baseURL=XYZurlInp.value;
+	tileInfo.minLevel=minZoomSel.options[minZoomSel.selectedIndex].value;
+	tileInfo.maxLevel=maxZoomSel.options[maxZoomSel.selectedIndex].value;
+	clearTiles();
+	svgMap.refreshScreen();
+}
+
+function processPermaLink(){
+	var hashStr = svgImageProps.Path;
+	if ( hashStr.indexOf("#")>0){
+		hashStr=hashStr.substring(hashStr.indexOf("#")+1);
+	} else {
+		hashStr="";
+	}
+	if ( hashStr.indexOf("saved:")==0){
+		console.log("Load Saved File");
+		loadByFileName(hashStr.substring(6)); // tinyFileManagerForCsv.jsの関数
+	} else if ( hashStr.indexOf("xyzurl:")>=0){
+		hashStr = hashStr.split(";");
+		var minLevel = 0;
+		var maxLevel = 0;
+		var xyzURL=""; 
+		for ( var hs of hashStr){
+			if ( hs.indexOf("xyzurl:")==0){
+				xyzURL = hs.substring(7);
+				if ( xyzURL.indexOf("http://")==0 || xyzURL.indexOf("https://")==0){
+				} else {
+					xyzURL=null;
+				}
+			} else {
+				hs = hs.split(":");
+				if ( hs.length==2){
+					if ( hs[0]=="minlevel"){
+						minLevel = Number(hs[1]);
+					} else if ( hs[0]=="maxlevel"){
+						maxLevel = Number(hs[1]);
+					}
+				}
+			}
+		}
+		if ( xyzURL ){
+			tileInfo.baseURL=xyzURL;
+			if ( minLevel){
+				tileInfo.minLevel=minLevel;
+			} else {
+				tileInfo.minLevel = 3;
+			}
+			if ( maxLevel){
+				tileInfo.maxLevel=maxLevel;
+			} else {
+				tileInfo.maxLevel = 16;
+			}
+			svgMap.refreshScreen();
+			syncLocationUI();
+		}
+	}
+}
+
+function syncLocationUI(){
+	XYZurlInp.value=tileInfo.baseURL;
+	for ( var minOpt of minZoomSel.options){
+		if ( minOpt.value == tileInfo.minLevel){minOpt.selected=true;}
+	}
+	for ( var maxOpt of maxZoomSel.options){
+		if ( maxOpt.value == tileInfo.maxLevel){maxOpt.selected=true;}
+	}
+}
+
+function getSourceFunc(){
+	var json = JSON.stringify(tileInfo); // 雑過ぎ・・・
+	return json;
+}
+
+
+// ここまで
+
+function getPermaLink(){
+	var ans;
+	var fileHash=getHash();
+	var impURL;
+	if (!fileHash){
+		if ( tileInfo.baseURL ){
+			ans = "xyzurl:"+tileInfo.baseURL+";minlevel:"+tileInfo.minLevel+";maxlevel:"+tileInfo.maxLevel;
+		} else {
+			pathAns.innerText="保存済みコンテンツに対してのみ有効です";
+			return;
+		}
+	} else {
+		ans = "saved:"+fileHash;
+	}
+//	alert("#"+ans);
+	var lname = svgMap.getLayer(layerID).getAttribute("title");
+	var bpm = svgMap.getBasicPermanentLink()
+	var dhash = decodeURIComponent(bpm.hash);
+	if ( dhash.indexOf(lname)>=0){
+		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
+		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
+		console.log(dh1, dh2);
+		var chash = dh1 + "#"+ans+dh2;
+		var hashPath = bpm.origin + bpm.pathname + chash;
+		console.log(hashPath);
+		pathAns.innerText=hashPath;
+		navigator.clipboard.writeText(hashPath);
+//		alert(hashPath);
+	} else {
+		alert("うまく作れませんでした・・・");
+	}
+}
+
+</script>
+
+<body>
+<div class="main">
+	<h4 id="frameTitle">XYZタイルデータを表示します</h4>
+	
+	<div class="tabs" id="csvInportUI" style="width:400px" >
+		<input id="tab1" type="radio" name="tab_item" checked>
+		<label class="tab_item" for="tab1">読込・表示</label>
+
+		<input id="tab2" type="radio" name="tab_item" >
+		<label class="tab_item" for="tab2">ファイル</label>
+
+		<input id="tab3" type="radio" name="tab_item">
+		<label class="tab_item" for="tab3">管理</label>
+
+		<div class="tab_content" id="tab1_content" style="height:300px">
+			<div class="tab_content_description">
+				<div style="font-size:12px">web mercator XYZタイルの省略URLを入力 ({x},{y},{z}可変)<br>
+				<span style="font-size:10px">例：https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg</span></div>
+				 <input id="XYZurlInp" style="width:385px;font-size:12px" type="text" placeholder="例：https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg" value="https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"></input>
+				 minZoom:<select id="minZoomSel"></select>、maxZoom:<select id="maxZoomSel"></select>
+				<input type="button" onclick="openXYZtile()" value="開く"></input>
+				<div id="TabMessageDiv" style="color:red;display:;font-size:11px">　</div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab2_content" style="height:300px;verflow-x: hidden; overflow-y: scroll;">
+			<div class="tab_content_description" style="font-size:12px">
+				<div style="background-color:#dfd">
+					登録済みデータ
+					<table id="menutbl" style="font-size:12px">
+						<tr><th></th><th>タイトル</th><th>登録日時</th></tr>
+					</table>
+				</div>
+				<div style="background-color:#eef">
+				<br>
+					<span id="fileSystemNote" style="font-size:11px">サーバにデータを保存する</span><br>
+					<input type="text" id="dataTitle" style="width:200px;font-size:12px" placeholder="サブレイヤータイトル入力"></input><input type="button" value="save" style="font-size:12px" onclick="registMap('dataTitle','registMsg','json')"></input>
+					<span id="registMsg"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab3_content" style="height:300px;verflow-x: hidden; overflow-y: scroll">
+			<div class="tab_content_description" style="font-size:12px">
+				<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
+				<p><a href="uploaded/fileManage.php?sync" target="_blank">SYNC</a></p>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+
+</body>
+</html>

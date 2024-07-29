@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Generic Authoring Tools Test</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<style>
+/* https://proengineer.internous.co.jp/content/columnfeature/6492 */
+#genericAuthoringToolModeDiv input[type=radio] {
+display: none; /* ラジオボタンを非表示にする */
+}
+#genericAuthoringToolModeDiv input[type="radio"]:checked + label {
+background: #2189EE;/* マウス選択時の背景色を指定する */
+color: #ffffff; /* マウス選択時のフォント色を指定する */
+}
+
+#genericAuthoringToolModeDiv label:hover {
+background-color: #C2CDF9; /* マウスオーバー時の背景色を指定する */
+}
+
+#genericAuthoringToolModeDiv label {
+display: block; /* ブロックレベル要素化する */
+float: left; /* 要素の左寄せ・回り込を指定する */
+margin: 2px; /* ボックス外側の余白を指定する */
+width: auto; /* ボックスの横幅を指定する */
+height: 20px; /* ボックスの高さを指定する */
+padding-left: 2px; /* ボックス内左側の余白を指定する */
+padding-right: 2px; /* ボックス内御右側の余白を指定する */
+color: #202090; /* フォントの色を指定 */
+text-align: center; /* テキストのセンタリングを指定する */
+line-height: 20px; /* 行の高さを指定する */
+cursor: pointer; /* マウスカーソルの形（リンクカーソル）を指定する */
+border: 2px solid #006DD9;/* ボックスの境界線を実線で指定する */
+border-radius: 5px; /* 角丸を指定する */
+font-size: 14px;
+}
+</style>
+
+
+<style>
+/* タブのCSS */
+/* https://bagelee.com/design/css/create_tabs_using_only_css/ */
+/*タブ切り替え全体のスタイル*/
+.tabs {
+  margin-top: 5px;
+  padding-bottom: 5px;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  width: 380px;
+  margin: 0 auto;}
+
+/*タブのスタイル*/
+.tab_item {
+  width: calc(100%/2);
+  height: 20px;
+  border-bottom: 3px solid #5ab4bd;
+  background-color: #d9d9d9;
+  line-height: 20px;
+  font-size: 13px;
+  text-align: center;
+  color: #565656;
+  display: block;
+  float: left;
+  text-align: center;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+.tab_item:hover {
+  opacity: 0.75;
+}
+
+/*ラジオボタンを全て消す*/
+input[name="tab_item"] {
+  display: none;
+}
+
+/*タブ切り替えの中身のスタイル*/
+.tab_content {
+  display: none;
+  padding: 5px 5px 0;
+  clear: both;
+  overflow: hidden;
+}
+
+
+/*選択されているタブのコンテンツのみを表示*/
+#all:checked ~ #all_content,
+#authoringTab:checked ~ #authoringTab_content,
+#fileTab:checked ~ #fileTab_content {
+  display: block;
+}
+
+/*選択されているタブのスタイルを変える*/
+.tabs input:checked + .tab_item {
+  background-color: #5ab4bd;
+  color: #fff;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./indexDBpromise.js"></script>
+
+<script type="module">
+// Description:
+// ベクターのオーサリングツール
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import {} from "./fileTab.js";
+
+import {} from "./authoringTab.js";
+
+window.changeTabMode = function(event){
+	console.log("changeTabMode:",event.target.id);
+}
+
+</script>
+
+
+<body>
+	<h3>Simple Vector BBS</h3>
+	
+	<div class="tabs" style="width:95%">
+		<input id="authoringTab" type="radio" name="tab_item" onchange="changeTabMode(event)" checked>
+		<label class="tab_item" for="authoringTab">オーサリング</label>
+		<input id="fileTab" type="radio" name="tab_item" onchange="changeTabMode(event)" >
+		<label class="tab_item" for="fileTab">ファイル</label>
+
+		<div class="tab_content" id="authoringTab_content">
+			<div class="tab_content_description">
+				<div id="genericToolDiv" style="background-color:#EEF0FF"></div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="fileTab_content">
+			<div class="tab_content_description">
+			<span id="fileSystemNote" style="font-size:11px">サーバに作図を保存します</span><BR>
+			<input type="button" id="postB" value="現在の作画を保存"/><input type="text" id="postText" placeholder="説明文"/>
+			<table style="font-size:12px;width:100%;" id="contentListTable" border="1"></table>
+			<div id="adminMode" style="background-color:pink">
+				管理用：
+				<input type="button" id="syncB" value="sync"/>
+				<input type="button" id="removeB" value="remove"/>
+			</div>
+			</div>
+		</div>
+		
+		
+	</div>
+
+	
+	
+	
+
+</body>
+</html>

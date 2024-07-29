@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Layer specific UI for CsvXHR.html</title>
+<link rel="stylesheet" href="./tabUi.css">
+<link rel="stylesheet" href="./csvEditMainPanel.css">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="QTCTrenderer.js"></script>
+<script src="csvMapper.js"></script>
+<script src="tinyFileManagerForCsv.js"></script>
+
+<script src="indexDBpromise.js"></script>
+<script type="module">
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+window.LocalDBFileManager = LocalDBFileManager;
+</script>
+
+<script type="module">
+import {FetchTextProgress} from "./FetchTextProgress.js";
+window.fetchTextProgress = new FetchTextProgress();
+</script>
+<script>
+// Description:
+// CSVを表示するSVGMapレイヤー
+// 
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
+//  
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+//=========================================================================================
+//=========================================================================================
+// CSVLayerのメインUI部
+//=========================================================================================
+//=========================================================================================
+
+// ISSUE: 2024/6/7: editConf()の作法がよくない
+
+window.onload = function(){
+	console.log("R20 onload");
+	csvMapper.onload();
+	initUI();
+	csvMapper.setInitCsvCallback(initCsvCbf);
+}
+
+function getFraeTitle(iref){
+	var txt=iref.split("/");
+	txt=txt[txt.length-1];
+	txt=txt.split(".")[0];
+	return ( txt + " データ選択UI");
+}
+
+var csvInputWindow, subWindowOpenRetryCount=0;
+function initUI(){ // 初期化
+	console.log("initUI R19");
+	if ( csvMapper.csvPath ){ // csvPathが設定されていた場合は概要などの表示
+		(document.getElementById("csvDataPath")).innerHTML="表示中のCSV:"+csvMapper.csvPath;
+		(document.getElementById("csvDataUI")).style.display="";
+		(document.getElementById("csvInportUI")).style.display="none";
+	} else if ( csvMapper.csvIndex ){ // 複数のcsvデータへのリンクデータが提供されている場合 (Selectを出す)
+		selectCsvUI=getCsvSelectUI();
+		frameTitle.innerText=getFraeTitle(csvMapper.csvIndex);
+		(document.getElementById("csvDataPath")).innerHTML="Loading";
+		(document.getElementById("csvDataUI")).style.display="";
+		(document.getElementById("csvInportUI")).style.display="none";
+	} else { // 何もない時は、csv手動入力＆登録UIを出す
+		initCsvInportMode();
+	}
+	
+}
+
+var authoringToolProps;
+
+async function initCsvInportMode(){
+	console.log("initCsvInportMode");
+	(document.getElementById("csvDataUI")).style.display="none";
+	(document.getElementById("csvInportUI")).style.display="";
+//	csvMapper.setMessageDiv(document.getElementById("TabMessageDiv"));
+	csvMapper.setMessageDiv(document.getElementById("messageDiv"));
+//		setTimeout(openCsvSubwindow,200);
+	await initLoader("tab2","menutbl", getSourceFunc, showMapFunc, clearMapFunc,"messageDiv"); // tinyFileManagerForCsv.js 
+	
+	processPermaLink();
+	
+}
+
+
+function initCsvCbf(){
+	// CSV表示が完了したとき呼ばれる関数
+	console.log("initCsvCbf");
+	if (svgImage.documentElement.getAttribute("property") && csvMapper.getCsv().length >0){
+		poiUIopenCloseButton.disabled=false;
+		if ( poiUIopenCloseButton.value=="ポイント入力UIを閉じる"){
+			initPoiTool();
+		}
+	} else {
+		poiUIopenCloseButton.disabled=true;
+	}
+	if ( csvInputWindow?.isReady ){
+		openCsvSubwindow_ph3();
+	}
+}
+
+function poiUIopenClose(){
+	if ( poiUIopenCloseButton.value=="ポイント入力UIを開く"){
+		poiUIopenCloseButton.value="ポイント入力UIを閉じる";
+		initPoiTool();
+	} else {
+		poiUIopenCloseButton.value="ポイント入力UIを開く";
+		svgMapAuthoringTool.clearTools();
+	}
+}
+function initPoiTool(){
+	var schema = svgImage.documentElement.getAttribute("property");
+	authoringToolProps = svgMapAuthoringTool.initPOItools(document.getElementById("poiTools"),layerID,editConf,false,false,true);
+	iconselection.parentElement.style.display="none"
+}
+
+async function editConf(eparam){ // 編集実施状態のコールバック関数
+	console.log(eparam);
+	// ISSUE: 2024/6/7: 以下の実装はCSVMapperにAPIを構築し、そこで行うべき。
+	// 特にQTCTとCSVソースデータのコントロールはここで行われているので、以下の実装は好ましくない。
+	// initCsvCbf()、openCsvSubwindow_ph3()のやり方が概ね行儀が良いと思われる
+	if (eparam.confStat== 'Cancel'){return}
+	var q,stat;
+	if ( eparam.confStat== 'Delete'){
+		if ( useQTCT ){
+			 q = eparam.prevAttrs.content.split(",");
+			stat = await clientSideQTCT.deleteOneData(q);
+			console.log("Delete:",stat, q);
+		}
+		if (csvInputWindow && !csvInputWindow.closed){
+			if ( eparam.prevAttrs){ // change
+				csvInputWindow.deleteCsvRecord(eparam.prevAttrs.content);
+			}
+		}
+	} else {
+		if ( useQTCT ){
+			if ( eparam.prevAttrs){ // change
+				q = eparam.prevAttrs.content.split(",");
+				stat = await clientSideQTCT.deleteOneData(q);
+				console.log("Change : delete:",stat, q);
+			}
+			q = eparam.attrs.content.split(",");
+			stat = await clientSideQTCT.registOneData(q);
+			console.log("Add:",stat, q);
+		}
+		if (csvInputWindow && !csvInputWindow.closed){
+			if ( eparam.prevAttrs){ // change
+				csvInputWindow.replaceCsvRecord(eparam.attrs.content,eparam.prevAttrs.content);
+			} else {
+				csvInputWindow.addCsvRecord(eparam.attrs.content);
+			}
+		}
+	}
+}
+
+function processPermaLink(){
+	var hashStr = svgImageProps.Path;
+	if ( hashStr.indexOf("#")>0){
+		hashStr=hashStr.substring(hashStr.indexOf("#")+1);
+	} else {
+		hashStr="";
+	}
+	if ( hashStr.indexOf("saved:")==0){
+		console.log("Load Saved File");
+		loadByFileName(hashStr.substring(6)); // tinyFileManagerForCsv.jsの関数
+	}
+}
+
+function getSourceFunc(){
+	var csv = csvMapper.getCsv()?.join("\n");
+	var schema = csvMapper.getSchema();
+	var json = JSON.stringify({csv,schema}); // 雑過ぎ・・・?
+	return json;
+}
+
+async function showMapFunc(localPath){
+	if ( localPath.csv && localPath.schema ){
+		var srcJson = localPath;
+	} else {
+//		var srcJson = await ( await fetch(localPath)).json();
+		var srcJson = JSON.parse(await fetchTextProgress.fetch(localPath,function(byte){
+			messageDiv.innerText=`${Math.floor(10*byte/(1024*1024))/10} MB Loaded`;
+		}));
+	}
+	var schema = srcJson.schema;
+	var vit;
+	if ( schema.varIconCol >=0){
+		vit = [];
+		iconIndex = schema.varIconCol;
+	} else if ( isNaN (schema.defaultIconNumber)){
+		// カスタムアイコン (下と同じロジックで動く)
+		vit = null;
+		iconIndex = schema.defaultIconNumber;
+	} else {
+		vit = null;
+		iconIndex = schema.defaultIconNumber;
+	}
+	console.log(schema);
+	csvMapper.initCsv(srcJson.csv, schema.latCol, schema.lngCol, schema.titleCol, iconIndex, vit, schema.firstRecord );
+}
+
+function clearMapFunc(){
+	csvMapper.clearMap();
+}
+
+function openCsvSubwindow(){
+//	clearMap(); // この関数は tinyFileManagerForCsv.js のもの　はやくESM化しないと・・
+	csvInputWindow = window.open("csvInputUI_r20.xhtml", "csvInputWindow", "height=800,width=800");
+}
+
+function openCsvSubwindow_ph2(){
+	// この関数は上で開いたcsvInputWindowから呼ばれる（あまり良い作法と言えない）
+	console.log("openCsvSubwindow_ph2 called");
+	document.addEventListener("closeFrame",function(){
+		console.log("CSV LAYER R20 closeFrame EVENT");
+		csvInputWindow.close();
+	}, false);
+	openCsvSubwindow_ph3();
+}
+
+async function openCsvSubwindow_ph3(){
+	var csvSrc = await csvMapper.getCsv(progressCBF);
+	if ( !Array.isArray(csvSrc) ){
+		console.warn("No csvSrc exit");
+		return;
+	}
+	csvSrc =csvSrc.join("\n")
+	var schema = csvMapper.getSchema();
+	if ( csvSrc && !csvInputWindow.closed){
+		csvInputWindow.setTestCsv(csvSrc, schema);
+	} else {
+	}
+}
+
+function progressCBF(pgi){
+	if ( pgi.total ){
+		messageDiv.innerText=`${Math.floor(10*pgi.loaded/(1024*1024))/10}MB of ${Math.floor(10*pgi.total/(1024*1024))/10}MB Loaded`;
+	} else {
+		messageDiv.innerText=`${Math.floor(pgi*100)}% processed`;
+	}
+}
+
+// 複数のcsvデータへのリンクデータが提供されている場合の処理部
+function getCsvSelectUI(){
+	var csvPathList=loadIndex(csvMapper.csvIndex);
+}
+
+function loadIndex(indexPath){
+//	console.log("loadCSVindex:" , indexPath);
+	var dt =  Math.floor(((new Date() ).getTime())/ 1000);
+	var httpObj = new XMLHttpRequest();
+	if ( httpObj ) {
+		httpObj.onreadystatechange = function(){ loadIndexPh2( this ) } ;
+		httpObj.open("GET", indexPath + "?dt="+dt , true );
+		httpObj.send(null);
+	}
+}
+
+function loadIndexPh2(httpRes){
+	if (( httpRes.readyState == 4 ) ){
+		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
+			console.log( "File get failed");
+			return;
+		}
+//			console.log("xhrRes:",httpRes.responseText);
+		var csvIndexTxt = httpRes.responseText;
+		var csvIndex = parseIndex(csvIndexTxt);
+		var selectElement=createSelectElement(csvIndex);
+		console.log("selectElement:",selectElement);
+		document.getElementById("csvDataPath").style.display="";
+		document.getElementById("csvDataPath").innerText="";
+		(document.getElementById("csvDataPath")).appendChild(selectElement);
+	}
+}
+
+function createSelectElement(csvIndex){
+	var sel = document.createElement("select");
+	sel.setAttribute("onchange","changeCsv(event)");
+	sel.id="csvIndexSel";
+	first=true;
+	for ( var i = csvIndex.length - 1 ; i >= 0 ; i-- ){
+		var op = document.createElement("option");
+		op.value=csvIndex[i];
+		var st = csvIndex[i].split("/");
+		st=st[st.length-1];
+		st = (st.split("."))[0];
+		op.text=st;
+		if ( first ){
+			op.selected=true;
+			first=false;
+		}
+		sel.appendChild(op);
+	}
+	
+	loadCsv(csvIndex[csvIndex.length - 1]);
+	
+	return ( sel );
+}
+
+function changeCsv(ev){
+//	console.log("changeCsv ev:",ev.target.selectedIndex, ev.target.options[ev.target.selectedIndex]);
+	var val = ev.target.options[ev.target.selectedIndex].value;
+	console.log("changeCsv:",val);
+	loadCsv(val);
+}
+
+function loadCsv(csvPath){
+	console.log("loadCsv:",csvPath);
+	csvTable.innerHTML="";
+	csvTable.style.display="none";
+	csvMapper.loadCsv(csvPath);
+}
+
+function parseIndex(indexTxt){
+	// CSV形式の相対パス
+	var pt = (indexTxt.replace(/\s+/g, "")).split(/,/);
+	for ( var i = pt.length-1 ; i >= 0 ; i-- ){
+		if (pt[i] == ""){
+			pt.splice(i,1);
+		}
+	}
+	pt=pt.sort();
+
+	return ( pt );
+}
+
+// ここまで
+
+// プリセット＆表示済みCSVのソースを表示＆ダウンロードする機能
+function showCsv(){ // 読み込み済みのcsvをtable表示する
+	var srcCsv = csvMapper.getCsv();
+	var tbl = document.getElementById("csvTable");
+	tbl.style.display="";
+	while (tbl.firstChild) tbl.removeChild(tbl.firstChild);
+	var maxLen = 0;
+	for ( var i = 0 ; i < srcCsv.length ; i++){
+		if ( srcCsv[i].length > maxLen ){
+			maxLen = srcCsv[i].length;
+		}
+		var csvRow = srcCsv[i].split(",");
+		if ( csvRow<2){continue}
+		var tr = document.createElement("tr");
+		for ( var j = 0 ; j < csvRow.length ; j++ ){
+			var td=document.createElement("td");
+			td.innerText=csvRow[j];
+			tr.appendChild(td);
+		}
+		tbl.appendChild(tr);
+	}
+	tbl.style.fontSize="11px";
+	tbl.style.width=maxLen*14+"px";
+}
+
+function downloadCsv(){ // 読み込み済みのcsvをDLする
+	var crlf="\n";
+	var srcCsv = csvMapper.getCsv();
+	var content = srcCsv.join(crlf);
+//	var content = "Hello World";
+	var blob = new Blob([content],{"type" : "text/plain"});
+	if (window.navigator.msSaveBlob) { 
+		window.navigator.msSaveBlob(blob, "data.csv"); 
+	} else {
+		document.getElementById("downloadAnchor").href = window.URL.createObjectURL(blob);
+		document.getElementById("downloadAnchor").click();
+	}
+}
+
+function getPermaLink(){
+	var ans;
+	var fileHash=getHash();
+	var impURL;
+	if (!fileHash){
+		pathAns.innerText="保存済みコンテンツに対してのみ有効です";
+		return;
+	} else {
+		ans = "saved:"+fileHash;
+	}
+	console.log(ans);
+//	alert("#"+ans);
+	var lname = svgMap.getLayer(layerID).getAttribute("title");
+	var bpm = svgMap.getBasicPermanentLink()
+	var dhash = decodeURIComponent(bpm.hash);
+	if ( dhash.indexOf(lname)>=0){
+		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
+		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
+		console.log(dh1, dh2);
+		var chash = dh1 + "#"+ans+dh2;
+		var hashPath = bpm.origin + bpm.pathname + chash;
+		console.log(hashPath);
+		pathAns.innerText=hashPath;
+		navigator.clipboard.writeText(hashPath);
+//		alert(hashPath);
+	} else {
+		alert("うまく作れませんでした・・・");
+	}
+}
+
+</script>
+
+<body>
+<h4 style="margin-block-start: 0.5em;margin-block-end: 0.5em" id="frameTitle">CSVデータを可視化します</h4>
+<div id="messageDiv" style="color:red;display:;font-size:11px;height:14px;">　</div>
+<div class="main">
+	<div id="csvDataUI" style="display:none">
+		<div id="csvDataPath" style="display:none"></div>
+		<input type="button" onClick="showCsv()" value="CSVを表示" />
+		<input type="button" onClick="downloadCsv()" value="CSVをダウンロード" /><br>
+		<table id="csvTable" style="display:none" border="1"></table>
+		<a id="downloadAnchor" href="" download="data.csv" style="display:none" >hiddenDL</a>
+<!--		<div id="messageDiv" style="color:red;display:;font-size:11px">　</div>-->
+	</div>
+	
+	<div class="tabs" id="csvInportUI" style="display:none">
+		<input id="tab1" type="radio" name="tab_item" checked>
+		<label class="tab_item" for="tab1">読込・表示</label>
+
+		<input id="tab2" type="radio" name="tab_item" >
+		<label class="tab_item" for="tab2">ファイル</label>
+
+		<input id="tab3" type="radio" name="tab_item">
+		<label class="tab_item" for="tab3">管理</label>
+
+		<div class="tab_content" id="tab1_content" style="height:300px; overflow-y: scroll;">
+			<div class="tab_content_description">
+				<input type="button" onclick="openCsvSubwindow()" value="CSV入力UIを開く"></input>
+				<input id="poiUIopenCloseButton" type="button" onclick="poiUIopenClose()" value="ポイント入力UIを開く" disabled></input>
+				<div id="TabMessageDiv" style="color:red;display:;font-size:11px">　</div>
+				<div id="poiTools"></div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab2_content" style="height:300px;overflow-x: hidden; overflow-y: scroll;">
+			<div class="tab_content_description" style="font-size:12px">
+				<div style="background-color:#dfd">
+					登録済みデータ
+					<table id="menutbl" style="font-size:12px">
+						<tr><th></th><th>タイトル</th><th>登録日時</th></tr>
+					</table>
+				</div>
+				<div style="background-color:#eef">
+				<br>
+					<span id="fileSystemNote" style="font-size:11px">データのsvgmap.orgホストへの保存</span><br>
+					<input type="text" id="dataTitle" style="width:200px;font-size:12px" placeholder="サブレイヤータイトル入力"></input><input type="button" value="save" style="font-size:12px" onclick="registMap('dataTitle','registMsg','json')"></input>
+					<span id="registMsg"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab3_content" style="height:300px;overflow-x: hidden; overflow-y: scroll">
+			<div class="tab_content_description" style="font-size:12px">
+				<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
+				<p><a href="uploaded/fileManage.php?sync" target="_blank">SYNC</a></p>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+
+</body>
+</html>

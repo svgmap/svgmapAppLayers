@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://cdn.geolonia.com/community-geocoder.js"></script>
+
+<script>
+
+/**
+地理院ジオコーダを使ってジオコードする
+https://msearch.gsi.go.jp/address-search/AddressSearch?q=東京都港区芝公園４丁目２−８
+**/
+
+
+onload = function(){
+	
+}
+
+async function geoCode(address){
+	return new Promise(function(okCallback, ngCallback) {
+		getLatLng(address, okCallback,ngCallback);
+	});
+}
+	 
+
+async function geoCodeClick(){
+	var addr = addressI.value;
+	console.log("addr:",addr);
+	ansGeoCoder.innerText="検索中";
+	var latLng;
+	try{
+		latLng = await geoCode(addr);
+	} catch ( e ){
+		ansGeoCoder.innerText="ジオコーディング失敗";
+	}
+	if ( latLng){
+		console.log(latLng);
+		ansGeoCoder.innerText=latLng.lat+","+latLng.lng + " : " + getAddressStr(latLng);
+		if ( typeof svgMap=="object"){ 
+			svgMap.setGeoCenter(latLng.lat, latLng.lng );
+		}
+	}
+}
+
+function getAddressStr(poi){
+	ans =poi.pref+" " +poi.city + " " + poi.town + " " + poi.addr;
+	return ( ans );
+}
+
+function prepareMultipleGeoCodeAns(anses, addr){
+	ansGeoCoder.innerText="";
+	var sel = document.createElement("select");
+	sel.style.width="300px";
+	var opt = document.createElement("option");
+	opt.innerText=addr+" :複数の候補が見つかりました";
+	sel.appendChild(opt);
+	for ( var ans of anses){
+		var opt = document.createElement("option");
+		opt.value=ans.geometry.coordinates[0]+", "+ans.geometry.coordinates[1];
+		opt.innerText=ans.geometry.coordinates + " : " + getAddressStr(ans);
+		sel.appendChild(opt);
+	}
+	ansGeoCoder.appendChild(sel);
+	sel.onchange=function(event){
+		var lnglat=event.target.options[event.target.selectedIndex].value;
+		if ( lnglat ){
+			lnglat = lnglat.split(",");
+			svgMap.setGeoCenter(Number(lnglat[1]), Number(lnglat[0]) );
+		}
+	}
+}
+
+
+async function revGeoCodeClick(){
+	var latlng = latLngI.value;
+	latlng = latlng.split(",");
+	var lat,lng;
+	if ( latlng.length != 2 ){
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+		return;
+	}
+	if ( isNaN(latlng[0]) || isNaN(latlng[1])){
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+		return;
+	}
+	var lat = Number(latlng[1]);
+	var lng = Number(latlng[0]);
+	var addr = await revGeoCode(lat,lng);
+	console.log(addr);
+	if ( addr && addr.results){
+		ansRevGeoCoder.innerText=addr.results.muni[1]+" "+addr.results.muni[3]+" "+addr.results.lv01Nm;
+	} else {
+		ansRevGeoCoder.innerText="リバースジオコーディング失敗";
+	}
+}
+
+</script>
+
+<body>
+<h3>geolonia geocoder</h3>
+<p><a href="https://github.com/geolonia/community-geocoder" target="_blank">geoloniaジオコーダ</a></p>
+<h4>ジオコーダ(地名⇒経度緯度)</h4>
+    住所:<input type="text" id="addressI" value="東京都港区芝公園４丁目２-８" />
+    <button onclick="geoCodeClick();">ジオコーディング</button>
+    <div id="ansGeoCoder">-,-</div>
+    <hr>
+</body>
+</html>

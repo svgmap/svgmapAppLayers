@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+<title>tab test</title>
+<meta charset="utf-8"></meta>
+</head>
+<style>
+/* タブのCSS */
+/* https://bagelee.com/design/css/create_tabs_using_only_css/ */
+/*タブ切り替え全体のスタイル*/
+.tabs {
+  margin-top: 5px;
+  padding-bottom: 5px;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  width: 370px;
+  margin: 0 auto;}
+
+/*タブのスタイル*/
+.tab_item {
+  width: calc(100%/3);
+  height: 20px;
+  border-bottom: 3px solid #5ab4bd;
+  background-color: #d9d9d9;
+  line-height: 20px;
+  font-size: 13px;
+  text-align: center;
+  color: #565656;
+  display: block;
+  float: left;
+  text-align: center;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+.tab_item:hover {
+  opacity: 0.75;
+}
+
+/*ラジオボタンを全て消す*/
+input[name="tab_item"] {
+  display: none;
+}
+
+/*タブ切り替えの中身のスタイル*/
+.tab_content {
+  display: none;
+  padding: 5px 5px 0;
+  clear: both;
+  overflow: hidden;
+}
+
+
+/*選択されているタブのコンテンツのみを表示*/
+#all:checked ~ #all_content,
+#programming:checked ~ #programming_content,
+#design:checked ~ #design_content {
+  display: block;
+}
+
+/*選択されているタブのスタイルを変える*/
+.tabs input:checked + .tab_item {
+  background-color: #5ab4bd;
+  color: #fff;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="text/javascript" src="bitimage2geo.js"></script>
+<script type="text/javascript" src="importer.js"></script>
+
+<script type="text/javascript" src="hexCodec.js"></script>
+
+<script type="text/javascript" src="indexDBpromise.js"></script>
+<script type="module">
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+window.LocalDBFileManager = LocalDBFileManager;
+</script>
+
+
+<script>
+//var hexDecode=true;
+var hexDecode=false;
+</script>
+
+<body>
+<div class="tabs">
+  <input id="all" type="radio" name="tab_item" checked>
+  <label class="tab_item" for="all">表示</label>
+  <input id="programming" type="radio" name="tab_item">
+  <label class="tab_item" for="programming">オーサリング</label>
+  <input id="design" type="radio" name="tab_item">
+  <label class="tab_item" for="design">管理</label>
+  
+  <div class="tab_content" id="all_content">
+    <div class="tab_content_description">
+      <p class="c-txtsp">登録済みビットイメージデータ</p>
+		<table id="menutbl" style="font-size:12px">
+		<tr><th></th><th>タイトル</th><th>登録日時</th></tr>
+
+		</table>
+    </div>
+  </div>
+  
+  <div class="tab_content" id="programming_content">
+    <div class="tab_content_description">
+      <div class="c-txtsp" style="font-size:13px">ビットイメージをインポートし手動で地図に合成(<a id="manualLink" href="man/" target="_blank">使い方</a>)</div>
+
+		<table>
+		<tr><td>
+			<input type="button" id="bitimage" onClick="openBitImagePanel()"  style="width :120px; height: 20px" value="open bitimageMap"></button>
+		</td>
+		<td>
+			<font id="imageMapPath" size="-2" color="red" style="background-color:#FFFFFF;opacity:0.7;">imageFile:null</font><br>
+			<font id="imageMapSize" size="-1" color="red" style="background-color:#FFFFFF;opacity:0.7;">null,null</font>
+		</td>
+		</tr>
+		<tr>
+		<td>
+			<button id="point1" onClick="setPoint(1)"  style="width :120px; height: 20px;border-color:#00ff00;background-color:#60ff60">setPoint1(green)</button>
+		</td>
+		<td>
+			<font id="point1t" size="-1" color="green" style="background-color:#FFFFFF;opacity:0.7;">lng1,lat1</font><br>
+			<font id="point1it" size="-1" color="green" style="background-color:#FFFFFF;opacity:0.7;">p1x,p1y</font>
+		</td>
+		</tr>
+
+		<tr>
+		<td>
+			<button id="point2" onClick="setPoint(2)"  style="width :120px; height: 20px;border-color:#ff00ff;background-color:#ff60ff">setPoint2(purple)</button>
+		</td>
+		<td>
+			<font id="point2t" size="-1" color="purple" style="background-color:#FFFFFF;opacity:0.7;">lng2,lat2</font><br>
+			<font id="point2it" size="-1" color="purple" style="background-color:#FFFFFF;opacity:0.7;">p2x,p2y</font>
+		</td>
+		</tr>
+
+		<tr>
+		<td>
+			<button id="point3" onClick="setPoint(3)"  style="width :120px; height: 20px;border-color:#0000ff;background-color:#6060ff">setPoint3(blue)</button>
+		</td>
+		<td>
+			<font id="point3t" size="-1" color="blue" style="background-color:#FFFFFF;opacity:0.7;">lng3,lat3</font><br>
+			<font id="point3it" size="-1" color="blue" style="background-color:#FFFFFF;opacity:0.7;">p3x,p3y</font>
+		</td>
+		</tr>
+
+		<tr>
+		<td colspan="2">
+		<input type="button" value="view svg sourece" onclick="viewSource()"/>
+		</td>
+		</tr>
+		
+		<tr id="registTr">
+		<td colspan="2">
+		      <span id="fileSystemNote" style="font-size:11px">サーバに登録する</span><br>
+		<input id="dataTitle" type="text" placeholder="内容を表すタイトルを入力"/>
+		<input type="button" value="Register" onclick="registMap()"/>
+		<span id="registMsg"></span>
+		</td>
+		</tr>
+		</table>
+    </div>
+  </div>
+  
+  <div class="tab_content" id="design_content">
+    <div class="tab_content_description">
+      <p class="c-txtsp">管理パネル</p>
+      <p>TBDですね。不要な登録項目の削除などは管理者に相談してみてください。</p>
+      <p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span style="font-size:10px;word-break: break-all;" id="pathAns"></span></p>
+      <p><a href="uploaded/testStore.php?sync" target="_blank">SYNC</a>
+    </div>
+  </div>
+  
+</div>
+</body>
+</html>

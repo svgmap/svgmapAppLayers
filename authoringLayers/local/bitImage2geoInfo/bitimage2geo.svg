@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0,0,10,10" data-controller="bitimage2geo.html#exec=appearOnLayerLoad&amp;requiredHeight=500" >
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)"/>
+<!-- symbols -->
+  <defs>
+  <g id="p1" >
+   <image xlink:href="imgs/Xcursor1.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  <g id="p2" >
+   <image xlink:href="imgs/Xcursor2.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  <g id="p3" >
+   <image xlink:href="imgs/Xcursor3.png" preserveAspectRatio="none" x="-8" y="-8" width="15" height="15"/>
+  </g>
+  </defs>
+<!-- endSymbols -->
+ <image id="bitimage" xlink:href="imgs/null.png" x="0" y="0" width="10" height="10" preserveAspectRatio="none" xlink:title="image"/>
+<!-- markers -->
+<g id="markers">
+<use id="gp1" transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p1" xlink:title="point1"/>
+<use id="gp2" transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p2" xlink:title="point2"/>
+<use id="gp3" transform="ref(svg,-1000,-1000)" x="0" y="0" xlink:href="#p3" xlink:title="point3"/>
+</g>
+<!-- endMarkers -->
+</svg>

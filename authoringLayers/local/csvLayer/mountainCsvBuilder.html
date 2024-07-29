@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+</head>
+<script>
+// 地理院の　日本の主な山岳一覧コンテンツからCSVを構築する～
+// https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41140.html
+
+// LICENSE GPL3
+// Programmed by Satoru Takagi
+
+var srcContent = "https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41140.html";
+var corsPxy ="";
+
+onload=async function(){
+	if (!corsPxy){
+		corsPxy = (new URL(location.href.replace("#","?"))).searchParams.get("proxy");
+	}
+	if (!corsPxy){
+		corsPxy ="";
+	}
+	var srcURL;
+	if (!corsPxy && window.opener?.opener?.svgMap){
+		console.log("use svgmap cors proxy func");
+		srcURL = window.opener.opener.svgMap.getCORSURL(srcContent);
+	} else {
+		srcURL = corsPxy+srcContent
+	}
+	var res = await fetch(srcURL);
+	var txt = await res.text();
+	var dom = new DOMParser().parseFromString(txt, "text/html");
+	getMountainTable(dom);
+}
+
+function getMountainTable(dom){
+	var targetDiv = dom.querySelector("div.main_contents");
+	var targetTable = targetDiv.querySelector("table");
+	var rows = targetTable.querySelectorAll("tr");
+	//tt = targetTable;
+	var firstRow=true;
+	var schema =[];
+	var data=[];
+	for ( var row of rows){
+		var rowData = [];
+		var cols;
+		if ( firstRow){
+			cols = row.querySelectorAll("th");
+		} else {
+			cols = row.querySelectorAll("td");
+		}
+		for ( col of cols){
+			replaceElmToData(col);
+			var colData = col.innerHTML;
+			colData = normalizeStr(colData);
+			rowData.push(colData);
+		}
+		//console.log(rowData);
+		if ( firstRow ){
+			schema = rowData;
+			firstRow=false;
+		} else {
+			data.push(rowData);
+		}
+	}
+	console.log("schema:",schema);
+	normalizeGsiMtData(schema,data);
+	printCsv(schema,data);
+}
+
+var csvContent=null;
+function printCsv(schema,data){
+	var ans = schema.join(",");
+	for ( var row of data){
+		ans += "\n"+row.join(",");
+	}
+	mtbl.value=ans;
+	csvContent = ans;
+}
+
+function getCsvData(){
+	return new Promise( async function(okCallback, ngCallback) {
+		while (!csvContent ){
+			await new Promise(s => setTimeout(s, 1000));
+		}
+		okCallback(csvContent);
+	});
+}
+
+
+function normalizeStr(str){
+	str = str.replaceAll(/[\t\b\r\n]/g,"");
+	str = str.replaceAll(/&lt;/g,"<");
+	str = str.replaceAll(/&gt;/g,">");
+	str = str.split("<br>");
+	if (str.length == 1){str=str[0].trim()}
+	return str
+}
+
+function replaceElmToData(col){
+	var a = col.querySelector("a");
+	if ( a ){
+		var href = a.getAttribute("href");
+		var kanji = a.innerText;
+		a.insertAdjacentHTML("beforebegin",kanji+"<br>"+href);
+		a.remove();
+	}
+	var img = col.querySelector("img");
+	if ( img ){
+		var alt = img.getAttribute("alt");
+		img.insertAdjacentHTML("beforebegin",alt)
+		img.remove();
+	}
+}
+
+function normalizeGsiMtData(schema,data){
+	s = schema;
+	d = data;
+	//二次元配列にするとともに,標高, 経緯度は数値に
+	//ただし地理院のこのテーブルデータ限定の処理
+	
+	var posCol=schema.indexOf("緯度経度");
+	var nameCol=schema.indexOf("山名<山頂名>");
+	var altCol=schema.indexOf("標高");
+	
+	// この順番は大事です‥　posが挿入でずれるので(posCol>nameColを想定・・)
+	schema[altCol]="標高[m]";
+	schema.splice(posCol,1,"緯度","経度");
+	schema.splice(nameCol+1,0,"山名(漢字)","href");
+	
+	console.log(schema,data,posCol,nameCol);
+	
+	for ( var row of data){
+		// この置き換え順は大事です‥　posが挿入でずれるので
+		var alt = row[altCol];
+		row[altCol]=Number(alt.replace("m",""));
+		var poss = row[posCol];
+		var pos = getPos(poss);
+		row.splice(posCol,1,pos[0],pos[1]);
+		var names = row[nameCol];
+		row.splice(nameCol,1,names[0],names[1],names[2]);
+		for ( var j = 0 ; j < row.length ; j++ ){
+			var col = row[j];
+			if ( typeof(col)=="number"){
+				// do nothing
+			} else {
+				if (col instanceof Array){
+					for ( var i = 0 ; i < col.length ; i++){
+						col[i]=col[i].trim();
+					}
+					col = col.join(";");
+				} else {
+					col = col.trim();
+				}
+				if ( col.indexOf(",")>0){
+					console.warn("found comma...");
+					col = col.replaceAll(","," ");
+				}
+				row[j]=col;
+			}
+		}
+	}
+}
+
+function getPos(poss){
+	return [dms2dgr(poss[0]),dms2dgr(poss[1])];
+}
+function dms2dgr(dms){
+	var dms = dms.split(/[度分秒]/);
+	return( Number(dms[0])+ Number(dms[1])/60 + Number(dms[2])/3600 );
+}
+
+function downloadCsv(){
+	var blob = new Blob([csvContent],{type:"text/plain"});
+	
+	var element = document.createElement('a');
+	element.download = 'japanMountains.csv';
+	element.href = URL.createObjectURL(blob);
+	element.click();
+	URL.revokeObjectURL(element.href);
+}
+
+</script>
+<body>
+<h3><a href="https://www.gsi.go.jp/" target="_blank">地理院</a>の<a href="https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41140.html" target="_blank">日本の主な山岳一覧</a>からCSVデータを構築</h3>
+<input type="button" value="download CSV" onclick="downloadCsv()"></input>
+<textarea style="width:100%; height:500px" id="mtbl"></textarea>
+</body>
+</html>
