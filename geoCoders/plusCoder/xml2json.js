@@ -1,4 +1,5 @@
-// /home/svg2/public_html/devinfo/devkddi/lvl0.1/etcLayers/moj/MojMapGML2GeoJSON.js　を抜き出し
+// xml2json.js
+// かなりいい加減だが、xmlをjsonに変換する
 //
 // Copyright 2023 by Satoru Takagi @ KDDI All Rights Reserverd
 //

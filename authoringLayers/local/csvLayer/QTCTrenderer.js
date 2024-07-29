@@ -14,7 +14,7 @@ var clientSideQTCT;
 
 const colors = [[0x1d,0x64,0xbb],[0x1a,0xb9,0xb7],[0x71,0xf0,0x49],[0xf0,0xea,0x4a],[0xf0,0x49,0x49],[0xf5,0x4f,0xf7]]; // このcolorはPOIのビットイメージの実際の色に対応させている。csvXhr_r*.svgのdefs #p?で定義(png読んで色を統計し自動設定すと良いけど面倒なのでひとまずハードコード・・)
 
-import { ClientSideQTCT } from '/devinfo/devkddi/lvl0.1/dynamicTiles/clientSideQTCT/ClientSideQTCT.js';
+import { ClientSideQTCT } from './ClientSideQTCT.js';
 addEventListener("load",function(){
 	clientSideQTCT = new ClientSideQTCT();
 	window.clientSideQTCT = clientSideQTCT; // for debug

@@ -1,4 +1,6 @@
-// from /home/svg2/public_html/devinfo/devkddi/lvl0.1/etcLayers/moj/MojMapGML2GeoJSON_r1.5.js
+// csisGeocoder.js
+// シンプル ジオコーディング 実験 https://geocode.csis.u-tokyo.ac.jp/home/simple-geocoding/ を用いたジオコーダ
+
 import {xml2json} from "./xml2json.js";
 class CsisGeocoder{
 	levelDict={
