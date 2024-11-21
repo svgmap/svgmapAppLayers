@@ -131,7 +131,7 @@
 		if ( httpObj ) {
 			httpObj.onreadystatechange = function(){ cbFunc( this ) } ;
 			httpObj.open("POST", getCORSURL(jsonSrc) , true );
-			httpObj.setRequestHeader('content-type', 'application/json');
+			httpObj.setRequestHeader('content-type', 'text/plain');
 //			httpObj.setRequestHeader('content-length', '0');
 			httpObj.send("");
 		}

@@ -63,7 +63,7 @@
 		console.log("docPath:",docPath, "  docDir:",docDir,"  canvasSize:",canvasSize,"  geoViewBox:",geoViewBox);
 		
 		loadJSONpost( "https://www.msil.go.jp/msilwebtoken/api/token/new" , handleResult);
-		
+		//loadJSONpostByFetch( "https://www.msil.go.jp/msilwebtoken/api/token/new");
 		
 	}
 	
@@ -175,13 +175,30 @@
 		}
 	}
 	
+	async function loadJSONpostByFetch(jsonSrc){
+		var res =await fetch(getCORSURL(jsonSrc), {
+			method: 'POST',
+			headers: {
+//				'Content-Type': 'application/json'
+				'Content-Type': 'text/plain'
+			},
+			body: ""
+		});
+		var json = await res.json();
+		console.log("Json:",json);
+		token = json.token;
+		onzoom();
+		refreshScreen();
+	}
+	
 	function loadJSONpost(jsonSrc,cbFunc){
 		console.log("loadJSONpost : SRC: ", jsonSrc);
 		var httpObj = new XMLHttpRequest();
 		if ( httpObj ) {
 			httpObj.onreadystatechange = function(){ cbFunc( this ) } ;
 			httpObj.open("POST", getCORSURL(jsonSrc) , true );
-			httpObj.setRequestHeader('content-type', 'application/json');
+//			httpObj.setRequestHeader('content-type', 'application/json');
+			httpObj.setRequestHeader('content-type', 'text/plain');
 //			httpObj.setRequestHeader('content-length', '0');
 			httpObj.send("");
 		}
