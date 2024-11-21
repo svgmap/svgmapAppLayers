@@ -70,26 +70,32 @@ var linearLayerList = []; // 多階層レイヤーリストに対して、一次
 var disableSpecialRightsContent = false;
 
 onload=async function(){
+	console.log(svgImageProps.hash);
+	if ( svgImageProps.hash){
+		subLayerCategory.selectedIndex = Number(decodeURIComponent(svgImageProps.hash)[1]);
+	}
 	await initList();
 	if ( location.hash.indexOf("disableSpecialRightsContent")>=0){
 		console.log("disableSpecialRightsContent");
 		disableSpecialRightsContent = true;
+	}
+	if ( svgImageProps.hash){
+		selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1))
 	}
 }
 
 async function initList(event){
 	linearLayerList=[];
 	var indexURL = indexURL0;
-	if ( event ){
-		idx = event.target.selectedIndex;
-		if ( idx == 1){
-			indexURL = indexURL1;
-		}
+	idx = subLayerCategory.selectedIndex;
+	if ( idx == 1){
+		indexURL = indexURL1;
 	}
 	var legendTxt = await loadText(legendSrc);
 	legendData = parseLegend(legendTxt);
 	
 	indexData = await loadJson(indexURL);
+	
 	buildTableR(indexData);
 	if (  typeof(svgImageProps)=="object"){
 		dynamicWebTile.setServerParams("", 2, 0);
@@ -104,6 +110,8 @@ function buildTableR(indexData, lvl, parentKey, tbl){
 		parentKey = [];
 		tbl = document.getElementById("hz_table");
 		removeChildren(tbl);
+		tbl.insertAdjacentHTML("beforeend", `<tr><td><input onchange="selectLayer(event)" type="radio" name="subLayers" value="-1" id="noneSel" data-hash="-" checked><label for="noneSel">非選択</label></td></tr>` );
+	
 	}
 	for ( var child of indexData ){
 		var tr = getTrHtmlAndArrangeStruct(child, lvl, parentKey);
@@ -170,7 +178,7 @@ function getTrHtmlAndArrangeStruct(lvData, lvNumb, parentKey){
 		if ( !layerTitle ){
 			layerTitle = lvData.key;
 		}
-		ans = `<tr><td>${lvs}<input onchange="selectLayer(event)" type="radio" name="subLayers" value="${layerIndex}" id="r_${lvData.path}"><label for="r_${lvData.path}">${removeTag(layerTitle)}</label></td></tr>`;
+		ans = `<tr><td>${lvs}<input onchange="selectLayer(event)" type="radio" name="subLayers" value="${layerIndex}" id="r_${lvData.path}" data-hash="${subLayerCategory.selectedIndex}_${cyrb53(lvData.path,true)}"><label for="r_${lvData.path}">${removeTag(layerTitle)}</label></td></tr>`;
 	} else {
 		ans = `<tr><td>${lvs}${removeTag(lvData.title)}</td></tr>`;
 	}
@@ -244,6 +252,11 @@ async function loadText(txtURL){
 
 function selectLayer(event){
 	var layerIndex  = Number(event.target.value);
+	if ( layerIndex<0){
+		dynamicWebTile.setServerParams(null, 15, 5);
+		svgImageProps.hash="";
+		return;
+	}
 	var layerData = linearLayerList[layerIndex];
 	
 	path=layerData.path.replace("${x}","[[tx]]").replace("${y}","[[ty]]").replace("${z}","[[zoom]]");
@@ -275,6 +288,7 @@ function selectLayer(event){
 			minzoom = layerData.maxnativezoom;
 		}
 		dynamicWebTile.setServerParams(path, maxzoom, minzoom);
+		svgImageProps.hash=`#${event.target.getAttribute("data-hash")}`;
 		//svgMap.refreshScreen();
 	}
 	
@@ -339,12 +353,40 @@ function removeChildren(node){
 	}
 }
 
+function selectLayerByHash(hstr){
+	console.log("selectLayerByHash:",hstr);
+	var ipt = hz_table.querySelector(`input[data-hash="${hstr}"]`);
+	if (ipt ){
+		ipt.click();
+	}
+}
+
+// https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+const cyrb53 = (str, byString, seed = 0) => {
+	let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+	for(let i = 0, ch; i < str.length; i++) {
+		ch = str.charCodeAt(i);
+		h1 = Math.imul(h1 ^ ch, 2654435761);
+		h2 = Math.imul(h2 ^ ch, 1597334677);
+	}
+	h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+	h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+	h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+	h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+	
+	if ( byString ){
+		return (h2>>>0).toString(16).padStart(8,0)+(h1>>>0).toString(16).padStart(8,0);
+	} else {
+		return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+	}
+};
+
 </script>
 <body>
 <h3>MLIT重ねるハザードマップレイヤー</h3>
 出典：<a href="https://disaportal.gsi.go.jp/maps/" target="_blank">国土交通省 重ねるハザードマップ</a>
 
-<div>サブレイヤー <select onchange="initList(event)"><option selected>ハザードマップ</option><option>過去の災害</option></select> <span style="font-size:11px" id="subLayerCountSpan"></span></div>
+<div>サブレイヤー <select onchange="initList(event)" id="subLayerCategory"><option selected>ハザードマップ</option><option>過去の災害</option></select> <span style="font-size:11px" id="subLayerCountSpan"></span></div>
 <table class="table_sticky" id="hz_table" style="font-size:11px">
 </table>
 
