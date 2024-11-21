@@ -47,6 +47,9 @@ addEventListener("load",async function(){
 	buildTileList(idoc);
 	setDefaultParams();
 	makeTable(tileList);
+	if ( svgImageProps.hash){
+		selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1))
+	}
 });
 
 function setDefaultParams(){
@@ -294,6 +297,7 @@ function makeTable(tileList){
 	var superTitle="";
 	var td0,rs;
 	var bgClr,slc=0;
+	list.insertAdjacentHTML("beforeend",`<tr style="background-color:#eee"><td></td><td><input type="radio" name="layerSel" value="-1" checked onChange="changeLayer(event)"></td><td>非選択</td><td></td></tr>`);
 	for ( var i = 0 ; i < tileList.length ; i++){
 		var tile = tileList[i];
 		var tr = document.createElement("tr");
@@ -360,6 +364,7 @@ function makeTable(tileList){
 		rdo.setAttribute("type","radio");
 		rdo.setAttribute("name","layerSel");
 		rdo.setAttribute("value",i);
+		rdo.setAttribute("data-sublayername",tname);
 		if ( !supportedFormat){
 			rdo.disabled=true;
 		}
@@ -376,7 +381,14 @@ function makeTable(tileList){
 }
 
 function changeLayer(evt){
-	var selIndex = evt.target.value
+	var selIndex = evt.target.value;
+	if ( selIndex <0){
+		dynamicWebTile.setServerParams(null, 15, 5);
+		svgImageProps.hash="";
+		return;
+	}
+	var slName = evt.target.getAttribute("data-sublayername");
+	svgImageProps.hash=`#${selIndex}_${slName}`;
 	var selTile = tileList[selIndex];
 	var urlTmpl=getSMTemplate(selTile.url);
 	console.log(selIndex, selTile, urlTmpl, typeof(svgImageProps),svgImageProps,svgMap,layerID);
@@ -385,6 +397,18 @@ function changeLayer(evt){
 		console.log("set url:",urlTmpl,"  zoomMax:",selTile.zoomLevel.max, " zoomMin:",selTile.zoomLevel.min);
 		dynamicWebTile.setServerParams(urlTmpl, selTile.zoomLevel.max, selTile.zoomLevel.min);
 		//svgMap.refreshScreen();
+	}
+}
+
+function selectLayerByHash(hs){
+	// indexだけでなくnameも一致していた時だけレイヤーを選択する
+	var subLayerIndex = hs.substring(0,hs.indexOf("_"));
+	var subLayerName = hs.substring(hs.indexOf("_")+1);
+	console.log("selectLayerByHash: idx:",subLayerIndex, "  name:",subLayerName);
+	var ipt = list.querySelector(`input[value="${subLayerIndex}"]`);
+	if (ipt && ipt.getAttribute("data-sublayername")== subLayerName){
+		ipt.click();
+		//changeLayer({target:{value:subLayerIndex}});
 	}
 }
 
