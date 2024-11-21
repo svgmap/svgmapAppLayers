@@ -4,6 +4,20 @@
 <meta charset="utf-8"></meta>
 </head>
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+
+<!-- for zip file extraction -->
+<script type="text/javascript" src="zipJs/zip.js"></script>
+<script type="text/javascript" src="zipJs/ArrayBufferReader.js"></script>
+<script type="text/javascript" src="zipJs/deflate.js"></script>
+<script type="text/javascript" src="zipJs/inflate.js"></script>
+<script type="module">
+	import {ZipDataDownloader} from "./ZipDataDownloader.js";
+	var zipLib = window.zip;
+	function zipCbf(msg){console.log(msg)}
+	window.zipDataDownloader=new ZipDataDownloader(zipLib, zipCbf);
+</script>
+
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
 <script type="text/javascript" src="./customShowPoiProperty.js"></script>
 
@@ -26,14 +40,24 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 var rootPage="https://www.mlit.go.jp/road/r6noto/map/index.html";
+var indexPage = "https://www.mlit.go.jp/road/r6noto/index2.html";
 var tlss = "var targetLayers";
 var layers={};
 onload=async function(){
+	console.log("notoRoad onload");
+	console.log("svgMap:",svgMap);
+	msgDiv.innerText="初期化中";
 	layers=await getLayerInfo();
 	buildLGroup();
 	listLayers();
 	svgMap.setShowPoiProperty(customShowPoiProperty , layerID )
 	await makeMapLayers();
+	msgDiv.innerText="-";
+	await initPastData();
+	var hashq=getHashQuery();
+	if ( hashq?.date ){
+		setPastData( hashq?.date );
+	}
 }
 
 function buildLGroup(){
@@ -65,16 +89,28 @@ function setLayerVisibility(event){
 	var key = event.target.getAttribute("id");
 	key = key.substring(2);
 	if ( event.target.checked){
-		drawLayer(layers[key],key);
+		if ( pastFlag ){
+			if( pastLayers[key]){
+				drawLayer(pastLayers[key],key);
+			} else {
+				drawLayer(null,key);
+			}
+		} else {
+			drawLayer(layers[key],key);
+		}
 	} else {
 		drawLayer(null,key);
 	}
 }
 
 async function makeMapLayers(){
+	var ps=[];
 	for ( var lk in layers){
-		buildLayer(layers[lk],lk);
+		var p = buildLayer(layers[lk],lk);
+		ps.push(p);
 	}
+	await Promise.all(ps);
+	console.log("load completed ", Object.keys(layers).join(","));
 }
 
 async function buildLayer(layerInf,lkey){
@@ -94,7 +130,7 @@ async function buildLayer(layerInf,lkey){
 			var ls=layerInf.lastModified.toLocaleString();
 			ls=ls.substring(0,ls.lastIndexOf(":"));
 			ls =ls.substring(0)+"更新";
-			var ttr=ttr.insertAdjacentHTML("beforeend",`<td style="font-size:8px">${ls}</td>`);
+			var ttr=ttr.insertAdjacentHTML("beforeend",`<td class="updateTimeTd" style="font-size:8px">${ls}</td>`);
 		}
 	}catch(e){console.warn("更新日時取得失敗",e);}
 	setIcons();
@@ -132,6 +168,14 @@ function drawLayer(layerInf,lkey){
 		svgMapGIStool.drawGeoJson(layerInf.data, layerID, "purple", 2, "purple", "p0",undefined,undefined,tgrp,layerInf.schema);
 	}
 	svgMap.refreshScreen();
+}
+
+function clearLayers(){
+	for ( var lkey in layers){
+		var tgrp = svgImage.getElementById(`l_${lkey}`);
+		removeChildren(tgrp);
+	}
+	//svgMap.refreshScreen();
 }
 
 function getSchemaAndSetStyle(gjs){
@@ -229,17 +273,178 @@ function removeChildren(ele){
 	}
 }
 
+
+
+// 過去データの表示機能 2024/7/30
+async function initPastData(){
+	var pastPaths = await getArchiveInfo();
+	for ( var i = pastPaths.length -1 ; i >=0 ; i-- ){
+		path = pastPaths[i];
+		pastSelect.insertAdjacentHTML("beforeend", `<option value="${path.url}">${path.title}</option>`);
+	}
+}
+
+async function getArchiveInfo(){
+	var htext = await (await fetch(svgMap.getCORSURL(indexPage))).text();
+	var dom = new DOMParser().parseFromString(htext, "text/html");
+	var links = dom.getElementsByTagName("a");
+	var zipPaths=[];
+	for ( var link of links){
+		var href = link.getAttribute("href")
+		if ( href.endsWith(".zip") && link.innerText.indexOf("現時点")<0){
+			var zipURL = new URL(href, location);
+			var title = link.innerText.split("　")[0].replace("[","");
+			zipPaths.push({url:zipURL.href, title});
+		}
+	}
+	//console.log(zipPaths);
+	return zipPaths;
+}
+
+async function getPastMap(zipURL){
+	var files = await zipDataDownloader.download(svgMap.getCORSURL(zipURL));
+	return files;
+}
+
+function setPastData(key){
+	var targetFile;
+	for (var opt of pastSelect.options){
+		if ( opt.innerText.indexOf(key)>=0 ){
+			targetFile = opt.value;
+			opt.selected=true;
+			break;
+		}
+	}
+	displayPastDataByURL(targetFile);
+}
+
+function displayPastData(event){
+	var sel = event.target.options[event.target.selectedIndex];
+	console.log("displayPastData:",sel.value);
+	displayPastDataByURL(sel.value);
+}
+
+async function displayPastDataByURL(url){
+	if ( !url ){
+		hideUnusedUI(false);
+		pastFlag = false;
+		clearLayers();
+		for ( var lkey in layers ){
+			var layerInf = layers[lkey];
+			if ( layerInf && document.getElementById(`i_${lkey}`).checked){
+				drawLayer(layerInf,lkey)
+			}
+		}
+	} else {
+		msgDiv.innerText="過去データ読み込み中";
+		pastFlag = true;
+		var mapData = await getPastMap(url);
+		console.log(mapData);
+		showPastMap(mapData);
+		hideUnusedUI(true);
+		msgDiv.innerText="-";
+	}
+}
+
+function hideUnusedUI(isPast){
+	if ( isPast ){
+		for ( var lkey in pastLayers ){
+			if ( pastLayers[lkey] ){
+				document.getElementById(`i_${lkey}`).disabled=false;
+			} else {
+				document.getElementById(`i_${lkey}`).disabled=true;
+			}
+		}
+		hideElementByClass("updateTimeTd",false);
+	} else {
+		for ( var lkey in layers ){
+			document.getElementById(`i_${lkey}`).disabled=false;
+		}
+		hideElementByClass("updateTimeTd",true);
+	}
+}
+
+function showPastMap(mapData){
+	clearLayers();
+	pastLayers ={};
+	for ( var layerName in layers ){
+		var layer = layers[layerName];
+		var matchLayer =null;
+		for (var file of mapData){
+			if( getFname(layer.geojson) == getFname(file.path)){
+				matchLayer = file.path;
+				break;
+			}
+		}
+		if ( matchLayer ){
+			var gjs = getSchemaAndSetStyle(file.content)
+			pastLayers[layerName]={
+				geojson:file.path,
+				data:file.content,
+				schema:layer.schema
+			};
+			//console.log(matchLayer + " is exists");
+		} else {
+			pastLayers[layerName]=null;
+			//console.log(layerName + " is not  :  path : ", layer.geojson);
+		}
+	}
+	
+	for ( var lkey in pastLayers ){
+		var layerInf = pastLayers[lkey];
+		if ( layerInf && document.getElementById(`i_${lkey}`).checked){
+			drawLayer(layerInf,lkey)
+		}
+	}
+	console.log("pastLayers:",pastLayers);
+}
+
+function getFname(path) {
+	if (!path ){return null}
+	return path.replace(/^.*[\\\/]/, '');
+}
+
+
+function hideElementByClass(className, isVisible){
+	const elements = document.querySelectorAll("."+className);
+	elements.forEach(element => {
+		if ( isVisible){
+			element.style.visibility = "visible";
+		} else {
+			element.style.visibility = "hidden";
+		}
+	});
+}
+
+function getHashQuery(){
+	var shash = new URL(svgImageProps.Path, window.parent.location).hash;
+	if ( shash.length >1){
+		var ans ={};
+		shash = shash.substring(1);
+		var spaths = [...new URLSearchParams(shash).entries()];
+		for ( var spath of spaths ){
+			ans[spath[0]]=spath[1];
+		}
+		return ans;
+	} else {
+		return null;
+	}
+}
+
+
 </script>
 <body>
 <h3>令和６年能登半島地震　道路復旧レイヤー</h3>
 <div  style="font-size:11px">出典：<a href="https://www.mlit.go.jp/road/r6noto/index2.html" target="_blank">国交省 令和６年能登半島地震　道路復旧見える化マップ</a>
+<select style="font-size:11px;" id="pastSelect" onchange="displayPastData(event)"><option value="" selected>最新データを表示中</option></select>　　
+<span style="font-size:11px;" id="msgDiv">-</span>
 <table style="font-size:11px;border: 1px solid #black;border-collapse: collapse;"  border=1 id="indexTable"></table>
-<div id="msgDiv"></div>
 <img src="imgs/usage_guideV.png" width="100%">
 <!--
 <div class="image-container" style="position: relative;overflow: hidden;width: 200px;">
 <img src="https://www.mlit.go.jp/road/r6noto/map/img/usage_guide.png" style="position:absolute;clip:rect(1464px 2694px 1584px 1527px);object-fit: cover;">
 </div>
 -->
+
 </body>
 </html>

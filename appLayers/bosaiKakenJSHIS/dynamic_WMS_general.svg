@@ -47,12 +47,13 @@
 	var messageStr="";
 	
 	function onload(){ // onload = function()って書いてもOKですよ
-		 console.log("HelloOnloadFUNC of WMS layer :  this.location.hash: ",this.location.hash);
+		 console.log("HelloOnloadFUNC of WMS layer :  this.location.hash: ",this.location.hash, " this.svgMap:",this.svgMap);
 		 if ( this.location.hash.indexOf("server=")>0){
 		 	baseURL = this.location.hash.substring(this.location.hash.indexOf("server=") + 7);
 		 }
 		 if ( this.location.hash.indexOf("proxy=true")>0){
 		 	useProxy = true;
+		 	crossorigin = true;
 		 }
 		 if ( this.location.hash.indexOf("maxLevel=")>0){
 		 	var mlStr = this.location.hash.substring(this.location.hash.indexOf("maxLevel=") + 9);
@@ -246,6 +247,7 @@
 	}
 	
 	function getURL( tx , ty , lvl ){
+		console.log("getURL: svgMap: ",svgMap, "  this.svgMap:", this.svgMap);
 		var txy2mer = lvl2Res( lvl ) / tilePix;
 		
 		var memx = 40075016.68 * ( tx / txy2mer - 0.5 );
@@ -256,7 +258,11 @@
 		var tile_ans = getKey( tx , ty , lvl );
 		var mapServerURL = baseURL + "&BBOX=" + memx + "," + (memy - memSpan) + "," + (memx + memSpan) + "," + memy + "&WIDTH=" + imgW + "&HEIGHT=" + imgH ;
 		if ( useProxy ){
-			mapServerURL = svgMap.getCORSURL( encodeURIComponent(mapServerURL) );
+			if ( svgMap){
+				mapServerURL = svgMap.getCORSURL( (mapServerURL) );
+			} else if ( this.svgMap ){
+				mapServerURL = this.svgMap.getCORSURL( (mapServerURL) );
+			}
 		}
 		return {
 			URL : mapServerURL ,
