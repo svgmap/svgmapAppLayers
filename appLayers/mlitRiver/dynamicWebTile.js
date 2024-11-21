@@ -268,8 +268,14 @@ var dynamicWebTile = function(){
 			}
 		}
 		
-		if (mapName.endsWith("geojson") && typeof(setGeoJsonTiles)=="function"){
-			setGeoJsonTiles(tileSet);
+		if (mapName.endsWith("geojson")){
+			if ( typeof(setGeoJsonTiles)=="function"){
+				setGeoJsonTiles(tileSet);
+			}
+		} else if (mapName.endsWith("pbf")){
+			if ( typeof(setPbfTiles)=="function"){
+				setPbfTiles(tileSet);
+			}
 		} else {
 			// 表示させるタイル分以下を繰り返し、読み込まれていないファイルを読込み要素に加える
 			for ( var tkey in tileSet ){
