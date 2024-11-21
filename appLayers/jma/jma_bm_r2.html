@@ -504,15 +504,18 @@ function getLastUpdate(tData){
 function prepTimeSel(tData){
 	while (timeSel.firstChild) timeSel.removeChild(timeSel.firstChild);
 	var initSel=false;
+	var timeIndex = 0;
 	for (var i = tData.length-1 ; i >=0 ; i-- ){
 		var opt = document.createElement("option");
 		var vt = tData[i].validtime;
 		var bt = tData[i].basetime;
 		opt.value= vt;
+		opt.setAttribute("data-timeindex",timeIndex);
 
 		var tTxt = vt.substring(0,4)+"-"+vt.substring(4,6)+"-"+vt.substring(6,8)+"T"+vt.substring(8,10)+":"+vt.substring(10,12)+":"+vt.substring(12,14)+"+0000";
 		tTxt = (new Date(tTxt)).toLocaleString();
 		tTxt = tTxt.substring(0,tTxt.length-3);
+		++timeIndex;
 		if ( bt == vt){
 			opt.innerText=tTxt;
 			if ( !initSel ){
@@ -535,7 +538,8 @@ async function change(){
 	var targetLayer = await getTargetSubLayer();
 	targetGroup = targetLayer.doc.documentElement;
 	
-	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+//	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	var timeIndex = Number(timeSel.options[timeSel.selectedIndex].getAttribute("data-timeindex"));
 	var trIndex = timeData.length - timeIndex -1;
 	var cat0 = cats0[catSel.selectedIndex];
 	var cat1 = cats1[catSel.selectedIndex];
@@ -549,7 +553,7 @@ async function change(){
 	newPath = newPath.replace("[[basetime]]",timeData[trIndex].basetime);
 	newPath = newPath.replace("[[validtime]]",timeData[trIndex].validtime);
 	
-	// console.log( newPath);
+//	console.log( newPath, timeIndex);
 	
 	setServerParams(newPath,zoomLimit,3, targetGroup);
 	//console.log(getServerParams());
