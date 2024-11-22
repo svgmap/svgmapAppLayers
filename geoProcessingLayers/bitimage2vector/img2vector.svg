@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-30000,-30000,60000,60000" property="" data-controller="img2vector.html#exec=appearOnLayerLoad&amp;requiredHeight=500">
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+  <defs>
+  <g id="syl0" > 
+   <image xlink:href="../mappin.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+ </defs>
+
+ <g id="tracedPath"></g>
+ 
+</svg>

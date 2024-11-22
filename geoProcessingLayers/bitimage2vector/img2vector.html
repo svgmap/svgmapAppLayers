@@ -1,0 +1,266 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>img2vector</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./potrace.js"></script>
+<script type="module">
+	import {SvgCurve2Line} from "./SvgCurve2Line.js"; // オリジナルのpotrace.jsはベジェで生成するため、それをポリラインに変換するライブラリ
+	window.SvgCurve2Line = SvgCurve2Line;
+	
+	import {captureRasterData} from "./captureRasterData.js"; // ラスタデータをキャプチャするSVGMap.jsの機能のラッパ
+	window.captureRasterData = captureRasterData;
+	
+	import { getGeoJSON , saveText} from "./getGeoJSON.js";
+	window.getGeoJSON = getGeoJSON;
+	window.saveText = saveText;
+	
+</script>
+
+<script type="text/javascript" src="./layerLister.js"></script>
+<script type="text/javascript" src="./rasterColorPicker.js"></script>
+
+<script>
+// im2vectorレイヤー
+// ビットイメージのレイヤーをトレースして、ベクトルポリゴンデータを抽出するSVGMapレイヤー
+//
+// Programmed by Satoru Takagi
+// Copyright 2024-2024 by Satoru Takagi @ KDDI All Rights Reserved
+//
+// ライセンスは、potrace.jsをベースとしているためGPL3とする
+//
+// License: (GPL v3)
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//  
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Version History
+// Rev1 2024/11/20 最初の稼働版
+//         2024/11/22 GeoJSON保存機能
+// 
+// ISSUE, ToDo:
+//   広い領域をクローリングしてトレースする
+//   タイリングされているとタイルの継ぎ目が微妙な感じになる
+
+const targetGroupId="tracedPath";
+
+addEventListener("load",async function(){
+	layerLister.listVisiblePoiCoverLayers("targetCoverLayer","targetCoverLayer2");
+	document.addEventListener("screenRefreshed", layerLister.listVisiblePoiCoverLayers , false);
+	rasterColorPicker.initColorPicker("colorPicker");
+	rasterColorPicker.setSkipClearPointsFlag(true);
+	setColorPicker();
+	//convertImage();
+});
+
+function setColorPicker(){
+	rasterColorPicker.clearPickColors();
+	var coverageId = layerLister.getTargetLayerId("targetCoverLayer");
+	rasterColorPicker.setPickTargetLayerId(coverageId );
+	console.log("setColorPicker:",coverageId);
+}
+
+function getSearchConditions(){
+	var coverageId = layerLister.getTargetLayerId("targetCoverLayer");
+	var range = rasterColorPicker.getTargetRange();
+	return {
+		coverageId,range
+	}
+}
+
+
+function getColorBinarizer(conditions){
+	//console.log("getColorBinarizer:",conditions);
+	if ( !conditions || conditions.length<1){
+		return binarizerDefault;
+	} else {
+		var oc=[];
+		for ( var condition of conditions){
+			oc.push(condition);
+			if ( condition[0]*condition[1]<=0){
+				oc.push([condition[0]+360,condition[1]+360]);
+			}
+		}
+		
+		return function(r,g,b,a){
+			if ( a==0){
+				return 255
+			};
+			var hsv = svgMapGIStool.rgb2hsv(r,g,b);
+			var hue = hsv.h;
+			var hue2 = hue - 360;
+			var ans = 255;
+			for ( var condition of oc){
+				if ( (condition[0] <= hue && hue <= condition[1] ) ){
+					ans = 0;
+					break;
+				}
+			}
+			return ans;
+		}
+	}
+}
+
+function binarizerDefault(r,g,b,a){
+	return ( 255-a ); // alpha = 255で黒とする
+}
+
+
+/**
+function convertImage(){
+	Potrace.loadImageFromUrl("11_1814_807.gif");
+	Potrace.setParameter({opttolerance:0.2,turnpolicy:"minority",alphamax:1,optcurve:true,binarizer:binarizer});
+	Potrace.process(function(){
+		displayImg();
+		displaySVG(1);
+		//convPath();
+	});
+}
+**/
+
+async function captureAndConvertData(){
+	// removeChildren(document.getElementById("svgImages"));
+	removeChildren(svgImage.getElementById(targetGroupId));
+	var searchC = getSearchConditions();
+	var coverageId = searchC.coverageId;
+	console.log("captureAndConvertData :",coverageId);
+	var coverageData = await captureRasterData(coverageId)
+	console.log("coverageData :",coverageData);
+	trImPs=[];
+	var binarizer = getColorBinarizer(searchC.range);
+	for ( var oneCover of coverageData){
+		var img2Geo;
+		if (oneCover.transform){
+			img2Geo = oneCover.transform;
+		} else {
+			//  oneCover.coordinates[0]{lat,lng}: min, [1]: max
+			img2Geo = {
+				a: (oneCover.coordinates[1].lng - oneCover.coordinates[0].lng)/oneCover.imageData.width,
+				b: 0, c: 0,
+				d: -(oneCover.coordinates[1].lat - oneCover.coordinates[0].lat)/oneCover.imageData.height,
+				e: oneCover.coordinates[0].lng, f: oneCover.coordinates[1].lat
+			}
+		}
+		
+		var img2svg= svgMap.matMul(img2Geo,svgImageProps.CRS); // CRS: geo=>svg
+		if ( img2svg.transform ){
+			console.warn("画像をsvg座標に変換するために、現在未サポートの非線形変換が使われているためスキップします・・・");
+			continue;
+		}
+		//console.log("img2svg:",img2svg);
+		trImPs.push(traceImage(oneCover,img2svg,binarizer));
+	}
+	await Promise.all(trImPs);
+	svgMap.refreshScreen();
+	savegjsbtn.disabled=false;
+}
+
+function traceImage(coverage, img2svg,binarizerFunc){
+	return new Promise(function(okCB){
+		Potrace.setParameter({opttolerance:0.2,turnpolicy:"minority",alphamax:1,optcurve:true,binarizer:binarizerFunc});
+		Potrace.setImageData(coverage.imageData.data, coverage.imageData.width, coverage.imageData.height);
+		Potrace.process(function(){
+			var path = Potrace.getSVG(1, "pathData");
+			path.title =  coverage.href;
+			// drawSvg(path);
+			drawSvgMap(path, img2svg);
+			okCB(true);
+		});
+	});
+}
+
+function drawSvgMap(path, img2svg){
+	var sc = new SvgCurve2Line();
+	sc.setOptions({
+		transformMatrix:img2svg
+		/**
+		transformMatrix:{
+//			a:0.1,b:0,c:0,d:0.1,e:13500,f:-3500
+			a:0.5,b:0,c:0,d:0.5,e:0,f:0
+		}
+		**/
+	});
+
+	/**
+	var convd = sc.convert(path.data);
+	path.data = convd;
+	var targetGroup = svgImage.getElementById(targetGroupId);
+	var path = svgImage.createElement("path");
+	path.setAttribute("d",convd);
+	path.setAttribute("fill","purple");
+	path.setAttribute("stroke","none");
+	path.setAttribute("fill-rule","evenodd");
+	path.setAttribute("opacity","0.65");
+	targetGroup.appendChild(path);
+	**/
+	
+	var convds =sc.convertNew(path.data);
+	path.data = convds;
+	var targetGroup = svgImage.getElementById(targetGroupId);
+	for ( var convd of convds){
+		var pathElm = svgImage.createElement("path");
+		pathElm.setAttribute("d",convd);
+		pathElm.setAttribute("fill","purple");
+		pathElm.setAttribute("stroke","none");
+		pathElm.setAttribute("fill-rule","evenodd");
+		pathElm.setAttribute("opacity","0.65");
+		targetGroup.appendChild(pathElm);
+	}
+	
+}
+
+/**
+function drawSvg(path){
+	var svgdiv = document.createElement("div");
+	svgdiv.style.display = 'inline-block';
+	svgdiv.innerHTML=`<p style="font-size:8px">Result:${path.title}</p><svg id="svg" version="1.1" width="${path.width}" height="${path.height}" xmlns="http://www.w3.org/2000/svg"><path d="${path.data}" stroke="none" fill="black" fill-rule="evenodd"></path></svg>`;
+	var parentElm = document.getElementById("svgImages");
+	parentElm.insertAdjacentElement("beforeend",svgdiv);
+}
+**/
+
+function removeChildren(parentElm){
+	while( parentElm.firstChild ){
+		parentElm.removeChild( parentElm.firstChild );
+	}
+}
+
+async function saveAsGeoJSON(){
+	var gjs = await getGeoJSON(layerID);
+	if ( !gjs ){
+		alert("データがありません");
+	}
+	await saveText(JSON.stringify(gjs),"tracedGeoData.json");
+}
+
+</script>
+<body>
+<h5>ビットイメージレイヤをトレースしベクタ化する</h5>
+<div style="font-size:10px"><a href="https://github.com/satakagi/potrace" target="_blank">potrace.js</a>をベースに開発</div>
+<div>
+対象レイヤ
+<select name="targetCoverLayer" id="targetCoverLayer" onChange="setColorPicker()">
+</select>
+<select name="targetCoverLayer2" id="targetCoverLayer2" onChange="setColorPicker()" style="display:none">
+</select>
+</div>
+<div>
+<span>色域選択</span>
+<div id="colorPicker"></div>
+</div>
+<div>
+<input type="button" value="Trace bitImage" onclick="captureAndConvertData()"></input>　　
+<input type="button" id="savegjsbtn" value="Save as GeoJSON" onclick="saveAsGeoJSON()" disabled style="font-size:10px"></input>
+<!-- <div id="svgImages"></div>-->
+</body>
+</html>
