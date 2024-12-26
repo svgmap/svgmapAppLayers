@@ -93,6 +93,15 @@
 			level = minLevel;
 		}
 		
+		if ( typeof zoomStep == "number" && zoomStep>0){ // 離散ズームレベルに対応 2024/12/12
+			for ( let dlvl = maxLevel ; dlvl > 0 ; dlvl -= zoomStep){
+				if ( dlvl <= level){
+					level = dlvl;
+					break;
+				}
+			}
+		}
+		
 		// この地図の地理座標におけるviewBox内表示させる、tileのXYとそのHashKeyを取得する
 		var tileSet = getTileSet( svgMap.getGeoViewBox() , level )
 		

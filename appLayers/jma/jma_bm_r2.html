@@ -377,6 +377,16 @@ function setDefaultParams(){
 			} catch (e){
 				console.log("cat parse err");
 			}
+		} else if ( hashs[i].indexOf("zstep")==0){
+			try{
+				var zsNum = Number((hashs[i].split("="))[1]);
+				if ( zsNum < 10 && zsNum>0 ){
+					zoomStep = zsNum;
+				}
+				console.log("zoomStep:",zoomStep);
+			} catch (e){
+				console.log("zoomStep parse err");
+			}
 		}
 	}
 	console.log("svType:",svType, "defaultCat:",defaultCat, " autoupdate:",realtime_checked.checked, "noforecast:",noforecast ,  " zoomMax:",zoomMax);
