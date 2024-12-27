@@ -32,6 +32,7 @@
 <animation class="GIS clickable editable" title="経路検索(graphhopper)" xlink:href="./geoProcessingLayers/routing/routingD.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="標高検索" xlink:href="./geoProcessingLayers/gsiAltCoder/altCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="GeoidHeightCalculator" xlink:href="./geoProcessingLayers/gsiGeoidCoder/geoidCalc.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable" title="bitimageTracer" xlink:href="./geoProcessingLayers/bitimage2vector/img2vector.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 <animation class="GIS editable" title="Raster GIS" xlink:href="./geoProcessingLayers/rasterGisLayer/rasterGisLayer6.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 <animation class="GIS editable clickable" title="Vector GIS" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGisLayer.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 <animation class="GIS clickable editable" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
@@ -46,7 +47,7 @@
 
 <!-- 災害情報系 -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastOldNowCast/jmaHrRain_r3.svg" title="JMA過去の災害記録" class="災害" visibility="hidden" opacity="0.6"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=11" title="JMA過去の災害記録(2021-)" class="災害" visibility="hidden" opacity="0.6"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2" title="JMA過去の災害記録(2021-)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/droneBird/droneBird.svg" title="DRONEBIRD" class="災害" visibility="hidden" opacity="0.7"/>
 
 
@@ -79,13 +80,14 @@
 
 <!-- 国交省道路情報 -->
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/notoEQ2024/notoRoad.svg" title="令和６年能登半島地震　道路復旧状況" opacity="0.75" class="国交省道路情報 batch clickable" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=imusho" title="国道事務所等" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=station" title="道の駅" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=kojiyotei" title="工事予定" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=expressway" title="高速道路事前通行規制区間" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=jizenkisei" title="事前通行規制区間" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=weather" title="時間雨量" opacity="0.75" class="国交省道路情報 clickable batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=camera" title="ライブカメラ" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
-
-
 
 <!-- 国土地理院 -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiBosai/gsiBosai.svg" title="地理院防災・災害データ：サブレイヤーあり" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
@@ -137,26 +139,26 @@
 <animation class="気象" title="JAXA 衛星全球降水マップ(風向矢印)" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=NEXRA:ss_uv10m_img&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象 clickable" title="早期注意情報(JMA)" xlink:href="./appLayers/jma/warnings/probability.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/> 
 <animation class="気象" title="台風(JMA)" xlink:href="./appLayers/jma/jma_typhoon.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="浸水害危険度分布(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=4&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="土砂災害警戒判定メッシュ(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=3&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="浸水害危険度分布(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=4&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="土砂災害警戒判定メッシュ(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=3&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 
 <!-- ISSUE ちゃんと表示されないバグがある　多分時間間隔の問題 -->
-<animation class="気象" title="降水短時間予報(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=6&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="降水短時間予報(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=6&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/kikendo/kikendo.svg" title="大雨危険度(JMA)" class="気象 clickable" visibility="hidden" opacity="0.65"/>
-<animation class="気象" title="危険度分布-土砂災害(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=3&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="危険度分布-土砂災害(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=3&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="危険度分布-洪水害(JMA)" xlink:href="./appLayers/jma/jma_vm.svg#cat=2&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation xlink:href="./appLayers/mlitRadar/radar.svg" title="国交省_川の防災情報_降雨レーダー" x="-30000" y="-30000" width="60000" height="60000" class="気象" opacity="0.7" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jmaSatelliteCenter/himawari8.svg#content=12" title="ひまわり8号(気象衛星センター)" class="気象" visibility="hidden"/> 
-<animation class="気象" title="ナウキャスト(降雨)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="ナウキャスト(降雪)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=10&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="ナウキャスト(落雷)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=1&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="ナウキャスト(竜巻)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=2&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="ナウキャスト(降雨)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="ナウキャスト(降雪)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=10&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="ナウキャスト(落雷)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=1&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="ナウキャスト(竜巻)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=2&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/tenkizu/tenkizu_r1.svg#noforecast" title="天気図" class="気象" visibility="hidden"/>
 <animation class="気象 clickable" title="気象庁_2021_VectorData" xlink:href="./appLayers/jma/jma_vm.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="気象庁_2021_火山" xlink:href="./appLayers/jma/jma_volcano.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="気象" title="気象庁_2021_推計震度分布" xlink:href="./appLayers/jma/jma_EQ_suikei.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="気象" title="気象庁_2021_ひまわり画像" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=2&amp;cat=0&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation class="気象" title="気象庁_2021_TileImages" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=11&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="気象庁_2021_TileImages" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象 clickable" title="気象庁_2021_アメダス" xlink:href="./appLayers/jma/jma_amedas.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 
 
@@ -175,7 +177,6 @@
 
 <!-- その他政府/民間 アプリレイヤー -->
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ2021" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-
-
+<animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 
 </svg>
