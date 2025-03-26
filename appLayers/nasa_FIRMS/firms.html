@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<title>Mlit C/Xband radar layerUI</title>
+<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="firms.js"></script>
+<body>
+<h4>火災情報レイヤー</h4>
+<div style="font-size:12px">
+出典：<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank">NASA FIRMS <span style="font-size:10px">(Fire Infomation for Resource Management System)</a></span><br><br>
+</div>
+<!--
+<div>BAND:<select id="bandSel"><option value="x">X</option><option value="c">C</option></select></div>
+<div>TIME:<select id="timeSel"></select></div>
+<div id="updatedT">-</div>
+
+<table id="hanrei"><tr id="hanreiTr"></tr>
+</table>
+-->
+
+<span style="font-size:12px">
+スケール<select id="changeScaleSelect">
+<option value="simple" selected>Simple</option>
+<option value="timeH">Time Based (Hours)</option>
+<option value="timeD">Time Based (Days)</option>
+</select>
+</span>
+<span style="font-size:12px">
+	　期間<select id="changeTimeSpanSelect">
+	<option value="today" selected>TODAY</option>
+	<option value="24hrs">24HRS</option>
+	<option value="7days">7DAYS</option>
+	<option value="custom">CUSTOM</option>
+	</select>
+</span>
+<div id="customSpan" style="display:none;font-size:12px">
+	カスタム期間
+	<input type="date" id="fromDatePicker">～
+	<input type="date" id="toDatePicker">
+</div>
+
+<div id="hanrei" style="font-size:11px">
+	<div>凡例</div>
+	<div id="fire_basic_fires_legend" style="display: block;">
+	    <div >
+	        <span  style="background: rgb(168, 0 , 0);">　</span>
+	        <span>
+	            Landsat [30m]
+	        </span>
+	    </div>
+	    <div >
+	        <span  style="background: rgb(255, 0 , 0);">　</span>
+	        <span>
+	            VIIRS (S-NPP, NOAA-20 &amp; NOAA-21) [375m]
+	        </span>
+	    </div>
+	    <div >
+	        <span  style="background: rgb(255, 0, 0);">　</span>
+	        <span>
+	            MODIS (Aqua &amp; Terra) [1km]
+	        </span>
+	    </div>
+	</div>                
+	<div id="clk_legend_hourly" style="display:none"><span>HOURS</span>
+	    <span  style="background:rgba(168, 0, 0, 1);">　</span><span> &lt; 1</span>
+	    <span  style="background:rgba(235, 0, 0, 1);">　</span><span>1-3</span>
+	    <span  style="background:rgba(230, 100, 0, 1);">　</span><span>3-6</span>
+	    <span  style="background:rgba(255, 180, 0, 1)">　</span><span>6-12</span>
+	    <span  style="background:rgba(255, 230, 175, 1)">　</span><span>12-24</span>
+	    <span  style="background:rgba(255, 255, 190, 1)">　</span><span> &gt; 24</span>
+	</div>
+	<div id="clk_legend_daily" style="display:none"><span>DAYS</span>
+	    <span  style="background:rgba(168, 0, 0, 1);">　</span><span> &lt; 1</span>
+	    <span  style="background:rgba(235, 0, 0, 1);">　</span><span>1-2</span>
+	    <span  style="background:rgba(230, 100, 0, 1);">　</span><span>2-3</span>
+	    <span  style="background:rgba(255, 180, 0, 1)">　</span><span>3-4</span>
+	    <span  style="background:rgba(255, 230, 175, 1)">　</span><span>4-5</span>
+	    <span  style="background:rgba(255, 255, 190, 1)">　</span><span> &gt; 5</span>    
+	</div>
+</div>
+
+</body>
+
+</html>
+

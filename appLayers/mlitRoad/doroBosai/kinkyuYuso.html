@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Layer Specific UI for jRisq SVGMap Layer</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<style>
+#loader{
+    margin:auto;
+    width:30px;
+    height:30px;
+    border-radius:30px;
+    border:8px solid #17cddd;
+    border-right-color:transparent;
+    animation:spin 1s infinite linear;
+}
+#loader{
+    animation:spin 1s infinite linear;
+}
+@keyframes spin{
+    0%{transform:rotate(0deg); opacity:0.4;}
+    50%{transform:rotate(180deg); opacity:1;}
+    100%{transform:rotate(360deg); opacity:0.4;}
+    
+}
+</style>
+
+<script type="module">
+import{KMLrenderer} from "./KMLrenderer.js";
+window.KMLrenderer = KMLrenderer;
+</script>
+
+<script>
+// 国交省緊急輸送道路
+// この版はオリジナルのサイト群のKMLを直リンクして表示しています
+//
+//  Programmed by Satoru Takagi
+//  
+//  Copyright (C) 2025 by Satoru Takagi @ KDDI CORPORATION
+
+// License:
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License version 3 as
+//  published by the Free Software Foundation.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
+//
+// History: 
+// 2025/02/20: 1st rev. ひとまずできたけど手抜きね・・　種別色分けとかメタデータとか設定できてると良いよね　引くと重すぎは何とかしたいねQTCT・・
+
+const prefBboxes = { // 国土数値情報の行政界ポリゴンから生成した県のバウンディングボックス
+	"01": {"minLat": 41.35164556,"minLng": 139.33396017,"maxLat": 45.55724341,"maxLng": 148.89440319,"prefectureName": "北海道"},
+	"02": {"minLat": 40.21770705,"minLng": 139.49741872,"maxLat": 41.55616786,"maxLng": 141.68286562,"prefectureName": "青森県"},
+	"03": {"minLat": 38.74765139,"minLng": 140.65312481,"maxLat": 40.4502556,"maxLng": 142.07248095,"prefectureName": "岩手県"},
+	"04": {"minLat": 37.77324792,"minLng": 140.27488922,"maxLat": 39.00276172,"maxLng": 141.67728383,"prefectureName": "宮城県"},
+	"05": {"minLat": 38.87301336,"minLng": 139.69170455,"maxLat": 40.51111653,"maxLng": 140.99543228,"prefectureName": "秋田県"},
+	"06": {"minLat": 37.7338268,"minLng": 139.52001786,"maxLat": 39.21550714,"maxLng": 140.64649542,"prefectureName": "山形県"},
+	"07": {"minLat": 36.79131536,"minLng": 139.16475328,"maxLat": 37.97664441,"maxLng": 141.04611157,"prefectureName": "福島県"},
+	"08": {"minLat": 35.73913553,"minLng": 139.68769717,"maxLat": 36.945299,"maxLng": 140.85197438,"prefectureName": "茨城県"},
+	"09": {"minLat": 36.19968133,"minLng": 139.32656606,"maxLat": 37.15506239,"maxLng": 140.29225961,"prefectureName": "栃木県"},
+	"10": {"minLat": 35.985333,"minLng": 138.39702616,"maxLat": 37.05862633,"maxLng": 139.66994995,"prefectureName": "群馬県"},
+	"11": {"minLat": 35.75338411,"minLng": 138.71136047,"maxLat": 36.28341117,"maxLng": 139.90033869,"prefectureName": "埼玉県"},
+	"12": {"minLat": 34.89797428,"minLng": 139.73952617,"maxLat": 36.10409989,"maxLng": 140.88162009,"prefectureName": "千葉県"},
+	"13": {"minLat": 20.42274641,"minLng": 136.06952017,"maxLat": 35.898424,"maxLng": 153.98667512,"prefectureName": "東京都"},
+	"14": {"minLat": 35.12849244,"minLng": 138.91576791,"maxLat": 35.67289653,"maxLng": 139.83584148,"prefectureName": "神奈川県"},
+	"15": {"minLat": 36.73652877,"minLng": 137.63498475,"maxLat": 38.5535832,"maxLng": 139.89990467,"prefectureName": "新潟県"},
+	"16": {"minLat": 36.27436403,"minLng": 136.76835562,"maxLat": 36.98262295,"maxLng": 137.76338674,"prefectureName": "富山県"},
+	"17": {"minLat": 36.0672282,"minLng": 136.24200486,"maxLat": 37.85791469,"maxLng": 137.36526167,"prefectureName": "石川県"},
+	"18": {"minLat": 35.34367778,"minLng": 135.44933927,"maxLat": 36.29683928,"maxLng": 136.83236287,"prefectureName": "福井県"},
+	"19": {"minLat": 35.16838444,"minLng": 138.18008859,"maxLat": 35.97170841,"maxLng": 139.13441367,"prefectureName": "山梨県"},
+	"20": {"minLat": 35.19836572,"minLng": 137.32455175,"maxLat": 37.03042236,"maxLng": 138.73925433,"prefectureName": "長野県"},
+	"21": {"minLat": 35.13372908,"minLng": 136.27621706,"maxLat": 36.46506464,"maxLng": 137.65305684,"prefectureName": "岐阜県"},
+	"22": {"minLat": 34.57213583,"minLng": 137.47410694,"maxLat": 35.64595651,"maxLng": 139.17655861,"prefectureName": "静岡県"},
+	"23": {"minLat": 34.57354028,"minLng": 136.67103326,"maxLat": 35.42478825,"maxLng": 137.83811567,"prefectureName": "愛知県"},
+	"24": {"minLat": 33.72285805,"minLng": 135.85318416,"maxLat": 35.25764847,"maxLng": 136.9900837,"prefectureName": "三重県"},
+	"25": {"minLat": 34.79057083,"minLng": 135.76373248,"maxLat": 35.70373731,"maxLng": 136.45503834,"prefectureName": "滋賀県"},
+	"26": {"minLat": 34.70575361,"minLng": 134.85372667,"maxLat": 35.77925825,"maxLng": 136.05547639,"prefectureName": "京都府"},
+	"27": {"minLat": 34.27182083,"minLng": 135.09129805,"maxLat": 35.05129278,"maxLng": 135.74660306,"prefectureName": "大阪府"},
+	"28": {"minLat": 34.15515533,"minLng": 134.25273778,"maxLat": 35.67482295,"maxLng": 135.46859445,"prefectureName": "兵庫県"},
+	"29": {"minLat": 33.85895639,"minLng": 135.53968167,"maxLat": 34.78135583,"maxLng": 136.22986361,"prefectureName": "奈良県"},
+	"30": {"minLat": 33.43259863,"minLng": 134.99854499,"maxLat": 34.3844825,"maxLng": 136.01347222,"prefectureName": "和歌山県"},
+	"31": {"minLat": 35.05767833,"minLng": 133.13587917,"maxLat": 35.61458473,"maxLng": 134.51540805,"prefectureName": "鳥取県"},
+	"32": {"minLat": 34.30243861,"minLng": 131.66791112,"maxLat": 37.24777217,"maxLng": 133.39066306,"prefectureName": "島根県"},
+	"33": {"minLat": 34.29840341,"minLng": 133.26679333,"maxLat": 35.35290028,"maxLng": 134.41316112,"prefectureName": "岡山県"},
+	"34": {"minLat": 34.02765416,"minLng": 132.03644805,"maxLat": 35.10569111,"maxLng": 133.47064185,"prefectureName": "広島県"},
+	"35": {"minLat": 33.71266889,"minLng": 130.77477778,"maxLat": 34.79939778,"maxLng": 132.49218805,"prefectureName": "山口県"},
+	"36": {"minLat": 33.53858389,"minLng": 133.66074805,"maxLat": 34.25201936,"maxLng": 134.82231898,"prefectureName": "徳島県"},
+	"37": {"minLat": 34.01228639,"minLng": 133.44654112,"maxLat": 34.5648488,"maxLng": 134.44748639,"prefectureName": "香川県"},
+	"38": {"minLat": 32.88498277,"minLng": 132.01230931,"maxLat": 34.3016545,"maxLng": 133.6927975,"prefectureName": "愛媛県"},
+	"39": {"minLat": 32.70250223,"minLng": 132.47968833,"maxLat": 33.88336278,"maxLng": 134.31478681,"prefectureName": "高知県"},
+	"40": {"minLat": 33.00001897,"minLng": 129.98144934,"maxLat": 34.25024026,"maxLng": 131.19062499,"prefectureName": "福岡県"},
+	"41": {"minLat": 32.950485,"minLng": 129.73681139,"maxLat": 33.61899305,"maxLng": 130.54212722,"prefectureName": "佐賀県"},
+	"42": {"minLat": 31.96711395,"minLng": 128.10449047,"maxLat": 34.72860142,"maxLng": 130.39034571,"prefectureName": "長崎県"},
+	"43": {"minLat": 32.0949202,"minLng": 129.93876278,"maxLat": 33.19517549,"maxLng": 131.32950488,"prefectureName": "熊本県"},
+	"44": {"minLat": 32.71444495,"minLng": 130.82474981,"maxLat": 33.74028416,"maxLng": 132.17742586,"prefectureName": "大分県"},
+	"45": {"minLat": 31.35581998,"minLng": 130.70337694,"maxLat": 32.83897972,"maxLng": 131.88570722,"prefectureName": "宮崎県"},
+	"46": {"minLat": 27.01867833,"minLng": 128.39536694,"maxLat": 32.31059889,"maxLng": 131.2054475,"prefectureName": "鹿児島県"},
+	"47": {"minLat": 24.04561583,"minLng": 122.93260637,"maxLat": 27.88596444,"maxLng": 131.33212489,"prefectureName": "沖縄県"},
+};
+
+
+const kmlURLs={
+//	北海道：ない
+//	東北：
+	"02":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/02_aomori_kinkyuuyusou_line.kml",
+	"03":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/03_iwate_kinkyuuyusou_line.kml",
+	"04":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/04_miyagi_kinkyuuyusou_line.kml",
+	"05":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/05_akita_kinkyuuyusou_line.kml",
+	"06":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/06_yamagata_kinkyuuyusou_line.kml",
+	"07":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/07_fukushima_kinkyuuyusou_line.kml",
+//	関東
+	"08":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/08_ibaraki_kinkyuuyusou_line.kml",
+	"09":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/09_tochigi_kinkyuuyusou_line.kml",
+	"10":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/10_gunma_kinkyuuyusou_line.kml",
+	"11":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/11_saitama_kinkyuuyusou_line.kml",
+	"12":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/12_chiba_kinkyuuyusou_line.kml",
+	"13":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/13_tokyo_kinkyuuyusou_line.kml",
+	"14":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/14_kanagawa_kinkyuuyusou_line.kml",
+	"19":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/19_yamanashi_kinkyuuyusou_line.kml",
+	"20":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/20_nagano_kinkyuuyusou_line.kml",
+//	北陸
+	"15":"https://www.hrr.mlit.go.jp/road/doro_bousaijoho_webmap/kml/15_niigata_kinkyuuyusou_line.kml",
+	"16":"https://www.hrr.mlit.go.jp/road/doro_bousaijoho_webmap/kml/16_toyama_kinkyuuyusou_line.kml",
+	"17":"https://www.hrr.mlit.go.jp/road/doro_bousaijoho_webmap/kml/17_ishikawa_kinkyuuyusou_line.kml",
+//	中部
+	"21":"https://www.cbr.mlit.go.jp/road_map/doro_bosaijoho_webmap/kml/21_gifu_kinkyuuyusou_line.kml",
+	"22":"https://www.cbr.mlit.go.jp/road_map/doro_bosaijoho_webmap/kml/22_shizuoka_kinkyuuyusou_line.kml",
+	"23":"https://www.cbr.mlit.go.jp/road_map/doro_bosaijoho_webmap/kml/23_aichi_kinkyuuyusou_line.kml",
+	"24":"https://www.cbr.mlit.go.jp/road_map/doro_bosaijoho_webmap/kml/24_mie_kinkyuuyusou_line.kml",
+//	近畿
+	"18":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/18_fukui_kinkyuuyusou_line.kml",
+	"25":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/25_shiga_kinkyuuyusou_line.kml",
+	"26":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/26_kyoto_kinkyuuyusou_line.kml",
+	"27":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/27_osaka_kinkyuuyusou_line.kml",
+	"28":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/28_hyogo_kinkyuuyusou_line.kml",
+	"29":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/29_nara_kinkyuuyusou_line.kml",
+	"30":"https://www.kkr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/30_wakayama_kinkyuuyusou_line.kml",
+//	中国
+	"31":"https://www.cgr.mlit.go.jp/doro_bosaijoho_webmap/kml/31_tottori_kinkyuuyusou_line.kml",
+	"32":"https://www.cgr.mlit.go.jp/doro_bosaijoho_webmap/kml/32_shimane_kinkyuuyusou_line.kml",
+	"33":"https://www.cgr.mlit.go.jp/doro_bosaijoho_webmap/kml/33_okayama_kinkyuuyusou_line.kml",
+	"34":"https://www.cgr.mlit.go.jp/doro_bosaijoho_webmap/kml/34_hiroshima_kinkyuuyusou_line.kml",
+	"35":"https://www.cgr.mlit.go.jp/doro_bosaijoho_webmap/kml/35_yamaguchi_kinkyuuyusou_line.kml",
+//	四国
+	"36":"https://www.skr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/36_tokushima_kinkyuuyusou_line.kml",
+	"37":"https://www.skr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/37_kagawa_kinkyuuyusou_line.kml",
+	"38":"https://www.skr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/38_ehime_kinkyuuyusou_line.kml",
+	"39":"https://www.skr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/39_kochi_kinkyuuyusou_line.kml",
+//	九州
+	"40":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/40_fukuoka_kinkyuuyusou_line.kml",
+	"41":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/41_saga_kinkyuuyusou_line.kml",
+	"42":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/42_nagasaki_kinkyuuyusou_line.kml",
+	"43":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/43_kumamoto_kinkyuuyusou_line.kml",
+	"44":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/44_oita_kinkyuuyusou_line.kml",
+	"45":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/45_miyazaki_kinkyuuyusou_line.kml",
+	"46":"https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/kml/46_kagoshima_kinkyuuyusou_line.kml",
+//	沖縄： このサイトのssl中間証明書・・・
+	"47":"https://www.dc.ogb.go.jp/road/doro_bosaijoho_webmap/kml/47_okinawa_kinkyuuyusou_line.kml"
+};
+
+addEventListener("load",checkAndPrepareRequiredMaps);
+
+addEventListener("zoomPanMap",checkAndPrepareRequiredMaps);
+
+function checkAndPrepareRequiredMaps(){
+	//console.log("zoomPanMap vb:",svgImageProps.geoViewBox);
+	prefs = getOverlapedPrefs(svgImageProps.geoViewBox);
+	//console.log(prefs);
+	checkLackedDataAndDraw(prefs);
+	window.kmlRenderer = new KMLrenderer(svgMap);
+};
+
+function getOverlapedPrefs(vbox){
+	const vb={
+		minLat:vbox.y,
+		maxLat:vbox.y+vbox.height,
+		minLng:vbox.x,
+		maxLng:vbox.x+vbox.width
+	}
+	var ans = [];
+	for ( let pcode in prefBboxes){
+		var pbox = prefBboxes[pcode];
+		//console.log(pcode,vb,pbox);
+		if ( isBBoxOverlap(pbox,vb)){
+			ans.push(pcode);
+		}
+	}
+	return ans;
+}
+
+function isBBoxOverlap(bbox1, bbox2) {
+	//	console.log(bbox1,bbox2);
+	if (bbox1.maxLat < bbox2.minLat || bbox2.maxLat < bbox1.minLat) {
+		return false;
+	}
+	if (bbox1.maxLng < bbox2.minLng || bbox2.maxLng < bbox1.minLng) {
+		return false;
+	}
+	return true; // 重なっている
+}
+
+async function getXML(url){
+	showLoadingStatus();
+	const txtSrc = await ( await fetch(url)).text();
+	const parser = new DOMParser();
+	const dom = parser.parseFromString(txtSrc, "text/xml");
+	++ loadedCount;
+//	svgMapGIStool.drawKml(dom,layerID);
+	if (url.indexOf("https://www.qsr.mlit.go.jp/")>=0){
+		repairQsrLineStyle(dom);
+	} else {
+		setLineStyle(dom);
+	}
+	kmlRenderer.drawKml(dom,layerID);
+	svgMap.refreshScreen();
+	showLoadingStatus();
+	return dom;
+}
+
+let loadScheduledPrefs={};
+let loadingTotal, loadedCount;
+async function checkLackedDataAndDraw(pcodes){
+//	loader.style.display="";
+	var srcPs=[];
+	loadingTotal = 0;
+	loadedCount = 0;
+	for ( let pcode of pcodes){
+		if ( !loadScheduledPrefs[pcode]){
+			++loadingTotal;
+			loadScheduledPrefs[pcode]=true; //
+			if (kmlURLs[pcode]){
+				srcPs.push(getXML(svgMap.getCORSURL(kmlURLs[pcode])));
+			}
+		}
+	}
+	await Promise.all(srcPs);
+	console.log("done");
+//	loader.style.display="none";
+	message.innerText="-";
+}
+
+function showLoadingStatus(){
+//	++loadedCount;
+	message.innerText=`読み込み中：${loadedCount+1} / ${loadingTotal}`;
+}
+
+var catStyles ={
+	1:"ffffaa00", // ABGR// 00aaff
+	2:"ff00734c", // 4c7300
+	3:"ff3399cc", // cc9933
+	9:"ff00aaaa"
+}
+
+function repairQsrLineStyle(kml){
+	// 九州の(https://www.qsr.mlit.go.jp/n-michi/doro_bosaijoho_webmap/main/leaflet/KML.js)の
+	// 色設定ロジック間違ってる・・ KMLのcolorの並びはAARRGGBBじゃなくて、AABBGGRRが正しい。
+	// https://developers.google.com/kml/documentation/kmlreference?hl=ja#colorstyle
+	// しかも九州だけ他と凡例が違う・・色々ポンコツ・・・ということで修正する
+	QsrCatColors={
+		"FFFF0000":"1",
+		"FF00FF00":"2",
+		"FFE69138":"3"
+	}
+	var styles = kml.getElementsByTagName("Style");
+	for ( var st of styles ){
+		if ( st.getAttribute("id")){
+			var co = st.getElementsByTagName("color")[0];
+			var catNumb = QsrCatColors[co.textContent.trim()];
+			if (catNumb){
+				co.textContent = catStyles[catNumb];
+			}
+		}
+	}
+}
+
+function setLineStyle(kml){
+	var pms = kml.getElementsByTagName("Placemark");
+	// https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N10-v1_1.html の緊急輸送道路の指定区分に基づいてラインスタイルを設定
+	//console.log(pms);
+	for ( var pm of pms){
+		var meta ={};
+		var metaElms = pm.getElementsByTagName("SimpleData");
+		for ( var metaElm of metaElms){
+			meta[metaElm.getAttribute("name")]=metaElm.textContent;
+		}
+		var cat = meta["N10_002"]
+		var lineColorElm = (pm.getElementsByTagName("LineStyle")[0])?.getElementsByTagName("color")[0];
+		/**
+		if (!lineColorElm){
+			var c=svgImage.createElement("color");
+			var ls=svgImage.createElement("LineStyle");
+			var st=svgImage.createElement("Style");
+			ls.appendChild(c);
+			st.appendChild(ls);
+			pm.appendChild(st);
+			lineColorElm = c;
+			console.log(pm);
+		}
+		**/
+		if ( cat && catStyles[cat] && lineColorElm){
+			lineColorElm.textContent=catStyles[cat];
+			//console.log("cat:",cat," lineColorElm.textContent:",lineColorElm.textContent);
+		}
+	}
+}
+
+</script>
+<body>
+<h3>国交省緊急輸送道路レイヤー</h3>
+<p style="font-size:12px">出典：<a target="_blank" href="https://www.mlit.go.jp/road/bosai/doro_bosaijoho_webmap/index.html">道路防災情報WEBマップ（道路に関するハザードマップ）</a></p>
+<p></p>
+
+<span title="Collapse this branch"><i class="icon-folder-open icon-minus-sign"></i> 緊急輸送道路凡例<br>（<font color="#00aaff">■</font>：一次、<font color="#4c7300">■</font>：二次、<font color="#cc9933">■</font>：三次）</span>
+
+<div id="message" style="color:red">-</div>
+<!--<div id="loader"></div>-->
+
+</body>
+</html>
