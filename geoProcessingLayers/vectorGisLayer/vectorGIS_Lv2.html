@@ -11,9 +11,20 @@
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
 
 <script>
-// svgMapGIStool.buildIntersectionを使い、Intersectionを生成する。
+// Description: VectorGIS Level2 Layer
+// svgMapGIStool.buildIntersectionを使い、レイヤー間で任意のfeature typeのIntersectionを生成する。
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // なおvectorIntersectionGISのほうは、ポイントとポリゴンの間でのみ対応したAPIを使う(その代わり高速)が、こちらは任意のベクトルを対象。Intersectionで形状が切り抜かれる。
 // ラインやポリゴンの地物の、他のポリゴンへの包含検索に使用することを想定している
+//
+// History:
 // 2016/12/07: 1st ver　テスト ( Land Slideポリゴンが包含するActive Falutラインの部分を切り出す機能としてテスト)
 // 2020/01/08: 任意のレイヤーを選択可能にする
 // 2020/01/10: differenceを実装

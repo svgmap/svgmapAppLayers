@@ -1,5 +1,13 @@
+// Description:
 // eStatレイヤーを使って、指定したレイヤーのポリゴンに包含される人口や世帯数を統計する
 // 他のレイヤーを連携させて機能させるデザインパターンの習作の側面が強い
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 vectorGISlayerName="Vector GIS Lv2";
 var vectorGisWindow;

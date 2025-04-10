@@ -5,7 +5,7 @@
 <title>img2vector</title>
 </head>
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
-<script src="./potrace.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/satakagi/potrace@master/potrace.js"></script>
 <script type="module">
 	import {SvgCurve2Line} from "./SvgCurve2Line.js"; // オリジナルのpotrace.jsはベジェで生成するため、それをポリラインに変換するライブラリ
 	window.SvgCurve2Line = SvgCurve2Line;
@@ -27,22 +27,11 @@
 // ビットイメージのレイヤーをトレースして、ベクトルポリゴンデータを抽出するSVGMapレイヤー
 //
 // Programmed by Satoru Takagi
-// Copyright 2024-2024 by Satoru Takagi @ KDDI All Rights Reserved
-//
-// ライセンスは、potrace.jsをベースとしているためGPL3とする
-//
-// License: (GPL v3)
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License version 3 as
-//  published by the Free Software Foundation.
-//  
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//  
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Version History
 // Rev1 2024/11/20 最初の稼働版

@@ -1,6 +1,13 @@
+// Description:
 // 日本の市区町村ポリゴンに色塗りする感じのSVGMap WebAppレイヤー SVGMapFrame準拠の外部操作APIも備える
-// Copyright 2023 by Satoru Takagi All Rights Reserved
+//
 // Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 
 // 2023/4/27 自治体ポリゴンとしてJMAの注意報・警報システムのデータを利用する版(ただし、ひとまずジオコーダ機能はついていない限定版)
 // 2023/4/27 ESM化

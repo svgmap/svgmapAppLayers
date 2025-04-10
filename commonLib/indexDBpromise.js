@@ -1,4 +1,13 @@
-// IndexedDBのPromise版オブジェクト生成関数
+// Description: IndexedDBのPromise版オブジェクト生成関数
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
 // 2021.10.11 close, mput, mget
 
 function getDB(dbName_tableName){ // IndexedDBのPromise版オブジェクト生成関数 一個のテーブルが一個のIndexedDBに作られるパターンのみ(今のところ)

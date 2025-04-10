@@ -1,5 +1,12 @@
 // 日本の市区町村メッシュに色塗りする感じのSVGMap WebAppレイヤー SVGMapFrame準拠の外部操作APIも備える
 // jpn_lg_a.jsのラスター(メッシュ)版
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 
 //
 // メリット：元データの生成が完全自動

@@ -1,22 +1,13 @@
 // Description:
 // csvInputUI_r*.js : CSV入力UI for CSVレイヤー
+// Description: Dynamic  plate carrée Tile Pyramid Layer for SVGMap 
+//
+// Programmed by Satoru Takagi
 // 
-//  Programmed by Satoru Takagi
-//  
-//  Copyright (C) 2024 by Satoru Takagi @ KDDI CORPORATION
-//  
-// License: (GPL v3)
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License version 3 as
-//  published by the Free Software Foundation.
-//  
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//  
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // history:
 // 2024/3/6 ISSUE対応のためXHTML化とともに、jsを別ファイルに　いろいろお行儀もよくなった

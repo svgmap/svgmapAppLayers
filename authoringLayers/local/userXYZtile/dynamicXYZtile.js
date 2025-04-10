@@ -1,20 +1,13 @@
 	// Dynamic XYZ mercator tle pyramid for SVGMap Sample for SVGMapLevel0 > r10
+	//
 	// Programmed by Satoru Takagi
-	// Copyright (C) 2013-2024 by Satoru Takagi @ KDDI CORPORATION
 	// 
-	// License:
-	//  This program is free software: you can redistribute it and/or modify
-	//  it under the terms of the GNU General Public License version 3 as
-	//  published by the Free Software Foundation.
+	// License: (MPL v2)
+	// This Source Code Form is subject to the terms of the Mozilla Public
+	// License, v. 2.0. If a copy of the MPL was not distributed with this
+	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 	//
-	//  This program is distributed in the hope that it will be useful,
-	//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-	//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	//  GNU General Public License for more details.
 	//
-	//  You should have received a copy of the GNU General Public License
-	//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
-
 	// iframe化を想定した動的レイヤーのプロトタイプ
 	// (JavaScriptをインポートSVGコンテンツに置くことができる。)
 	// 地図データとしては、OpenStreetMapを利用（比較的容易に他にも置き換えられる）

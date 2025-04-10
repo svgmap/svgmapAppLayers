@@ -1,5 +1,12 @@
 // ZipDataDownloader: zip.jsをasync/awaitなどでモダンに使えるようにする
+//
 // Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 //
 // 2023/01/26 1st rel.
 // 2024/05/01 support sjis (shift-jis) text ( option:{encoding:"sjis"} )

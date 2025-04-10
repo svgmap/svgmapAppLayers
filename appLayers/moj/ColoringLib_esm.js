@@ -1,6 +1,14 @@
 // ColoringLib.js
 // 塗分けライブラリ
-
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+//
 // 数値->Hue->色変換関数(ヒートマップ) : getColor
 // 文字列->色変換関数(適当なハッシュ関数) : stringToColour , stringToColour2
 

@@ -2,22 +2,14 @@
 <svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="id,type,latitude,longitude,title,address,spec" data-controller="gsiTile.html#exec=hiddenOnLayerLoad">
 <script>
 	// Dynamic DenshiKokudo Layer for SVGMap Sample for SVGMapLevel0 ＞ r10
+	//
 	// Programmed by Satoru Takagi
-	// Copyright (C) 2013..2016 by Satoru Takagi @ KDDI CORPORATION
 	// 
-	// License:
-	//  This program is free software: you can redistribute it and/or modify
-	//  it under the terms of the GNU General Public License version 3 as
-	//  published by the Free Software Foundation.
+	// License: (MPL v2)
+	// This Source Code Form is subject to the terms of the Mozilla Public
+	// License, v. 2.0. If a copy of the MPL was not distributed with this
+	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 	//
-	//  This program is distributed in the hope that it will be useful,
-	//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-	//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	//  GNU General Public License for more details.
-	//
-	//  You should have received a copy of the GNU General Public License
-	//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
-
 	// iframe化を想定した動的レイヤーのプロトタイプ
 	// (JavaScriptをインポートSVGコンテンツに置くことができる。)
 	// 地図データとしては、OpenStreetMapを利用（比較的容易に他にも置き換えられる）

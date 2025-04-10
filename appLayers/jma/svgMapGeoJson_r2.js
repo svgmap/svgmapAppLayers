@@ -1,3 +1,12 @@
+// svgMapGeoJsonRenderer
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
 // 2021/4/13 SVGMapLv0.1_GIS_r3.jsに反映し、開発終了！
 
 ( function ( window , undefined ) { 

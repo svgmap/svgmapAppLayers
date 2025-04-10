@@ -1,20 +1,13 @@
+// Description:
 // NASA FIRMS (リモートセンシングによる火災マップ)レイヤー
-//  Programmed by Satoru Takagi
-//  
-//  Copyright (C) 2025 by Satoru Takagi @ KDDI CORPORATION
-
-// License:
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License version 3 as
-//  published by the Free Software Foundation.
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see (http://www.gnu.org/licenses/) .
 //
 // History: 
 // 2025/02/27 : initial　基本的な表示機能

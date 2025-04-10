@@ -49,6 +49,7 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastOldNowCast/jmaHrRain_r3.svg" title="JMA過去の災害記録" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2" title="JMA過去の災害記録(2021-)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/droneBird/droneBird.svg" title="DRONEBIRD" class="災害" visibility="hidden" opacity="0.7"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/nasa_FIRMS/firms.svg" title="火災情報(NASA FIRMS)" class="災害" visibility="hidden" opacity="0.7"/>
 
 
 <!-- 海洋情報系 -->
