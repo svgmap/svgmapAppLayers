@@ -28,10 +28,24 @@ function lock($lock='./foo.lock'){
     return $fp;
 }
 
+function getMediaFiles($media_folder, $media_extensions) {
+    // Split the extensions into an array
+    $extensions = explode(',', $media_extensions);
 
+    // Initialize an array to hold the results
+    $media_files = [];
+
+    // Loop through each extension and merge the results
+    foreach ($extensions as $extension) {
+        $media_files = array_merge($media_files, glob("$media_folder/*.$extension")); // */
+    }
+
+    return $media_files;
+}
 
 function getFilePathArray( $contentDir ){
-  $clist = glob( $contentDir . "{*.svg,*.csv,*.json,*.geojson,*.zip}", GLOB_BRACE ); // */
+  //$clist = glob( $contentDir . "{*.svg,*.csv,*.json,*.geojson,*.zip}", GLOB_BRACE ); // */
+  $clist = getMediaFiles($contentDir, "svg,csv,json,geojson,zip");
   //echo "getFilePathArray:";
   //print_r( $clist);
   $pathHash = array();
@@ -119,7 +133,7 @@ if( isset($_POST['title'])){
   $current = getFnames($indexFile , $contentDir);
   $current .= $write . "\n";
   
-  echo $current;
+  //echo $current;
   
   file_put_contents($indexFile, $current, LOCK_EX);
   
@@ -129,11 +143,13 @@ if( isset($_POST['title'])){
     $success = move_uploaded_file($_FILES['svgmapdata']['tmp_name'], $uploadFile);
   } else if (isset($_POST['svgmapdata']) ){
     $content = $_POST['svgmapdata'];
-    file_put_contents( $contentDir . $contentFile, $content, LOCK_EX);
+    $success = file_put_contents( $contentDir . $contentFile, $content, LOCK_EX);
   }
   
   if ( !$success ){
     echo "Upload Operation ERROR..." ;
+  } else {
+    echo $write;
   }
   
 } elseif (isset($_GET["sync"])) {
@@ -142,7 +158,7 @@ if( isset($_POST['title'])){
   echo "sync completed" ;
 } elseif (isset($_GET["remove"])) {
   $fileName = $_GET["remove"];
-  $fileName = str_replace(array("\r\n", "\r", "\n" , "," , "*" , "?" , "[" , "]" , "^" , "$" ), '', $fileName);
+  $fileName = str_replace(array("\r\n", "\r", "\n" , ".." , "," , "/" , "*" , "?" , "[" , "]" , "^" , "$"  ), '', $fileName);
   $fileName = basename($fileName);
   if (unlink($contentDir . $fileName)){
     $current = getFnames($indexFile , $contentDir);
