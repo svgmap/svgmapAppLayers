@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<title>USGS Earthquake layer</title>
+<meta charset="utf-8"></meta>
+</head>
+
+<style>
+.highlighted-row {
+  background-color: yellow; /* ハイライトの色 */
+}
+.displayed-highlighted-button {
+  background-color: orange; /* ハイライトボタンの色 */
+}
+
+
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="usgsEarthquake.js"></script>
+<body>
+<h4>USGS 地震レイヤー</h4>
+<div style="font-size:12px">
+出典：<a href="https://earthquake.usgs.gov/" target="_blank">Earthquake Hazards Program | U.S. Geological Survey</a>
+</div>
+
+<div id="eqListMode">
+	<div style="font-size:12px">
+		期間・マグニチュード設定<select id="changeTimeSpanSelect">
+		<option value="m2p5_day" selected>今日・M2.5以上</option>
+		<option value="m2p5_week">一週間・M2.5以上</option>
+		<option value="m4p5_month">一か月・M4.5以上</option>
+		<option value="custom">カスタム</option>
+		</select>
+	</div>
+	<div id="customSpan" style="display:none;font-size:12px">
+		<li>期間：<input type="date" id="fromDatePicker"></input>～<input type="date" id="toDatePicker"></input>
+		<input type="checkbox" id="vpsearchCk" checked /><label style="font-size:11px" for="vpsearchCk">表示領域で検索</label>
+		<li>マグニチュード：<input type="number" value="4.5" style="width:40px" id="minMagInput" min="0.5"></input>以上
+		　　<input type="button" value="検索" style="width:50px" id="searchSpan"></input>
+	</div>
+
+		<div id="eqLhanrei" style="font-size:11px">
+			<div><!--凡例--> <input type="checkbox" id="detailOnlyCk" /><label style="font-size:11px" for="detailOnlyCk">詳細あるものみ表示</label></div>
+		</div>
+		<table id="eqList" style="font-size:11px">
+		</table>
+</div>
+<div id="eqDetailMode" style="display:none">
+	<div id="eqShanrei" style="font-size:11px">
+		<input type="button" value="リスト表示に戻る" id="retuenToListBtn" onclick="changeListMode()" />
+		<div>凡例 (<a href="mmi_vs_jpIntensity.html" target="_blank">参考情報</a>)<br><img id="legendImg" style="width:100%"></img></div>
+	</div>
+</div>
+<div id="msgDiv"></div>
+</body>
+
+</html>
+
