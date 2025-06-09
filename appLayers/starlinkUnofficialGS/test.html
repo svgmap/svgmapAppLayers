@@ -61,7 +61,7 @@ async function getGoogleMymap(srcUrl){
 	
 	//console.log(gmPOIrawSrc);
 	var gmPOIsrc = traverseArray(gmPOIrawSrc); // 配列の構造が意味不明（というより解析がもう面倒なので・・）1次元配列化し、前後関係だけから適当にPOIを抜き出すことにする
-	console.log(gmPOIsrc);
+	//console.log(gmPOIsrc);
 	
 	var POIs = serarchPOIs(gmPOIsrc);
 	//console.log(POIs);
@@ -76,18 +76,20 @@ function serarchPOIs(gmPOIsrcArray){
 	
 	var aIdx=0;
 	while( aIdx < gmPOIsrcArray.length){
-		var poiD=searchPOI(gmPOIsrcArray,aIdx);
+//		var poiD=searchPOI(gmPOIsrcArray,aIdx);
+		var poiD=searchPOI2(gmPOIsrcArray,aIdx);
 		aIdx = poiD.index;
 		if ( poiD.poi){
 			pois.features.push(poiD.poi);
 		}
-//		console.log(poiD.poi, aIdx, gmPOIsrcArray.length);
+		//console.log(poiD.poi, aIdx, gmPOIsrcArray.length);
+		//console.log( aIdx, gmPOIsrcArray.length);
 	}
 //	console.log("completed");
 	return pois;
 }
 
-function searchPOI(gmPOIsrcArray,initialIndx){
+function searchPOI(gmPOIsrcArray,initialIndx){ // Obsoluted 2024/04/11
 	var name, Status, nameIndex, Location, Freq, Application, Notes, Date;
 	for ( var i = initialIndx ; i < gmPOIsrcArray.length ; i++){
 		if ( gmPOIsrcArray[i]=="Description" ){
@@ -145,6 +147,79 @@ function searchPOI(gmPOIsrcArray,initialIndx){
 		index:endIndex
 	}
 }
+
+function searchPOI2(gmPOIsrcArray,initialIndx){
+	var keys=["Description","Coords","Location","Notes","Status","Ka Operational","E Operational","Freq","Image"];
+	var poiObj={};
+	var index=initialIndx;
+	var firstMetaIndex = -1;
+	var nextIndex = -1;
+	while(index<gmPOIsrcArray.length){
+		var dat  = gmPOIsrcArray[index];
+		if ( keys.indexOf(dat) >=0){
+			if ( poiObj[dat]){
+				nextIndex = index;
+				break;
+			}
+			if ( firstMetaIndex ==-1){
+				firstMetaIndex = index;
+			}
+			++index;
+			poiObj[dat]=gmPOIsrcArray[index];
+		}
+		++index;
+	}
+	if ( nextIndex ==-1){
+		nextIndex = gmPOIsrcArray.length;
+	}
+	if ( poiObj.Location){
+		poiObj.title=poiObj.Location;
+	}
+	var lat0,lng0;
+	if ( poiObj.Coords){
+		var crds = poiObj.Coords.split(",");
+		if ( crds.length == 2 ){
+			if ( !isNaN(crds[0]) && !isNaN(crds[1])){
+				lat0=Number(crds[0]);
+				lng0=Number(crds[1]);
+			}
+		}
+	}
+	
+	var lat,lng;
+	for ( var i = firstMetaIndex-1 ; i > firstMetaIndex - 6 ; i--){
+		if ( typeof gmPOIsrcArray[i] =="number" && gmPOIsrcArray[i] % 1 != 0){
+			if ( !lng){
+				lng = gmPOIsrcArray[i];
+			} else {
+				lat = gmPOIsrcArray[i];
+				break;
+			}
+		}
+	}
+	//console.log(poiObj,lat,lng);
+	
+	if (lat0==lat && lng0==lng){
+		return {
+			poi:{
+				type:"Feature",
+				geometry:{
+					type:"Point",
+					coordinates:[lng,lat],
+				},
+				properties:poiObj
+			},
+			index:nextIndex
+		}
+	} else {
+//		console.log("Not equal: ",  lat0,lat," : ", lng0,lng);
+		return {
+			poi:null,
+			index:nextIndex
+		}
+	}
+}
+
 
 async function loadHtml(url){
 	var res = await fetch(url);

@@ -1,14 +1,14 @@
 // 
 // Description:
 // WebApp layer for SVGMap.js to draw experimental GSI map data in mapbox vector tile data format.
-//
-// Programmed by Satoru Takagi
 // 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-//
+// 
 // History:
 //  2021/03/01 mapboxのバイナリデータ形式の読み込み方法が判明
 //  2021/04/01 スタイリングは全くやっていませんが、基本的なレンダリングを実装(ビューボックス(ズームレベル・表示領域)に応じた等分割タイルピラミッドの差分取得と描画)
