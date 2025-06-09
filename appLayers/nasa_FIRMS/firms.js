@@ -20,11 +20,21 @@ let scale ="fires";
 
 onload=function(){
 	addEventListener("zoomPanMap",zpmFunc);
+	addEventListener("screenRefreshed",screenRefreshedFunc);
 	changeScaleSelect.addEventListener("change",scaleSel);
 	changeTimeSpanSelect.addEventListener("change",tsSel);
-	fromDatePicker.addEventListener("change",customSpanSel);
-	toDatePicker.addEventListener("change",customSpanSel);
+	dayBeforePicker.addEventListener("change",customSpanBtnSet);
+	toDatePicker.addEventListener("change",customSpanBtnSet);
+	customSpanSetButton.addEventListener("click",customSpanSel);
 	zpmFunc();
+}
+
+function screenRefreshedFunc(){
+	msgDiv.innerText="";
+	if ( searchWaiting ){
+		console.log("screenRefreshed");
+	}
+	searchWaiting = false;
 }
 
 function tsSel(){
@@ -51,13 +61,21 @@ function tsSel(){
 	zpmFunc();
 }
 
+let searchWaiting = false;
 function customSpanSel(event){
 	trimDate(event.target);
 	const csStr = getCustomSpanStr();
 	console.log("customSpanSel:",csStr);
 	timeSpan = csStr;
+	searchWaiting=true;
+	msgDiv.innerText="loading";
 	clearAllTiles();
 	zpmFunc();
+	customSpanSetButton.disabled=true;
+}
+
+function customSpanBtnSet(event){
+	customSpanSetButton.disabled=false;
 }
 
 function trimDate(targetElm){
@@ -69,24 +87,45 @@ function trimDate(targetElm){
 }
 
 function getCustomSpanStr(){
-	let ans;
-	if ( new Date(fromDatePicker.value) > new Date(toDatePicker.value)){
-		ans = `${toDatePicker.value},${fromDatePicker.value}`;
-	} else {
-		ans = `${fromDatePicker.value},${toDatePicker.value}`;
-	}
+	const fromDate = getXDaysAgo(Number(dayBeforePicker.value), new Date(toDatePicker.value));
+	const ans = `${fromDate},${toDatePicker.value}`;
 	return ans;
+}
+
+function getXDaysAgo(x, setDay) {
+  const pastDate = new Date(setDay); // 現在の日付をコピー
+  pastDate.setDate(setDay.getDate() - x);
+
+  const year = pastDate.getFullYear();
+  const month = String(pastDate.getMonth() + 1).padStart(2, '0');
+  const day = String(pastDate.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function setDefaultCustomSpan(){
 	const today = new Date();
-	const sevenDaysAgo = new Date(today);
-	sevenDaysAgo.setDate(today.getDate() - 7);
-	console.log(today,sevenDaysAgo);
-	fromDatePicker.value = sevenDaysAgo.toISOString().split('T')[0]; 
-	toDatePicker.value = today.toISOString().split('T')[0]; 
-	console.log("setDefaultCustomSpan:",fromDatePicker.value, toDatePicker.value);
+//	const sevenDaysAgo = new Date(today);
+//	sevenDaysAgo.setDate(today.getDate() - 7);
+//	console.log(today,sevenDaysAgo);
+//	fromDatePicker.value = sevenDaysAgo.toISOString().split('T')[0]; 
+	toDatePicker.value = today.toISOString().split('T')[0];
+	setMax2Today(toDatePicker);
+	dayBeforePicker.value=7;
+//	console.log("setDefaultCustomSpan:",fromDatePicker.value, toDatePicker.value);
 	timeSpan = getCustomSpanStr();
+	customSpanSetButton.disabled=true;
+	searchWaiting=true;
+	msgDiv.innerText="loading";
+}
+
+function setMax2Today(dateInput){
+	const today = new Date();
+	const year = today.getFullYear();
+	const month = String(today.getMonth() + 1).padStart(2, '0'); // 月は0から始まるため+1、2桁表示に
+	const day = String(today.getDate()).padStart(2, '0');       // 日を2桁表示に
+	const formattedToday = `${year}-${month}-${day}`;
+	dateInput.max = formattedToday;
 }
 
 function scaleSel(){

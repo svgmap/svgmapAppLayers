@@ -38,8 +38,10 @@
 </span>
 <div id="customSpan" style="display:none;font-size:12px">
 	カスタム期間
-	<input type="date" id="fromDatePicker">～
-	<input type="date" id="toDatePicker">
+<!--	<input type="date" id="fromDatePicker"></input>～-->
+	<input type="date" id="toDatePicker"></input>から
+	<input type="number" min="0" max="30" step="1" value="7" id="dayBeforePicker" style="width:30px"></input>日前までの期間
+	<input type="button" id="customSpanSetButton" value="決定"></input>
 </div>
 
 <div id="hanrei" style="font-size:11px">
@@ -81,6 +83,8 @@
 	    <span  style="background:rgba(255, 255, 190, 1)">　</span><span> &gt; 5</span>    
 	</div>
 </div>
+
+<div id="msgDiv" style="font-size:11px"></div>
 
 </body>
 
