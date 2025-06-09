@@ -20,17 +20,22 @@
 var pbfLayerID,pbfImage,pbfImageProps; 
 var pbfEnabled = true;
 //var basePbfURL :"https://www.jma.go.jp/bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/[[category2]]/[[category3]]/[[zoom]]/[[tx]]/[[ty]].pbf" でcat*,*time設定したものを与える
-//var basePbfURL0 = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210701002000/none/20210701002000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
-var basePbfURL0 = "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
-function setPbfURL(baseT,validT){
-	var pburl=basePbfURL0.replace("[[baseTime]]",baseT);
+//var basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210701002000/none/20210701002000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
+//var basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf"; // このグローバル変数はjmaHpSvから設定される
+let basePbfURL;
+function setPbfURL(baseT,validT, basePbfURLparam){
+	basePbfURL = basePbfURLparam;
+	if (!basePbfURL){
+		basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
+	}
+	var pburl=basePbfURL.replace("[[baseTime]]",baseT);
 	pburl=pburl.replace("[[validTime]]",validT);
-	basePbfURL = pburl;
-	console.log("setPbfURL basePbfURL:",basePbfURL);
+	basePbfTileURL = pburl;
+	console.log("setPbfURL basePbfTileURL:",basePbfTileURL);
 	clearAllTiles();
 	zoomPanMapFunction();
 }
-var basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210630222000/none/20210630222000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
+var basePbfTileURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210630222000/none/20210630222000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
 // ここまで
 
 
@@ -128,7 +133,7 @@ async function drawPbfTile(tx,ty,tz,tileContElement){
 }
 
 function getURL(tx,ty,tz){
-	var mapServerURL = basePbfURL.replace("[[zoom]]", tz );
+	var mapServerURL = basePbfTileURL.replace("[[zoom]]", tz );
 	mapServerURL = mapServerURL.replace("[[tx]]", tx );
 	mapServerURL = mapServerURL.replace("[[ty]]", ty );
 	return ( mapServerURL );

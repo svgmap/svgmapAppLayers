@@ -13,6 +13,10 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
+// 2023/07 初期版
+// 2025/05/09 過去の情報対応
 
 var  hasDatOnly = true; // 情報があるエリアのみ表示
 
@@ -75,15 +79,19 @@ var lsmapData;
 
 
 
+
+const currentBaseURL = "https://www.jma.go.jp/";
+let baseURL = currentBaseURL;
+
 var urls={
-	mainSrcData:"https://www.jma.go.jp/bosai/warning/data/warning/map.json",//　本体データ
-	landslideSrcData:"https://www.jma.go.jp/bosai/warning/data/landslide/map.json",//　本体データ
-	movieSrcData:"https://www.jma.go.jp/bosai/warning/data/warning/movie.json",// 直近の予想(もっと先は別レイヤ:早期注意情報)
-	catDict:"https://www.jma.go.jp/bosai/const/selectorinfos/probability.json",//　名称辞書？
-	mapData:"https://www.jma.go.jp/bosai/common/const/geojson/class10s.json",// 地図データ？
-	areaStruct:"https://www.jma.go.jp/bosai/forecast/const/week_area05.json",// 週予報時にエリアが包含される？
-	areaNames:"https://www.jma.go.jp/bosai/common/const/area.json",//　エリアの名称辞書？
-	lsAreaNames:"https://www.jma.go.jp/bosai/common/const/landslide_area.json", // 土砂災害エリア辞書(包含関係)情報
+	mainSrcData:"bosai/warning/data/warning/map.json",//　本体データ
+	landslideSrcData:"bosai/warning/data/landslide/map.json",//　本体データ
+	movieSrcData:"bosai/warning/data/warning/movie.json",// 直近の予想(もっと先は別レイヤ:早期注意情報)
+	catDict:"bosai/const/selectorinfos/probability.json",//　名称辞書？
+	mapData:"bosai/common/const/geojson/class10s.json",// 地図データ？
+	areaStruct:"bosai/forecast/const/week_area05.json",// 週予報時にエリアが包含される？
+	areaNames:"bosai/common/const/area.json",//　エリアの名称辞書？
+	lsAreaNames:"bosai/common/const/landslide_area.json", // 土砂災害エリア辞書(包含関係)情報
 }
 
 var mainSrcData,landslideSrcData, catDict,mapData,areaStruct,areaNames,lsAreaNames,movieSrcData;
@@ -99,11 +107,24 @@ var appearedWarnings; // 現況・直近含め現在現出しているワーニ�
 
 var movieValuesMeta={"00":"None","10":"Low","30":"High"};
 
-addEventListener("load",init); // このソフトウェアの入り口
+addEventListener("load",initLoad); // このソフトウェアの入り口
+
+async function initLoad(){
+	await loadLsMaps(); // これはbaseURLが変わっても常に同じなのだと思う
+	await init();
+}
+
+function changeBaseURL(url){
+	if ( url ){
+		baseURL = url;
+	} else {
+		baseURL = currentBaseURL;
+	}
+	init();
+}
 
 async function init(){
 	await loadData();
-	await loadLsMaps();
 	
 	appearedWarnings ={};
 	console.log({mainSrcData,landslideSrcData,catDict,mapData,areaStruct,areaNames});
@@ -147,7 +168,7 @@ async function loadData(){
 	var ps=[];
 	for ( var vn in urls){
 		ps.push(async function (){
-			window[vn] = await fetchJson(urls[vn]);
+			window[vn] = await fetchJson(baseURL+urls[vn]);
 		}());
 	}
 	await Promise.all(ps);
@@ -947,7 +968,7 @@ function drawView(timeIndexValue, filterObj){ // すべての描画処理(地図
 </script>
 <body>
 <h4>気象庁警報注意報レイヤー <span id="hasDatOnlySpan"></span></h4>
-出典 <a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&elem=all&contents=warning">気象庁　気象警報・注意報</a>
+<div style="font-size:12px">出典 <a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&elem=all&contents=warning">気象庁ホームページ　気象警報・注意報</a>を加工して作成</div>
  <span style="font-size:11px;"><input type="checkbox" id="highFilterCheck" onchange="warnFilter(event)"></input><label for="highFilterCheck">警報級のみ</label><select id="timeSelect"></select><select id="typeSelect"></select></span>
 <table border="1" id="probTbl" style="font-size:10px;"></table>
 </body>

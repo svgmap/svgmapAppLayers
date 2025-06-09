@@ -10,8 +10,8 @@
 // Description:
 // 過去の高分解能降水ナウキャストを表示するSVGMapレイヤー
 // 
-// Programmed by Satoru Takagi
-// 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -165,7 +165,7 @@ function removeChildren(ele){
 </script>
 <body>
 <h3 id="head1">過去の気象災害の記録(~2020)</h3>
-<div style="font-size:12px"><a href="https://www.jma.go.jp/jma/kishou/know/bosai/riskmap.html#:~:text=%E3%81%AE%E5%AF%BE%E5%BF%9C%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6-,%E4%B8%BB%E3%81%AA%E7%81%BD%E5%AE%B3%E7%99%BA%E7%94%9F%E6%99%82%E3%81%AE%E3%82%AD%E3%82%AD%E3%82%AF%E3%83%AB%EF%BC%88%E5%8D%B1%E9%99%BA%E5%BA%A6%E5%88%86%E5%B8%83%EF%BC%89%E3%81%AE%E7%8A%B6%E6%B3%81,-%E9%81%8E%E5%8E%BB%E3%81%AE%E5%AE%9F%E9%9A%9B">気象庁 主な災害発生時のキキクル（危険度分布）の状況</a>
+<div style="font-size:12px">出典：<a href="https://www.jma.go.jp/jma/kishou/know/bosai/riskmap.html#:~:text=%E3%81%AE%E5%AF%BE%E5%BF%9C%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6-,%E4%B8%BB%E3%81%AA%E7%81%BD%E5%AE%B3%E7%99%BA%E7%94%9F%E6%99%82%E3%81%AE%E3%82%AD%E3%82%AD%E3%82%AF%E3%83%AB%EF%BC%88%E5%8D%B1%E9%99%BA%E5%BA%A6%E5%88%86%E5%B8%83%EF%BC%89%E3%81%AE%E7%8A%B6%E6%B3%81,-%E9%81%8E%E5%8E%BB%E3%81%AE%E5%AE%9F%E9%9A%9B" target="_blank">気象庁ホームページ 主な災害発生時のキキクル（危険度分布）の状況</a>を加工して作成
 <p>
 <select id="jireiSelectUI" onchange="selectJireiCat()"></select>
 <select id="catSelectUI" onchange="selectJireiCat()"></select>
@@ -181,7 +181,7 @@ function removeChildren(ele){
 <input type="button" onClick="stopAnim()" value="Stop" />
 
 <div>
-<img src="" id="legendImg">
+<img src="" id="legendImg" height="140">
 </div>
 </body>
 </html>

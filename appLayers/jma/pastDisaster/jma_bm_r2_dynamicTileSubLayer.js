@@ -1,3 +1,4 @@
+	// Description:
 	// Dynamic OpemStreetMap Layer for SVGMap Sample for SVGMapLevel0 > r10
 	// 
 	// Programmed by Satoru Takagi

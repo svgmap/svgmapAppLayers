@@ -21,15 +21,22 @@
 // 2021/03/11 JMA2021統合ビットイメージレイヤーから派生
 // 2020/11/16 rev2 data-controllerの　#オプションで、 cat=数字:その数字のカテゴリでデフォルト起動 , autoupdate:自動更新モードで起動
 // 2021/03/02- 海しるナウキャストレイヤーを更に拡張して、2021年2月更新の気象庁サイトのビットイメージタイルに全部対応するWebAppsを構築する
+// 2025/05/09 過去のデータを表示する機能を拡張
 
 var baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy,pdesc;
 
 
 
 var jmaHpSv = {
-	pdesc: '出典:<a href="https://www.jma.go.jp/bosai/map.html" target="_blank">気象庁地図サイト</a>データ<br>source:<a href="https://www.jma.go.jp/bosai/map.html" target="_blank">Japan Meteorological Agency</a>',
+	pdesc: '出典:<a id="catDependOriginLink" href="https://www.jma.go.jp/bosai/map.html" target="_blank">気象庁ホームページ</a>を加工して作成',
 	baseURL :"https://www.jma.go.jp/bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/surf/[[category2]]/data.geojson",
+	basePbfURL : "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf",
 	targetTimePxy : "https://www.jma.go.jp/bosai/jmatile/data/",
+	pastDataArchive:{ // 2025/05/09 過去のデータを表示する機能用
+		currentBase:"https://www.jma.go.jp/",
+		pastBase:"",
+		pastDesc: '出典:<a id="catDependOriginLink" href="https://www.data.jma.go.jp/review/" target="_blank">気象庁ホームページの過去の主な災害時の情報発表状況</a>を加工して作成',
+	},
 	cats0 : [
 		"nowc","nowc","risk",
 	],
@@ -58,6 +65,11 @@ var jmaHpSv = {
 		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_amds_rain10m.svg",
 		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_liden.svg",
 		"https://www.jma.go.jp/bosai/risk/images/legend_jp_flood_risk.svg",
+	],
+	catsOriginalPage:[
+		"https://www.jma.go.jp/bosai/nowc/#lat:35.191767/lon:134.011230/zoom:5/colordepth:normal/elements:hrpns&amds_rain10m",
+		"https://www.jma.go.jp/bosai/nowc/#lat:35.191767/lon:134.011230/zoom:5/colordepth:normal/elements:hrpns&liden",
+		"https://www.jma.go.jp/",
 	],
 	stylingFunctions:[
 		styling_amds_rain10m,
@@ -175,6 +187,27 @@ onload=function(){
 	},20);
 }
 
+function changeBaseURL(url){ // 過去の情報表示を行う機能
+	if ( !pastDataArchive){return}; // window.pastDataArchiveがある場合のみこの機能を有効にする
+	let  base = pastDataArchive.currentBase;
+	if ( pastDataArchive.pastBase ){
+		base = pastDataArchive.pastBase;
+	}
+	if ( url ){ // 過去の情報に設定する
+		targetTimePxy = targetTimePxy.replace(base, url);
+		baseURL = baseURL.replace(base, url);
+		basePbfURL = basePbfURL.replace(base, url);
+		pastDataArchive.pastBase = url;
+	} else { // カレントに戻す
+		targetTimePxy = targetTimePxy.replace(base, pastDataArchive.currentBase);
+		baseURL = baseURL.replace(base, pastDataArchive.currentBase);
+		basePbfURL = basePbfURL.replace(base, pastDataArchive.currentBase);
+		pastDataArchive.pastBase = "";
+	}
+	changeMap();
+}
+
+
 function getHash(hashStr){
 	var hash = hashStr.substring(1);
 	var params = {}
@@ -237,6 +270,9 @@ function changeMap(){
 	var subPath = subps[catSel.selectedIndex];
 	svgImageProps.isClickable=clickable[catSel.selectedIndex];
 	svgImage.documentElement.setAttribute("property",metaName[catSel.selectedIndex]);
+	if ( catsOriginalPage && document.getElementById("catDependOriginLink")){
+		document.getElementById("catDependOriginLink").setAttribute("href",catsOriginalPage[catSel.selectedIndex]);
+	}
 	if ( typeof(subPath)=="string"){
 		loadJson(targetTimePxy + subPath , changeMapPh2);
 	} else {
@@ -351,7 +387,7 @@ function change(){
 	newPath = newPath.replace("[[category2]]",cat2);
 	newPath = newPath.replace("[[basetime]]",timeData[trIndex].basetime);
 	newPath = newPath.replace("[[validtime]]",timeData[trIndex].validtime);
-	setPbfURL(timeData[trIndex].basetime, timeData[trIndex].validtime);
+	setPbfURL(timeData[trIndex].basetime, timeData[trIndex].validtime, basePbfURL);
 	
 	console.log("newPath:", newPath);
 	

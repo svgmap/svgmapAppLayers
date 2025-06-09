@@ -27,20 +27,14 @@ table tr:nth-child(even){
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History
+// 2023/06/02 初期実装
+// 2025/05/09 過去の災害情報対応
 
 var mapJson;
 var areaMapDict;
 var areaStruct;
-onload=async function(){
-	showHanrei();
-	svgImage.documentElement.setAttribute("property",metaDict.join(","));
-	areaStruct = await loadAreaStruct();
-	mapJson = await loadMapJson();
-	areaMapDict = buildAreaDict(mapJson);
-	//svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue");
-	console.log(mapJson);
-	await changeCat();
-}
 
 var levelDict =[
 	["今後の情報等に留意","#c8c8cb"],
@@ -52,6 +46,30 @@ var levelDict =[
 ];
 
 var metaDict = ["土砂災害","浸水","洪水","name","enName","code"];
+
+const currentBaseURL = "https://www.jma.go.jp/";
+let baseURL = currentBaseURL;
+
+
+onload=async function(){
+	showHanrei();
+	svgImage.documentElement.setAttribute("property",metaDict.join(","));
+	areaStruct = await loadAreaStruct();
+	mapJson = await loadMapJson();
+	areaMapDict = buildAreaDict(mapJson);
+	//svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue");
+	console.log(mapJson);
+	await changeCat();
+}
+
+function changeBaseURL(url){
+	if ( url ){
+		baseURL = url;
+	} else {
+		baseURL = currentBaseURL;
+	}
+	changeCat();
+}
 
 async function loadAreaStruct(){
 	var as = await loadJSON("https://www.jma.go.jp/bosai/common/const/landslide_area.json");
@@ -77,8 +95,15 @@ function getAreaValue( kikendoData){
 	}
 }
 
+function changeCat(){
+	var tgt = document.getElementById("catSel");
+	var cat = tgt.options[tgt.selectedIndex].value
+	console.log(cat);
+	updateKikendoMap(cat);
+}
+
 async function updateKikendoMap(cat){
-	var kds = await loadJSON(`https://www.jma.go.jp/bosai/warning_level/data/warning_level.json?dt=${new Date().getTime()}`);
+	var kds = await loadJSON(`${baseURL}bosai/warning_level/data/warning_level.json?dt=${new Date().getTime()}`);
 	getAreaValue( kds)
 	console.log(kds);
 	clearFill(mapJson);
@@ -114,13 +139,6 @@ async function updateKikendoMap(cat){
 	removeChildren(tgtParent);
 	svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue","p0","poi","",tgtParent,metaDict);//
 	svgMap.refreshScreen();
-}
-
-function changeCat(){
-	var tgt = document.getElementById("catSel");
-	var cat = tgt.options[tgt.selectedIndex].value
-	console.log(cat);
-	updateKikendoMap(cat);
 }
 
 function clearFill(mapJson){
@@ -182,7 +200,7 @@ function removeChildren(ele){
 </script>
 <body>
 <h3>気象庁大雨危険度</h3>
-<p>出典：<a href="https://www.jma.go.jp/bosai/map.html#elem=all&contents=warning_level" target="_blank">気象庁　大雨危険度情報</a></p>
+<p style="font-size:12px">出典：<a href="https://www.jma.go.jp/bosai/map.html#elem=all&contents=warning_level" target="_blank">気象庁ホームページ　大雨危険度情報</a>を加工して作成</p>
 <div id="messageDiv"></div>
 <select id="catSel" onchange="changeCat(event)">
 	<option value="all" selected>全て</option>

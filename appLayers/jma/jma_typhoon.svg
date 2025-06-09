@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="jma_typhoon_r2.html#exec=hiddenOnLayerLoad" property="code,nameJ,nameE,description,PDF">
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="12375.0 -4500.0 2250.0 2250.0" go:dataArea="12375.0 -4500.0 2250.0 2250.0" data-controller="jma_typhoon_r2.html#exec=appearOnLayerLoad" property="code,nameJ,nameE,description,PDF">
 
 <defs>
 <g id="pN">

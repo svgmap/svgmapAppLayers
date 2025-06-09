@@ -5,28 +5,28 @@
 		"path":"highresorad/highresorad_tile/HRKSNC/",
 		"type":"tile",
 		"timeStepMin":5,
-		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/highresorad/20190304/images/contents/HRKSNC_legendp_jp.png"
+		"legend":"https://www.data.jma.go.jp/gijutsu/meshjirei/jirei01/highresorad/images/contents/HRKSNC_legendp_jp.png"
 	},
 	{
 		"name":"土砂災害",
 		"path":"doshamesh/dosha_tile/DOSHA/",
 		"type":"tile",
 		"timeStepMin":10,
-		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/doshamesh/20200624/images/contents/DOSHA_legend_jp.png"
+		"legend":"https://www.data.jma.go.jp/gijutsu/meshjirei/jirei01/doshamesh/images/contents/DOSHA_legend_jp.png"
 	},
 	{
 		"name":"浸水害",
 		"path":"suigaimesh/suigai_tile/INUND/",
 		"type":"tile",
 		"timeStepMin":10,
-		"legend":"https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/INUND_legend_jp.png"
+		"legend":"https://www.data.jma.go.jp/gijutsu/meshjirei/jirei01/suigaimesh/images/contents/INUND_legend_jp.png"
 	},
 	{
 		"name":"洪水",
 		"path":"suigaimesh/suigai_tile/FLOOD/",
 		"type":"svg",
 		"timeStepMin":10,
-		"legend":["https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/FLOOD_legend_jp.png","https://www.data.jma.go.jp/yoho/meshjirei/jirei01/suigaimesh/20190304/images/contents/FLOOD_FCST_legend_jp.png"]
+		"legend":["https://www.data.jma.go.jp/gijutsu/meshjirei/jirei01/suigaimesh/images/contents/FLOOD_legend_jp.png","https://www.data.jma.go.jp/gijutsu/meshjirei/jirei01/suigaimesh/images/contents/FLOOD_FCST_legend_jp.png"]
 	}
 ],
 "jirei": [

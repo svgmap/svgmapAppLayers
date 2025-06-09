@@ -22,68 +22,198 @@ table tr:nth-child(even){
 // Description 
 // 気象庁火山レイヤー
 // 
-// Programmed by Satoru Takagi
-// 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// History 2025/5/16 : async await に移行, 予報時間選択UI追加
 
 var proxyPath="https://www.jma.go.jp/bosai/";
 var volcanoSubPath="volcano/const/volcano_list.json";
-var ashFallSubPath="ashfall/data/ashfall/";
+//var ashFallSubPath="ashfall/data/ashfall/";
+var ashFallSubPath="volcano/data/ashfall/"; // 2025/05
 
-var pdfLinkHead="https://www.jma.go.jp/bosai/ashfall/data/ashfall/pdf/";
+//var pdfLinkHead="https://www.jma.go.jp/bosai/ashfall/data/ashfall/pdf/";
+var pdfLinkHead="https://www.jma.go.jp/bosai/volcano/data/ashfall/pdf/"; // 2025/05
 
-var volcanos={}; // 火山リスト
-var afIndex={}; // 降灰(ashfall)火山リスト
-var afVolcanos={}; //
+let volcanos={}; // 火山リスト
+let afIndex={}; // 降灰(ashfall)火山リスト
+let afVolcanos={}; // 降灰火山の詳細情報
+let startTimes; // 降灰予報の時間に対し、各火山の該当する情報へのリンク情報
 
-onload=function(){
-	loadJSON(showVolcanos,proxyPath+volcanoSubPath);
-}
-
-function showVolcanos(json){
-	console.log(json);
-	volcanos=json;
-	loadJSON(getAfVolcanos,proxyPath+ashFallSubPath+"japan.json");
-}
-
-
-function getAfVolcanos(json){
-	console.log(json);
-	afIndex=json;
+onload=async function(){
+	volcanos = await loadJSON(proxyPath+volcanoSubPath);
+	afIndex = await loadJSON(proxyPath+ashFallSubPath+"japan.json");
+	const ps=[];
 	for ( var key in afIndex ){
-		loadJSON(processEachVolcanos,proxyPath+ashFallSubPath+key+".json");
+		ps.push(processEachVolcanos(proxyPath+ashFallSubPath+key+".json"));
 	}
+	await Promise.all(ps);
+	console.log("Load completed asgfallingVolcanos:",afVolcanos);
+	listAshfallVolcanos();
+	
+	checkTimes();
+	
+	showAshFalls();
 }
 
-function processEachVolcanos(json){
-	var code = json.scheduled.code;
-	afVolcanos[code]=json.scheduled;
-	console.log(json);
-	
-	
-	var allRead = true;
-	for ( var key in afIndex ){
-		if ( !afVolcanos[key] ){
-			allRead=false;
+function selectTime(){
+//	const st = timeSel.options[timeSel.selectedIndex].value;
+//	console.log("selectTime:", st );
+	showAshFalls();
+}
+
+function getAshfallIndex(vocanoKey){
+	const vck = document.getElementById(`vck_${vocanoKey}`);
+	const st = timeSel.options[timeSel.selectedIndex].value;
+	const idx = startTimes[st][vocanoKey];
+	if (idx ==undefined){
+		vck.disabled = true;
+		return (-1);
+	} else{
+		vck.disabled = false;
+	}
+	if ( !vck.checked ){
+		return (-1);
+	}
+	console.log("getAshfallIndex:",st,vocanoKey,idx);
+	return idx;
+}
+
+function checkTimes(){
+	//予報時間と各火山の予報情報との関連付けを行うと同時に、予報時間選択UI構築
+	startTimes={};
+	for ( vck in afVolcanos){
+		const vc = afVolcanos[vck];
+		let idx=0;
+		for ( ashInfo of vc.scheduled.ashinfos){
+			if ( !startTimes[ashInfo.startTime]){
+				startTimes[ashInfo.startTime] ={};
+			}
+			startTimes[ashInfo.startTime][vck]=idx;
+			++idx;
 		}
 	}
-	if (allRead){
-		showAshFalls();
+	const sortedStartTimesKeys = Object.keys(startTimes).sort();
+	console.log("checkTimes : ", startTimes,sortedStartTimesKeys);
+	
+	let firstRec = true;
+	for ( const t of sortedStartTimesKeys){
+		const ts =new Date(t).toLocaleString()
+		let sel = "";
+		if ( firstRec){
+			firstRec=false;
+			sel="selected";
+		}
+		const opt = `<option ${sel} value="${t}">${ts}</option>`;
+		timeSel.insertAdjacentHTML("beforeend",opt);
 	}
+}
+
+async function processEachVolcanos(url){
+	const json = await loadJSON(url);
+	var code = json.scheduled.code;
+	afVolcanos[code]=json;
+//	afVolcanos[code]=json.scheduled;
+	console.log(json);
 }
 
 function showAshFalls(){
-	console.log("Load completed asgfallingVolcanos:",afVolcanos);
 	 //setViewIcon(gx,gy,parentG,iconNumb,meta)
 	
 	printAshfalls();
 	
 	printVolcanos();
 	
+}
+
+function showIrregularInfo(vKey){
+	if (!vKey){
+		scheduledInfo.style.display="";
+		irregularInfo.style.display="none";
+		selectTime();
+		return;
+	}
+	
+	scheduledInfo.style.display="none";
+	irregularInfo.style.display="";
+	var targetVolcano=afVolcanos[vKey];
+	console.log("vKey:",vKey, targetVolcano);
+	
+	irregularInfoHead.innerText=`${afIndex[vKey].name}`;
+	// 現在発表中の 速報・詳細 降灰予報をリストアップ
+	removeChildren(irregularList);
+	irregularList.insertAdjacentHTML("beforeend",`<tr><th>噴煙高</th><th>発表時刻</th><th>種別</th><th>図情報(PDF)</th><th></th></tr>`);
+	var index=0;
+	for ( var irInfo of targetVolcano.others){
+		var ck="";
+		if ( index == targetVolcano.others.length -1){ck="checked";}
+		var tr=`<tr><td>${irInfo.plumeHeight}m</td><td>${new Date(irInfo.reportDatetime).toLocaleString()}</td><td>${irInfo.type=="detail"?"詳細":"速報"}</td><td><a href="${pdfLinkHead}${irInfo.pdf}" target="_blank">${Math.floor(irInfo.pdfSize/1024)}KB</a></td><td><input type="radio" name="irregularListRadios" value="${index}" id="irl_${index}" data-volcano="${vKey}" ${ck} onclick="selectIrregularList(event)"></input><label for="irl_${index}">選択</label></td></tr>`;
+		irregularList.insertAdjacentHTML("beforeend",tr);
+		++index;
+	}
+	selectIrregularList();
+}
+
+function selectIrregularList(event){
+	var inps =irregularList.getElementsByTagName("input");
+	var target;
+	console.log(inps);
+	for ( inp of inps){
+		if ( inp.checked){
+			target = inp;
+			break;
+		}
+	}
+	var irIdx= Number(target.value);
+	var vKey = target.getAttribute("data-volcano");
+	var targetInfo = afVolcanos[vKey].others[irIdx];
+	console.log("targetInfo:",targetInfo);
+
+	// 予報時間の選択肢を生成
+	removeChildren(irregularInfoTimeSel)
+	let index=0;
+	for ( const t of targetInfo.ashinfos){
+		const ts =new Date(t.endTime).toLocaleString()
+		let sel = "";
+		if ( index==0){
+			sel="selected";
+		}
+		const opt = `<option ${sel} data-volcano="${vKey}" data-others-index="${irIdx}" value="${index}">${ts}まで</option>`;
+		irregularInfoTimeSel.insertAdjacentHTML("beforeend",opt);
+		++index;
+	}
+	selectIrregularInfoTime();
+}
+
+function selectIrregularInfoTime(event){
+	const target = irregularInfoTimeSel.options[irregularInfoTimeSel.selectedIndex];
+	var vKey = target.getAttribute("data-volcano");
+	var othersIndex = Number(target.getAttribute("data-others-index"));
+	var timeIndex = Number(target.value);
+	var targetInfo = afVolcanos[vKey].others[othersIndex].ashinfos[timeIndex].items;
+	
+	var areaParentElm = svgImage.getElementById("areas");
+	removeChildren(areaParentElm);
+	drawAshPolygons(targetInfo,areaParentElm);
+	svgMap.refreshScreen();
+}
+
+function listAshfallVolcanos(){
+	// 降灰予報ある火山をhtmlリストをつくる
+	volcanosTable.insertAdjacentHTML("beforeend","<tr><th>山名</th><th>定時降灰予報発表時刻</th><th>臨時情報有無</th></tr>");
+	for ( var key in afIndex ){
+		const afv = afIndex[key];
+		let irregularInfo="";
+		if ( afVolcanos[key].others ){
+			irregularInfo =`<input style="font-size:12px"  type="button" value="臨時情報表示" onclick="showIrregularInfo(${key})"></input>`;
+		}
+		const tr =`<tr><td><input onchange="selectTime()" type="checkbox" checked data-vkey="${key}" id="vck_${key}"></input><label for="vck_${key}">${afv.name}<label></td><td>${new Date(afVolcanos[key].scheduled.reportDatetime).toLocaleString()}発表</td><td>${irregularInfo}</td></tr>`;
+		volcanosTable.insertAdjacentHTML("beforeend",tr);
+	}
 }
 
 function printVolcanos(){
@@ -105,7 +235,7 @@ function printVolcanos(){
 	}
 	for ( var key in afVolcanos ){
 		var vo = afVolcanos[key];
-		var meta = key + "," + vo.name + "," + vo.name_en + "," + vo.volcanoHeadline + "," + pdfLinkHead + vo.pdf;
+		var meta = key + "," + vo.name + "," + vo.name_en + "," + vo.scheduled.volcanoHeadline + "," + pdfLinkHead + vo.pdf;
 		setViewIcon(vo.latlon[1],vo.latlon[0],iconParentElm,2,meta);
 	}
 	svgMap.refreshScreen();
@@ -132,46 +262,64 @@ function setViewIcon(gx,gy,parentG,iconNumb,meta){
 var ashCatTable={
 	70:"#808080",
 	75:"#FF0000",
+	72:"#faf500",
+	71:"#b0b0b4",
 }
 
 function printAshfalls(){
 	var areaParentElm = svgImage.getElementById("areas");
+	removeChildren(areaParentElm);
 	for ( var key in afVolcanos ){
-		var vo = afVolcanos[key];
-		var polys = vo.ashinfos[vo.ashinfos.length-1].items;
-		for ( var i = 0 ; i < polys.length ; i++ ){
-			var mc = ashCatTable[polys[i].code];
-			var color = "#a09090";
-			if(mc){
-				color = mc;
-			}
-			for ( var j = 0 ; j < polys[i].polygons.length ; j++ ){
-				var poly = polys[i].polygons[j];
-				poly = poly.split("/"); // ISO6709
-				var polyPoints=[];
-				for ( var k = 0 ; k < poly.length ; k++ ){
-					if ( poly[k].length > 4){
-						var latlng = poly[k].split("+");
-						var pp =[Number(latlng[2]),Number(latlng[1])];
-						polyPoints.push(pp);
-					}
-				}
-				var geojs = {
-					type:"Feature",
-					geometry:{
-						type:"Polygon",
-						coordinates: [polyPoints]
-					}
-				}
-				console.log("polygon:",geojs," color:",color," layerID:",layerID);
-				svgMapGIStool.drawGeoJson(geojs,layerID,color,1,color, "p0", "poi", "", areaParentElm);
-				
-			}
-		}
+		var vo = afVolcanos[key].scheduled;
+		const afinfoIndex = getAshfallIndex(key);
+		if ( afinfoIndex<0){continue};
+		var polys = vo.ashinfos[afinfoIndex].items;
+		drawAshPolygons(polys,areaParentElm);
 	}
 }
 
-
+function drawAshPolygons(inpPolys,areaParentElm,rev){
+	function sortByCodeDescending(arr) {
+	  const newArr = [...arr]; 
+	  newArr.sort((a, b) => {
+	    return a.code - b.code; 
+	  });
+	  return newArr;
+	}
+	
+	const polys = sortByCodeDescending(inpPolys);
+//	var polys = vo.ashinfos[afinfoIndex].items;
+	for ( var i = 0 ; i < polys.length ; i++ ){
+		var mc = ashCatTable[polys[i].code];
+		var color = "#a09090";
+		if(mc){
+			color = mc;
+		}
+		console.log("color:",color,mc);
+		for ( var j = 0 ; j < polys[i].polygons.length ; j++ ){
+			var poly = polys[i].polygons[j];
+			poly = poly.split("/"); // ISO6709
+			var polyPoints=[];
+			for ( var k = 0 ; k < poly.length ; k++ ){
+				if ( poly[k].length > 4){
+					var latlng = poly[k].split("+");
+					var pp =[Number(latlng[2]),Number(latlng[1])];
+					polyPoints.push(pp);
+				}
+			}
+			var geojs = {
+				type:"Feature",
+				geometry:{
+					type:"Polygon",
+					coordinates: [polyPoints]
+				}
+			}
+			console.log("polygon:",geojs," color:",color," layerID:",layerID);
+			svgMapGIStool.drawGeoJson(geojs,layerID,color,1,color, "p0", "poi", "", areaParentElm);
+			
+		}
+	}
+}
 
 
 var jsonSrc;
@@ -323,49 +471,12 @@ function getPath(ps,color){
 	return ( path );
 }
 
-
-function loadJSON(cbFunc, url, dataCat, postProcess){
-	url = svgMap.getCORSURL(url);
-//	console.log("loadJSON : SRC: ", url);
-	var httpObj = new XMLHttpRequest();
-	if ( httpObj ) {
-		httpObj.onreadystatechange = function(){
-			loadJSON_ph2( this , cbFunc , dataCat , postProcess);
-		} ;
-		httpObj.open("GET", url , true );
-		httpObj.send(null);
-	}
-}
-
-function loadJSON_ph2( httpRes , cbFunc , dataCat , postProcess){
-	if ( httpRes.readyState == 4 ){
-		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
-			console.log( "loadJSON : File get failed : stat : ", httpRes.status);
-			return;
-		}
-		var jst = httpRes.responseText;
-		jst = unescape(jst);
-		if ( postProcess ){
-			jst = postProcess(jst);
-		}
-//		console.log("isCsv:",isCsv, "\nloadJSON_ph2:",jst);
-		if ( dataCat=="csv" ){
-			var csv = jst.split("\n");
-//			console.log("csv:",csv);
-			for ( var i = 0 ; i < csv.length ; i++ ){
-				csv[i] = csv[i].split(",");
-			}
-//			console.log("csv:",csv);
-			cbFunc ( csv );
-		} else if ( dataCat == "html" ){
-			var parser = new DOMParser();
-			var htmlDoc = parser.parseFromString(jst, 'text/html');
-			// var htmlDoc = parser.parseFromString(txt, 'text/xml');
-			cbFunc(htmlDoc);
-		} else {
-			var Json = JSON.parse(jst);
-			cbFunc(Json);
-		}
+async function loadJSON(url){
+	try{
+		const json = await ( await fetch(url) ).json();
+		return json;
+	} catch (e){
+		return null;
 	}
 }
 
@@ -375,16 +486,34 @@ function removeChildren(element){
 
 </script>
 <body>
-<h3>気象庁火山レイヤー</h3>
-<p><a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=ashfall">気象庁ウェブサイトの火山情報</a>の可視化</p>
-<p>グレー：降灰<br>赤：噴石の落下</p>
+<h3>火山降灰予報レイヤー</h3>
+<p style="font-size:12px" >出典：<a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=ashfall">気象庁ホームページ 降灰予報を加工して作成</a></p>
+<div id="scheduledInfo">
+	<p style="background-color:#ddf;font-size:12px;"><span style="color:gray">■</span>：降灰の範囲<br><span style="color:red">■</span>：小さな噴石の落下範囲</p>
+	<input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()"></input><label for="ashfallOnlyCheck">降灰予報がある火山のみ表示</label>
 
-<input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()">降灰情報がある火山のみ表示</input>
+	<div>
+		予報時間帯：
+		<select id="timeSel" style="font-size:14px" onchange="selectTime()"></select>
+	</div>
 
-<!--
-<table id="areaMeta">
-<tr><th>Key</th><th>Val</th></tr>
-</table>
--->
+	<div style="font-size:12px">
+		降灰予報がある火山のリスト
+		<table id="volcanosTable" style="font-size:12px" >
+		</table>
+	</div>
+</div>
+<div style="display:none" id="irregularInfo" >
+	<p style="background-color:#ddf;font-size:12px;"><span style="color:gray">■</span>：少量の降灰<br><span style="color:#faf500">■</span>：やや多量の降灰</p>
+	<div>臨時情報の表示：<span id="irregularInfoHead"></span><div>
+	<div>現在発表中の 速報・詳細 降灰予報
+	<table id="irregularList" style="font-size:12px" ></table>
+	</div>
+	<div>
+		予報時間帯：
+		<select id="irregularInfoTimeSel" style="font-size:14px" onchange="selectIrregularInfoTime()"></select>
+	</div>
+	<input type="button" value="定時予報に戻る" onclick="showIrregularInfo()"></input>
+</div>
 </body>
 </html>

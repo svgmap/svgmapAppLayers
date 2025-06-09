@@ -9,7 +9,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-var APIURI = "https://www.data.jma.go.jp/svd/eqdb/data/shindo/api/api.php";
+//var APIURI = "https://www.data.jma.go.jp/svd/eqdb/data/shindo/api/api.php";
+var APIURI = "https://www.data.jma.go.jp/eqdb/data/shindo/api/"; // update 2025/4
 //1919/1/1-
 
 var yearSel , monthSel, eqSel, maxiSel;
@@ -45,6 +46,7 @@ function customDialog(target){
 			}
 		}
 		message += "</table>";
+		console.log("selectedEventId:",selectedEventId," msg:",message);
 		if (!selectedEventId){
 			svgMap.showModal(message,400,200);
 		} else {

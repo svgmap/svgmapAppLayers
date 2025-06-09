@@ -17,24 +17,42 @@
 // Log:
 //  2021/07/19 the first rev
 //  2021/07/28 track drawing
-
-var tBase="https://www.jma.go.jp/bosai/typhoon/data/";
+//  2025/05/02 過去の情報に対応
+const currentBaseURL = "https://www.jma.go.jp/";
+let baseURL = currentBaseURL;
+var tBase="bosai/typhoon/data/";
 
 var tt="prob50kt/targetTimes.json";
 
 onload=async function(){
-	var tindex = await getJson(tBase+"targetTc.json");
+	drawTyphoonMap();
+}
+
+async function drawTyphoonMap(){
+	removeChildren("pastTracks");
+	removeChildren("areas");
+	removeChildren("icons");
+	var tindex = await getJson(baseURL+tBase+"targetTc.json");
 	drawPastTrack();
 	for (var tp of tindex){ // categoryがTDは熱帯低気圧？ STSが台風？ typhoonNumberがnnnnというのが台風 "a,b,"などが熱帯低気圧
 		var tpId = tp.tropicalCyclone; // 
-		var tcource = await getJson(tBase+tpId+"/forecast.json"); // 予報円・経路
-		var tinfo = await getJson(tBase+tpId+"/specifications.json"); // 予報勢力
+		var tcource = await getJson(baseURL+tBase+tpId+"/forecast.json"); // 予報円・経路
+		var tinfo = await getJson(baseURL+tBase+tpId+"/specifications.json"); // 予報勢力
 		console.log("tp:",tp," ID:",tpId);
 		console.log(" == cource:",tcource);
 		console.log(" == tinfo:",tinfo);
 		drawTyphoon(tcource,tinfo);
 	}
 	svgMap.refreshScreen();
+}
+
+function changeBaseURL(url){
+	if ( url ){
+		baseURL = url;
+	} else {
+		baseURL = currentBaseURL;
+	}
+	drawTyphoonMap();
 }
 
 function drawTrack(track,lineWidth){
@@ -65,7 +83,7 @@ function drawTrack(track,lineWidth){
 }
 
 async function drawPastTrack(){
-	var pastTrack = await getJson(tBase+"pastTracks.json");
+	var pastTrack = await getJson(baseURL+tBase+"pastTracks.json");
 	for ( var i = 0 ; i < pastTrack.length ; i++ ){
 		drawTrack(pastTrack[i].track1,0.5);
 	}
@@ -240,8 +258,27 @@ function pad( inp ){
 	return ( ("0"+inp).slice(-2));
 }
 
+function removeChildren(elementOrElementId){
+	let ele;
+	if (typeof elementOrElementId == "string"){
+		ele = svgImage.getElementById(elementOrElementId);
+		if (!ele){return}
+	} else {
+		ele = elementOrElementId;
+	}
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
 </script>
 <body>
-<h3><a href="https://www.jma.go.jp/bosai/map.html#4/34.561/147.524/&elem=root&typhoon=all&contents=typhoon" target="_blank">JMA's typhoon track</a> layer</h3>
+<h4>気象庁　台風情報レイヤー</h4>
+<p style="font-size:12px">出典：<a href="https://www.jma.go.jp/bosai/map.html#4/34.561/147.524/&elem=root&typhoon=all&contents=typhoon">気象庁ホームページ　台風情報</a>を加工して作成</p>
+
+<p style="font-size:12px">
+ここに表示される台風の経路は全て速報値です。過去の台風の経路(<span style="color:orange">オレンジ線</span>)は気象庁ホームページでは非表示のものです。<br>
+事後解析によって確定した過去の台風の経路は、気象庁ホームページ<a href="https://www.data.jma.go.jp/typhoon/route_map/index.html" target="_blank">過去の台風資料 台風経路図</a>を参照ください。
+</p>
+
 </body>
 </html>

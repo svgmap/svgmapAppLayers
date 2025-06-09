@@ -11,6 +11,7 @@
 // Description
 // 気象庁ビットイメージタイルデータ可視化レイヤー
 //
+//
 // Programmed by Satoru Takagi
 // 
 // License: (MPL v2)
@@ -23,11 +24,12 @@
 // 2020/11/16 rev2 data-controllerの　#オプションで、 cat=数字:その数字のカテゴリでデフォルト起動 , autoupdate:自動更新モードで起動
 // 2021/03/02- 海しるナウキャストレイヤーを更に拡張して、2021年2月更新の気象庁サイトのビットイメージタイルに全部対応するWebAppsを構築する
 // 2023/07/04 Rev2 webAppLayerに移行、ビットイメージタイルを子レイヤーに(線状降水帯ベクターを必ず上に描くため)、線状降水帯データ表示機能(ベクター)
+// 2025/05/09 過去のデータを表示する機能を拡張
 
 var baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy,pdesc;
 
 var jmaHpHimawariSv = {
-	pdesc: '出典:<a href="https://www.jma.go.jp/bosai/map.html#elem=ir&contents=himawari" target="_blank">気象庁地図サイトひまわりデータ</a><br>source:<a href="https://www.jma.go.jp/bosai/map.html#elem=ir&contents=himawari" target="_blank">Japan Meteorological Agency</a>',
+	pdesc: '出典:<a href="https://www.jma.go.jp/bosai/map.html#elem=ir&contents=himawari" target="_blank">気象庁ホームページ：気象衛星ひまわり</a>を加工して作成',
 	baseURL :"https://www.jma.go.jp/bosai/himawari/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/[[category2]]/[[zoom]]/[[tx]]/[[ty]].jpg",
 	targetTimePxy : "https://www.jma.go.jp/bosai/himawari/data/",
 	cats0 : [
@@ -81,9 +83,15 @@ var jmaHpHimawariSv = {
 }
 
 var jmaHpSv = {
-	pdesc: '出典:<a href="https://www.jma.go.jp/bosai/map.html" target="_blank">気象庁地図サイト</a>データ<br>source:<a href="https://www.jma.go.jp/bosai/map.html" target="_blank">Japan Meteorological Agency</a>',
+	pdesc: '出典:<a id="catDependOriginLink" href="https://www.jma.go.jp/bosai/map.html" target="_blank">気象庁ホームページ</a>を加工して作成',
 	baseURL :"https://www.jma.go.jp/bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/surf/[[category2]]/[[zoom]]/[[tx]]/[[ty]].png",
 	targetTimePxy : "https://www.jma.go.jp/bosai/jmatile/data/",
+	zoomStep: 2, // 2025/05/09 JMA HomePageのタイルは一律これを設定する window.zoomStepに設定されるので、jma_bm_r2_dynamicTileSubLayer.jsが勝手に解釈する
+	pastDataArchive:{ // 2025/05/09 過去のデータを表示する機能用
+		currentBase:"https://www.jma.go.jp/",
+		pastBase:"",
+		pastDesc: '出典:<a id="catDependOriginLink" href="https://www.data.jma.go.jp/review/" target="_blank">気象庁ホームページの過去の主な災害時の情報発表状況</a>を加工して作成',
+	},
 	cats0 : [
 		"nowc","nowc","nowc",
 		"risk","risk","risk",
@@ -109,7 +117,7 @@ var jmaHpSv = {
 		"wm","icing","vis","wavh","ws",
 	],
 	zoomLimits : [
-		10,9,9,
+		10,8,8,
 		10,10,10,
 		10,10,10,
 		10,10,10,10,10,10,10,
@@ -149,6 +157,40 @@ var jmaHpSv = {
 		"海上分布予報-視程",
 		"海上分布予報-波高",
 		"海上分布予報-風速",
+	],
+	catsOriginalPage : [
+		"https://www.jma.go.jp/bosai/nowc/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:hrpns",
+		"https://www.jma.go.jp/bosai/nowc/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:thns",
+		"https://www.jma.go.jp/bosai/nowc/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:trns",
+		
+		"https://www.jma.go.jp/bosai/risk/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:land",
+		"https://www.jma.go.jp/bosai/risk/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:inund",
+		"https://www.jma.go.jp/bosai/risk/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:flood",
+		
+		"https://www.jma.go.jp/bosai/kaikotan/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:rasrf&slmcs&slmcs_fcst",
+		"https://www.jma.go.jp/bosai/kaikotan/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:slmcs&slmcs_fcst&rasrf03h",
+		"https://www.jma.go.jp/bosai/kaikotan/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:slmcs&slmcs_fcst&rasrf24h",
+		
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowd",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf03h",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf06h",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf12h",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf24h",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf48h",
+		"https://www.jma.go.jp/bosai/snow/#zoom:5/lat:35.173808/lon:134.011230/colordepth:normal/elements:snowf72h",
+		
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:wm",
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:r3",
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:s3",
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:temp",
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:maxmin_temp",
+		"https://www.jma.go.jp/bosai/wdist/#zoom:5/lat:35.567980/lon:135.856934/colordepth:normal/elements:maxmin_temp",
+		
+		"https://www.jma.go.jp/bosai/umimesh/#lat:34.488448/lon:136.999512/zoom:5/colordepth:normal/elements:weather",
+		"https://www.jma.go.jp/bosai/umimesh/#lat:34.488448/lon:136.999512/zoom:5/colordepth:normal/elements:icing",
+		"https://www.jma.go.jp/bosai/umimesh/#lat:34.488448/lon:136.999512/zoom:5/colordepth:normal/elements:vis",
+		"https://www.jma.go.jp/bosai/umimesh/#lat:34.488448/lon:136.999512/zoom:5/colordepth:normal/elements:wave",
+		"https://www.jma.go.jp/bosai/umimesh/#lat:34.488448/lon:136.999512/zoom:5/colordepth:normal/elements:wind",
 	],
 	subps :[
 		// "nowc/targetTimes_N1.json",
@@ -226,7 +268,7 @@ var jmaHpSv = {
 
 
 var jmaDataSv ={
-	pdesc: '出典:<a href="https://www.msil.go.jp/" target="_blank">海しる</a>より解析した、<a href="https://www.data.jma.go.jp" target="_blank">気象庁衛星関連データ</a><br>source:<a href="https://www.data.jma.go.jp" target="_blank">Japan Meteorological Agency</a>',
+	pdesc: '出典:海上保安庁 <a href="https://www.msil.go.jp/" target="_blank">海しる</a>より解析した、<a href="https://www.data.jma.go.jp" target="_blank">気象庁衛星関連データ</a><br>source:<a href="https://www.data.jma.go.jp" target="_blank">Japan Meteorological Agency</a>',
 	baseURL :"https://www.data.jma.go.jp/tile/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/[[category2]]/[[zoom]]/[[tx]]/[[ty]].png", // テンプレートを使ってないのはちょっと古いなぁ・・まぁいいや
 	targetTimePxy : "https://www.data.jma.go.jp/",
 	cats0 : [
@@ -315,6 +357,24 @@ onload=function(){
 	},20);
 }
 
+function changeBaseURL(url){ // 過去の情報表示を行う機能
+	if ( !pastDataArchive){return}; // window.pastDataArchiveがある場合のみこの機能を有効にする
+	let  base = pastDataArchive.currentBase;
+	if ( pastDataArchive.pastBase ){
+		base = pastDataArchive.pastBase;
+	}
+	if ( url ){ // 過去の情報に設定する
+		targetTimePxy = targetTimePxy.replace(base, url);
+		baseURL = baseURL.replace(base, url);
+		pastDataArchive.pastBase = url;
+	} else { // カレントに戻す
+		targetTimePxy = targetTimePxy.replace(base, pastDataArchive.currentBase);
+		baseURL = baseURL.replace(base, pastDataArchive.currentBase);
+		pastDataArchive.pastBase = "";
+	}
+	changeMap();
+}
+
 function setDefaultParams(){
 	var hashs;
 	var lhash = new URL(svgImageProps.Path,location).hash;
@@ -358,6 +418,7 @@ function setDefaultParams(){
 			setTimeout(changeRealTimeUpdate,updateCheckInterval);
 		} else if ( hashs[i].indexOf("noforecast")==0){
 			noforecast = true;
+		/** この改修はダメ(ナウキャスト以外のサブレイヤーにサイドエフェクト与える 2025/05/09
 		} else if ( hashs[i].indexOf("zmax")==0){
 			try{
 				var zmNum = Number((hashs[i].split("="))[1]);
@@ -377,9 +438,10 @@ function setDefaultParams(){
 			} catch (e){
 				console.log("zoomStep parse err");
 			}
+		**/
 		}
 	}
-	console.log("svType:",svType, "defaultCat:",defaultCat, " autoupdate:",realtime_checked.checked, "noforecast:",noforecast ,  " zoomMax:",zoomMax);
+	console.log("svType:",svType, "defaultCat:",defaultCat, " autoupdate:",realtime_checked.checked, "noforecast:",noforecast );
 }
 
 
@@ -425,6 +487,9 @@ var lastUpdateTime; // そのデータの最新更新日時
 function changeMap(){
 	var subPath = subps[catSel.selectedIndex];
 	document.getElementById("datanameHead").innerText=catsExp[catSel.selectedIndex];
+	if ( typeof catsOriginalPage !='undefined' && document.getElementById("catDependOriginLink")){
+		document.getElementById("catDependOriginLink").setAttribute("href",catsOriginalPage[catSel.selectedIndex]);
+	}
 	if ( typeof(subPath)=="string"){
 		loadJson(targetTimePxy + subPath , changeMapPh2);
 	} else {
