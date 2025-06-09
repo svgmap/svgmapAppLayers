@@ -62,7 +62,7 @@ class FileManager{
 		return success;
 	}.bind(this);
 	
-	#updateIndexData(csvTxt){
+	#updateIndexData(csvTxt,append){
 		var txt = csvTxt.split("\n");
 		var dat ={};
 		var colLen = -1;
@@ -79,8 +79,18 @@ class FileManager{
 			}
 			dat[row[0]]=row;
 		}
-		this.indexData = dat;
-		return dat;
+		if ( append){
+			for ( var k in dat){
+				if (this.indexData[k]){
+					console.warn("重複している:",k);
+				} else {
+					this.indexData[k]=dat[k];
+				}
+			}
+		} else {
+			this.indexData = dat;
+		}
+		return this.indexData;
 	}
 	
 	getDateTime(dt){
@@ -98,7 +108,7 @@ class FileManager{
 				if (ret.status =="error"){
 					ngCallback(ret)
 				} else {
-					var resp = this.#updateIndexData(ret.response);
+					var resp = this.#updateIndexData(ret.response, true);
 					ret.response = resp;
 					okCallback(ret);
 				}

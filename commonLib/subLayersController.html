@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+<title>Layer Specific UI for sub layers</title>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+
+var subCatD;
+
+onload=function(){
+	setTimeout(initUI,200);
+}
+
+var subLayers =[];
+
+var initialHash;
+
+function initUI(){
+	buildSubCatD();
+	initAnims();
+	if ( svgImage.documentElement.getAttribute("title")){
+		document.getElementById("uiName").innerHTML="List of " + svgImage.documentElement.getAttribute("title") + " SubLayers";
+	} else {
+		document.getElementById("uiName").innerHTML="List of " + svgMap.getLayer(layerID).getAttribute("title") + " SubLayers";
+	}
+	
+	if ( svgImage.documentElement.getAttribute("data-note")){
+		document.getElementById("noteDiv").innerHTML=svgImage.documentElement.getAttribute("data-note");
+	}
+	
+	initialHash = getCurrentHash();
+	
+	setVisibilityFromHash();
+	
+	var ul =  document.createElement("ul");
+	for (var i = 0 ; i < subLayers.length ; i++ ){
+		var li =  document.createElement("li");
+		var inp = document.createElement("input");
+		inp.type="checkbox";
+		inp.value = i;
+		inp.id="i"+i;
+		inp.setAttribute("onClick","changeLayer(event)");
+		if ( subLayers[i].getAttribute("visibility") == "visible" ){
+			inp.checked = true;
+		} else {
+			inp.checked = false;
+		}
+		var span = document.createElement("label");
+		span.title= subLayers[i].getAttribute("title")
+		span.innerHTML= subLayers[i].getAttribute("title");
+		span.setAttribute("for","i"+i);
+		li.appendChild(inp);
+		li.appendChild(span);
+		ul.appendChild(li);
+	}
+	
+	document.getElementById("message").innerHTML= countVisibleLayers() + " out of " + subLayers.length + " visible sublayers.";
+	
+	document.getElementById("list").appendChild(ul);
+	
+}
+
+function changeLayer(event){
+//	console.log(event.target.value,event.target.checked);
+	var vis = event.target.checked;
+	var key = event.target.value;
+	if ( vis ){
+//		console.log(key,"visible",subLayers[key]);
+		subLayers[key].setAttribute("visibility","visible");
+	} else {
+//		console.log(key,"hidden",subLayers[key]);
+		subLayers[key].setAttribute("visibility","hidden");
+	}
+	document.getElementById("message").innerHTML= countVisibleLayers() + " out of " + subLayers.length + " visible sublayers.";
+	svgMap.refreshScreen();
+	setHash();
+}
+
+function initAnims(){
+//	console.log("iframe's svgMap:",svgMap,"  id:",layerID," svgImageProps:",svgImageProps," svgImage:",svgImage);
+//	console.log(svgImage, svgImage.documentElement,svgImageProps.Path,"\n",svgImageProps.script,"\n");
+//	console.log("subCatD:",subCatD);
+	var anims = svgImage.getElementsByTagName("animation");
+	for ( var i = 0 ; i < anims.length ; i++ ){
+		// special impl. for kokudo suuchi P02
+		var subCat = (anims[i].getAttribute("xlink:href")).split(".")[0];
+		if ( !anims[i].getAttribute("title") ){
+			var subLayerTitle = findTitleBySubCatD(subCat);
+			anims[i].setAttribute("title",subLayerTitle);
+//		console.log(subCat,subCatD[subCat]);
+		}
+//		subLayers[subCat]=anims[i];
+	}
+	subLayers = anims;
+//	console.log(subLayers);
+}
+
+function countVisibleLayers(){
+	var ans = 0;
+	for ( var i = 0 ; i < subLayers.length ; i++ ){
+		if ( subLayers[i].getAttribute("visibility") != "hidden" ){
+			++ans;
+		}
+	}
+	return ( ans );
+}
+
+// 2024/10/30 サブレイヤーパーマリンク対応
+function getCurrentHash(){
+	subLayerNumbs =[];
+	for (var i = 0 ; i < subLayers.length ; i++ ){
+		if ( subLayers[i].getAttribute("visibility") != "hidden" ){
+			subLayerNumbs.push(i);
+		}
+	}
+	return `#visibleSub=${subLayerNumbs.join("_")}`;
+}
+
+function setHash(){
+	var chash = getCurrentHash();
+	if ( initialHash != chash ){
+		svgImageProps.hash=chash;
+	} else {
+		svgImageProps.hash="";
+	}
+}
+
+function setVisibilityFromHash(){
+	const slHash = svgImageProps.hash;
+	if ( !slHash || slHash.indexOf("#visibleSub=")!=0){
+		return;
+	}
+	const visibleIndex = slHash.substring(12).split("_");
+	for ( var i = 0 ; i < subLayers.length ; i++){
+		if (visibleIndex.indexOf(String(i))<0){
+			subLayers[i].setAttribute("visibility","hidden");
+		} else {
+			subLayers[i].setAttribute("visibility","visible");
+		}
+	}
+	svgMap.refreshScreen();
+}
+
+function buildSubCatD(){
+	var scds = svgImage.documentElement.getAttribute("data-subLayersDict")
+	if ( !scds){ return;}
+	subCatD={};
+	scds = scds.split(";");
+	scds.forEach(function(val){
+		var kv = val.split(":");
+		if ( kv.length==2){
+			subCatD[kv[0]]=kv[1];
+		}
+	});
+	//console.log(subCatD);
+}
+
+function findTitleBySubCatD(subCat){
+	var ans = subCat;
+	for ( var catKey in subCatD ){
+		if ( subCat.indexOf(catKey)>=0){
+			ans = subCatD[catKey];
+			break;
+		}
+	}
+	return ans;
+}
+</script>
+
+</head>
+<body>
+<h4 id="uiName">subLayersController</h4>
+<div style="font-size:11px" id="noteDiv">
+<li>出典：<a href="https://nlftp.mlit.go.jp/ksj/index.html" target="_blank">国土交通省国土数値情報ダウンロードサイト</a>
+<li>Source: <a href="https://nlftp.mlit.go.jp/ksj/index.html" target="_blank">National Land Information of Japan</a>
+</div>
+<p id="message"></p>
+<div id="list">
+</div>
+</body>
+</html>

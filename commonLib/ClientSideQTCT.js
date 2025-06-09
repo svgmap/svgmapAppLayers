@@ -4,9 +4,9 @@
 // ESModule+Classによるカプセル化の習作
 // プロトコル圧縮された比較的大きなレコード(数万件)のCSVデータを、
 // SVGMap.jsで（SVGMapToolsなどを使った前処理なしに）直接可視化するようなケースでは有用かも
-//
-// Programmed by Satoru Takagi
 // 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this

@@ -36,6 +36,7 @@
 	// 2016/10/27 地理院ドメインの地図以外でもなんでも出せるようなものにした (baseURL)
 	// 2020/01/28 LayerUIからロードするタイルセットを可変にした setServerParams()
 	// 2020/07/27 setServerParams(URL)や、#baseURL=URLで、https://server.name.jp/[[zoom]]/[[tx]]/[[ty]].png みたいなテンプレートを指定可能に
+	// 2024/12/12 離散ズームレベル対応(zstep) zmaxからzetep毎のレベルを使用する
 
 	//
 	// フラグメントオプション：
@@ -75,6 +76,9 @@
 				mapName = hParams.baseURL;
 				if ( hParams.zmax ){
 					maxLevel = Number(hParams.zmax);
+				}
+				if ( hParams.zstep ){
+					zoomStep = Number(hParams.zstep);
 				}
 				if ( hParams.jpegMedia ){
 					jpegMedia = true;
@@ -145,6 +149,14 @@
 			level = maxLevel;
 		} else if ( level < minLevel ){
 			level = minLevel;
+		}
+		if ( typeof zoomStep == "number" && zoomStep>0){ // 離散ズームレベルに対応 2024/12/12
+			for ( let dlvl = maxLevel ; dlvl > 0 ; dlvl -= zoomStep){
+				if ( dlvl <= level){
+					level = dlvl;
+					break;
+				}
+			}
 		}
 		++ testIscript2;
 		
@@ -276,6 +288,8 @@
 	
 	var maxLevel = 18;
 	var minLevel = 3;
+	var zoomStep;
+	
 	var sva = {
 		"std" : [2,18],
 		"pale" : [12,18],

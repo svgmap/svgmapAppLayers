@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>uploaded files administration panel for csv layer</title>
+<!--
+<link rel="stylesheet" href="./tabUi.css">
+<link rel="stylesheet" href="./csvEditMainPanel.css">
+-->
+</head>
+
+  <style>
+    /* ベースのリセット */
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh; /* ウィンドウ高さに合わせる */
+      box-sizing: border-box;
+    }
+    h4 {
+      margin: 10px;
+    }
+    #header {
+    	height:90px
+    }
+    table {
+      margin-left: 10px; /* 左端に間隔を作る */
+      width: calc(100% - 20px); /* 左右の余白を考慮して幅を調整 */
+      border-collapse: collapse;
+    	
+      display: block; /* スクロール可能にするための設定 */
+      overflow-y: auto; /* 縦スクロールバーを有効化 */
+      height: calc(100% - 100px); /* ヘッダー分の高さを差し引く */
+    }
+    table th, table td {
+      border: 1px solid #ccc;
+      padding: 5px;
+    }
+    #syncBtn, #messageSpan {
+      margin: 10px;
+    }
+  </style>
+
+<script src="indexDBpromise.js"></script>
+
+<script type="module">
+// Description:
+// オーサリング系レイヤのファイルの管理ツール
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
+// 2025/04/11 Indexed DBによるローカル保存機能にも対応
+
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+
+var fileManageService="fileManage.php";
+var csvHd="uploaded/";
+var imagesMetaHd="uploadedImagesZip/";
+// var contentPath="contents"; //これはたぶん不要
+var indexTxtFileName="index.txt";
+
+var hasImageMetaExt = false; // 画像添付機能の有無
+var _int_localFileMode = false; // ローカル保存モードかどうか(最初のsyncAllで決定されると思います)
+var localDB;
+
+var csvIndex, imagesIndex;
+
+addEventListener("load",async function(){
+	var syncBtn  = document.getElementById("syncBtn");
+	syncBtn.addEventListener("click",syncAll);
+	
+	window.removeCsvFile=removeCsvFile;
+	window.changeDisableMode = changeDisableMode;
+	
+	await checkImageMeta(); // 画像添付機能が動いているかを確認(ローカルの時はひとまず無条件でdisable)
+	await syncAll(true);
+	if ( location.hash.indexOf("title")>0){
+		layerNameHd.innerText=decodeURIComponent(location.hash.substring(location.hash.indexOf("title=")+6));
+	}
+});
+
+
+async function getIndex(){
+	if ( _int_localFileMode ){
+		csvIndex = await getIndexFromLocalDB();
+		console.log("LocalFileMode csvIndex:", csvIndex);
+	} else {
+		var latestTimeQ = `?t=${new Date().getTime()}`
+		csvIndex = await(await fetch(csvHd + indexTxtFileName + latestTimeQ)).text();
+		csvIndex = parseIndexData(csvIndex);
+		console.log(csvIndex);
+		if ( hasImageMetaExt ){
+			imagesIndex = await(await fetch(imagesMetaHd + indexTxtFileName + latestTimeQ)).text();
+			imagesIndex = parseIndexData(imagesIndex);
+			console.log(imagesIndex);
+		}
+	}
+}
+
+async function syncImagesData(){
+	var removed = false;
+	for ( var imgZipFile in imagesIndex){
+		var targetCsvFile = imgZipFile.replace(".zip",".json");
+		if ( csvIndex[targetCsvFile]){
+			console.log("OK:",imgZipFile, " : " , targetCsvFile);
+		} else {
+			console.log("NG:",imgZipFile, " : " , targetCsvFile, " delete it");
+			var res= await ( await fetch(imagesMetaHd + fileManageService + "?remove=" + imgZipFile)).text();
+			console.log("remove res:",res);
+			removed = true;
+		}
+	}
+	if ( removed ){
+		await syncAll();
+	}
+}
+
+function parseIndexData(txt){
+	var indexData = {};
+	txt = txt.split("\n");
+	for ( var line of txt){
+		line = line.trim();
+		line = line.split(",");
+		if ( line.length == 3){
+			for ( var i=0 ; i < line.length ; i++){
+				line[i]=line[i].trim();
+			}
+			indexData[line[0]]={
+				fileName:line[0],
+				created:line[1],
+				description:line[2]
+			}
+		}
+	}
+	return indexData;
+}
+
+async function syncAll(withmsg){
+	if ( _int_localFileMode ){
+		console.log("local File Mode Sync");
+	} else {
+		var resp = await fetch(csvHd + fileManageService + "?sync");
+		if ( resp.status != 200){
+			await initLocalFileManager();
+		} else {
+			var res = await resp.text();
+			if ( res.indexOf("completed")>0){
+				console.log("csv index sync succeeded");
+			}
+		}
+	}
+	if ( hasImageMetaExt ){
+		var res = await(await fetch(imagesMetaHd + fileManageService + "?sync")).text();
+		if ( res.indexOf("completed")>0){
+			console.log("images metadata index sync succeeded");
+		}
+	}
+	await getIndex();
+	if (hasImageMetaExt){
+		syncImagesData();
+	}
+	buildTable();
+	if ( withmsg ){
+		message("Sync completed");
+	}
+}
+
+async function checkImageMeta(){
+	var res = await(await fetch(imagesMetaHd + fileManageService )).text();
+	if ( res.indexOf("Operation ERROR...")>=0){
+		hasImageMetaExt = true;
+	}
+	console.log("hasImageMetaExt:",hasImageMetaExt);
+}
+
+function buildTable(){
+	var deleteMode = false;
+	var delModeCk  = document.getElementById("delModeCk");
+	if ( delModeCk && delModeCk.checked){
+		deleteMode = true;
+	}
+	var csvFileTable  = document.getElementById("csvFileTable");
+	csvFileTable.innerHTML="";
+	if ( deleteMode === true){
+	} else {
+		deleteMode = false;
+	}
+	if ( hasImageMetaExt ){
+		csvFileTable.insertAdjacentHTML("beforeend",`<tr><th><input type="checkbox" id="delModeCk" onchange="changeDisableMode(event)" ${deleteMode?"checked":""}></input><label for="delModeCk">削除モード</label></th><th>ファイル名</th><th>作成日時</th><th>画像データ</th><th>説明</th></tr>`);
+	} else {
+		csvFileTable.insertAdjacentHTML("beforeend",`<tr><th><input type="checkbox" id="delModeCk" onchange="changeDisableMode(event)" ${deleteMode?"checked":""}></input><label for="delModeCk">削除モード</label></th><th>ファイル名</th><th>作成日時</th><th>説明</th></tr>`);
+	}
+	for ( var fileName in csvIndex){
+		var tr=document.createElement("tr");
+		tr.insertAdjacentHTML("beforeend",`<td><input type="button" disabled="true" class="deleteButtons" value="削除" style="background:#fff" onclick="removeCsvFile(event)" data-fileName="${fileName}"></input></td>`);
+		tr.insertAdjacentHTML("beforeend",`<td>${fileName}</td>`);
+		tr.insertAdjacentHTML("beforeend",`<td>${csvIndex[fileName].created}</td>`);
+		if ( hasImageMetaExt ){
+			var hasImageFile = hasImageZipFile(fileName);
+			tr.insertAdjacentHTML("beforeend",`<td>${hasImageFile?"◎":"-"}</td>`);
+		}
+		tr.insertAdjacentHTML("beforeend",`<td>${csvIndex[fileName].description}</td>`);
+		csvFileTable.insertAdjacentElement("beforeend",tr);
+	}
+	
+	changeDisableMode({target:{checked:deleteMode}});
+}
+
+async function removeCsvFile(event){
+	var targetFileName = event.target.getAttribute("data-fileName");
+	console.log("targetFileName to remove:",targetFileName);
+	var res;
+	if (_int_localFileMode){
+		res = await deleteLocalFile(targetFileName);
+	} else {
+		res = await(await fetch(csvHd + fileManageService + `?remove=${targetFileName}`)).text();
+		console.log(res);
+	}
+	var res2="";
+	if (hasImageMetaExt){
+		var zfn= hasImageZipFile(targetFileName);
+		if ( zfn ){
+			console.log("targetImageZipFileName to remove:",zfn);
+			res2 = await(await fetch(imagesMetaHd + fileManageService + `?remove=${zfn}`)).text();
+			console.log(res2);
+		}
+	}
+	message(res + " " + res2 );
+	await syncAll();
+}
+
+function hasImageZipFile(csvFileName){
+	var targetImageZipFileName = csvFileName.replace(".json",".zip");
+	var ans = imagesIndex[targetImageZipFileName] ? targetImageZipFileName : false;
+	return ans;
+}
+
+function message(txt){
+	messageSpan.innerText=txt;
+	setTimeout(function(){
+		messageSpan.innerText="";
+	},1500);
+}
+
+function changeDisableMode(event){
+	console.log("changeDisableMode:",event,event.target.checked);
+	var enabled = false;
+	if (event.target.checked){
+		enabled = true;
+	}
+	const buttons = document.querySelectorAll('.deleteButtons');
+
+	// すべてのbutton要素を無効化
+	buttons.forEach(button => {
+		if ( enabled ){
+			button.disabled = false
+			button.style.background = "#f55";
+		} else {
+			button.disabled = true;
+			button.style.background = "#fff";
+		}
+	});
+}
+
+
+// Local File Mode用関数群 2025/04/11
+
+async function initLocalFileManager(){
+	console.log("initLocalFileManager");
+	if ( !window.opener || !window.opener.svgMap || !window.opener.layerID ){return} // 特定のオーサリングレイヤに紐づいていなければ終了
+	var layerName = window.opener.svgMap.getLayer(window.opener.layerID).getAttribute("title");
+	localDB = new LocalDBFileManager(layerName); // これが取れない・・・
+	await localDB.init();
+	console.log("Use localDB", localDB);
+	_int_localFileMode = true;
+	console.log("Set localFileMode");
+}
+
+function parseIndexDataFromLocalIndexData(dat){
+	for ( var k in dat){
+		var line = dat[k];
+		var obj = {
+			fileName:line[0],
+			created:line[1],
+			description:line[2]
+		}
+		dat[k]=obj;
+	}
+	return dat;
+}
+
+async function getIndexFromLocalDB(){
+	const ans = parseIndexDataFromLocalIndexData(await localDB.indexData);
+	return ans;
+}
+
+async function deleteLocalFile(targetFileName){
+	const ans = await localDB.removeSvgContent(targetFileName);
+	console.log("deleteLocalFile:",ans);
+}
+
+
+</script>
+
+<body>
+<div id="header">
+<h4>uploaded files administration panel for <span id="layerNameHd">csv</span> layer</h4>
+<input type="button" value="FORCE SYNC" id="syncBtn"></input> <span id="messageSpan"></span>
+</div>
+<table style="font-size:11px"><tbody id="csvFileTable"></tbody></table>
+</body>
+</html>

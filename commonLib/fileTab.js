@@ -7,34 +7,96 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-import {FileManager} from "./FileManager.js";
-import {LocalDBFileManager} from "./LocalDBFileManager.js";
+// import {FileManager} from "./FileManager.js";
+//import {LocalDBFileManager} from "./LocalDBFileManager.js";
 var contentDir = "./contents/";
 var fm;
 var removeMode=false;
-addEventListener("load",  async function(){
-	fm = new FileManager();
-	var indexData = await fm.init();
+addEventListener("load", init);
+const customizerObject={
+	setContent:null,
+	getContent:null,
+	messages:{},
+};
+
+function setFileTabCustomizer(obj){
+	if ( typeof obj.setContent == "function"){
+		customizerObject.setContent = obj.setContent;
+	} else {
+		customizerObject.setContent =null;
+	}
+	if ( typeof obj.getContent == "function"){
+		customizerObject.getContent = obj.getContent;
+	}else {
+		customizerObject.getContent = null;
+	}
+	
+	if ( typeof obj.messages?.storeAlert == "string"){
+		customizerObject.messages.storeAlert = obj.messages.storeAlert;
+	} else {
+		customizerObject.messages.storeAlert = null;
+	}
+	if ( typeof obj.messages?.dateTitle == "string"){
+		customizerObject.messages.dateTitle = obj.messages.dateTitle;
+	} else {
+		customizerObject.messages.dateTitle = null;
+	}
+	if ( typeof obj.messages?.descTitle == "string"){
+		customizerObject.messages.descTitle = obj.messages.descTitle;
+	} else {
+		customizerObject.messages.descTitle = null;
+	}
+	if ( typeof obj.messages?.fsNote == "string"){
+		customizerObject.messages.fsNote = obj.messages.fsNote;
+	} else {
+		customizerObject.messages.fsNote = null;
+	}
+}
+
+
+async function init(){
+	var indexData;
+	if ( window.localFileMode=="undefined" || window.localFileMode != true ){
+		var module = await import('./FileManager.js');
+		fm = new module.FileManager();
+		indexData = await fm.init();
+	}
 	console.log("indexData:",indexData);
 	if ( !indexData){
-		fm = new LocalDBFileManager(svgMap.getLayer(layerID).getAttribute("title"));
+		var module = await import('./LocalDBFileManager.js');
+		fm = new module.LocalDBFileManager(svgMap.getLayer(layerID).getAttribute("title"));
 		await fm.init();
 		localFSnote();
 	}
 	updateTable();
+	if ( svgImageProps.hash ){
+		var ipt = contentListTable.querySelector(`input[data-value="${svgImageProps.hash.substring(1)}"]`);
+		console.log("searched input element:",ipt);
+		if ( ipt ){
+			ipt.click();
+		}
+	}
 	postB.addEventListener("click", async function(){
 		var descTxt = postText.value;
 		if ( !descTxt ){
-			alert("説明文を入力してください。");
+			if ( customizerObject.messages?.storeAlert){
+				alert(customizerObject.messages.storeAlert);
+			} else {
+				alert("説明文を入力してください。");
+			}
 			return;
 		}
 		
-		descTxt = descTxt.replaceAll(",","，");
-		removeImageIid(svgImage);
-		var svgContentXML = fm.xml2Str(svgImage);
-		
-		var ret = await fm.registSvgContent(svgContentXML,descTxt);
-		console.log(ret);
+		descTxt = descTxt.replaceAll(",","，").replaceAll("\n","").replaceAll("\r","");
+		if ( customizerObject.getContent ){
+			var customContent = customizerObject.getContent();
+			var ret = await fm.registSvgContent(customContent,descTxt);
+		} else {
+			removeImageIid(svgImage);
+			var svgContentXML = fm.xml2Str(svgImage);
+			var ret = await fm.registSvgContent(svgContentXML,descTxt);
+		}
+			console.log(ret);
 		updateTable();
 		postText.value="";
 	});
@@ -53,7 +115,7 @@ addEventListener("load",  async function(){
 		}
 		updateTable();
 	});
-});
+}
 
 function removeImageIid(svgImage){
 	var imgs = svgImage.getElementsByTagName("image");
@@ -62,7 +124,25 @@ function removeImageIid(svgImage){
 	}
 }
 
+var prevTarget;
 window.showSvg = async function(event){
+	if ( prevTarget ){
+		prevTarget.parentElement.parentElement.style.backgroundColor="";
+	}
+	if ( prevTarget === event.target ){
+		prevTarget = undefined;
+		if ( customizerObject.setContent){
+			customizerObject.setContent();
+		} else {
+			removeAllShapes();
+			svgMap.refreshScreen();
+		}
+		svgImageProps.hash="";
+		return;
+	}
+	event.target.parentElement.parentElement.style.backgroundColor="orange";
+	prevTarget = event.target;
+
 	var targetMeta = fm.indexData[event.target.getAttribute("data-value")];
 	var targetFile = targetMeta[0];
 	console.log(targetMeta);
@@ -71,6 +151,7 @@ window.showSvg = async function(event){
 		updateTable();
 	} else {
 		console.log("SHOW File:",targetFile);
+		svgImageProps.hash=`#${targetFile}`;
 		await loadAndShowSvg(targetFile);
 	}
 }
@@ -85,20 +166,31 @@ async function loadAndShowSvg(fileName){
 		var res = await fetch(path);
 		var txt = await res.text();
 	} 
-	const parser = new DOMParser();
-	const svgDoc = await parser.parseFromString(txt, "text/xml");
-	console.log(svgDoc);
 	
-	removeAllShapes();
-	
-	var paths = svgDoc.getElementsByTagName("path");
-	var uses = svgDoc.getElementsByTagName("use");
-	var images = getDrawingImages(svgDoc);
-	importShapes(paths);
-	importShapes(uses);
-	importShapes(images);
-	
-	svgMap.refreshScreen();
+	if ( customizerObject.setContent){
+		customizerObject.setContent(txt);
+	} else {
+		const parser = new DOMParser();
+		const svgDoc = await parser.parseFromString(txt, "text/xml");
+		console.log(svgDoc);
+		
+		removeAllShapes();
+		
+		var paths = svgDoc.getElementsByTagName("path");
+		var uses = svgDoc.getElementsByTagName("use");
+		var images = getDrawingImages(svgDoc);
+		importShapes(paths);
+		importShapes(uses);
+		importShapes(images);
+		var annotations = svgDoc.getElementById("annotations");
+		if ( !annotations){annotations=[]}
+		console.log("annotations:",annotations);
+		if ( window.initAnnotation){
+			window.initAnnotation(annotations);
+		}
+		
+		svgMap.refreshScreen();
+	}
 }
 
 function getDrawingImages(svgDoc){
@@ -142,12 +234,19 @@ function removeElements(elms){
 function updateTable(){
 	removeChildren(contentListTable);
 	var hdmsg = "更新日時";
-	var btnMsh = "表示";
+	var btnMsh = "選択";
+	var descStr = "説明";
+	if (customizerObject.messages?.descTitle ){
+		descStr = customizerObject.messages.descTitle;
+	}
+	if (customizerObject.messages?.dateTitle ){
+		hdmsg = customizerObject.messages.dateTitle;
+	}
 	if ( removeMode ){
 		hdmsg = "ファイル名";
 		btnMsh = "削除";
 	}
-	contentListTable.insertAdjacentHTML("beforeend",`<tr><th></th><th>${hdmsg}</th><th>説明</th></tr>`);
+	contentListTable.insertAdjacentHTML("beforeend",`<tr><th></th><th>${hdmsg}</th><th>${descStr}</th></tr>`);
 	var ar = buildList(fm.indexData, 1, true);
 	console.log(ar);
 	
@@ -188,6 +287,12 @@ function removeChildren(elm){
 function localFSnote(){
 	var fsNoteSpan = document.getElementById("fileSystemNote");
 	if ( fsNoteSpan ){
-		fsNoteSpan.innerText="端末のブラウザ内にデータを保存します"
+		let fsNote = "端末のブラウザ内にデータを保存します";
+		if (customizerObject.messages?.fsNote ){
+			fsNote = customizerObject.messages.fsNote;
+		}
+		fsNoteSpan.innerText = fsNote;
 	}
 }
+
+export {setFileTabCustomizer};
