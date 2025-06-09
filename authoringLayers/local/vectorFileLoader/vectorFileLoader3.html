@@ -16,7 +16,8 @@ window.unzip = unzip;
 window.HTTPRangeReader = HTTPRangeReader;
 </script>
 
-<script src="tinyFileManager.js"></script>
+<script src="tinyFileManagerForCsv.js"></script>
+<script src="vectorFileExtForTFM.js"></script>
 <script src="geoJsonMetaSchemaGenerator.js"></script>
 
 <script src="indexDBpromise.js"></script>
@@ -30,15 +31,25 @@ window.LocalDBFileManager = LocalDBFileManager;
 // Description:
 // shapefileやgeojsonを読み込み・表示・登録するSVGMapレイヤー
 // 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 
+// History:
+//   2024/11/25 SVGMapファイルの読み込み機能
+//
+// TBD:
+//   URLでの読み込みのものはハイパーレイヤにしたほうが良いかな（選択可能にするのが一番いいかも）
+
+_targetSvgContentGrpId = "mapContents";
+
 onload=async function(){
 	console.log("ONLOAD: vectorFileLoader2");
-	await initLoader("tab2","menutbl","mapContents");
+	await initLoader("tab2","menutbl", getSource, showMapEmbed, clearMap);
 	await sleep(100);
 	var hashStr = svgImageProps.Path;
 	if ( hashStr.indexOf("#")>0){
@@ -50,24 +61,29 @@ onload=async function(){
 	if ( hashStr.indexOf("http://")==0 || hashStr.indexOf("https://")==0){
 		setInitialDataFromHash(hashStr)
 	} else if ( hashStr.indexOf("saved:")==0){
-		console.log("Load Saved File");
-		loadByHash(hashStr.substring(6));
+		console.log("Load Saved File : ", hashStr);
+		loadByFileName(hashStr.substring(6));
 	}
 }
 
 async function loadVectorFile(event){
 	document.getElementById("zipContentSelectDiv").style.display="none";
+	svgImageProps.hash="";
 	var files = event.target.files;
-	var geojson;
+	var geojson, smAB, zipLoaded;
 	console.log("loadVectorFile:", files );
 	if ( files.length <1 ){console.warn("no files exit"); return}
 	// type:  "application/x-zip-compressed"(zip) , "application/json"(json), "text/csv", "text/plain" , "" (shp,dbf,geojson)
 	if ( files.length == 1 ){ // geojson || zipped shapefile || zipped geojson
 		if ( files[0].type.indexOf("zip")>0 || files[0].name.endsWith(".zip") ){ // zip file
 			await listAndselectZipContent(files[0]); // zipの場合は、loadZipで表示される
+			zipLoaded = true;
 		} else if (files[0].type.indexOf("json")>0 || files[0].type.indexOf("text")==0 || files[0].name.endsWith(".geojson") ||  files[0].name.endsWith(".json")){ // geojson
 			var gjsAB = await getArrayBuffer(files[0]);
 			geojson =loadGeoJson(gjsAB);
+		} else if ( files[0].name.endsWith(".svg")){ // svgMapにも対応 : 2024/11/25
+			smAB = await getArrayBuffer(files[0]);
+			loadSvgMap(smAB);
 		}
 		
 	} else if (files.length >= 2 ){ // shapefile: shp and dbf
@@ -103,6 +119,10 @@ async function loadVectorFile(event){
 	if ( geojson){
 		fileMsgDiv.innerText="File loading scceeded.";
 		showGeoJson(geojson);
+	} else if (smAB ) {
+		fileMsgDiv.innerText="SVGMap File loading scceeded.";
+	} else if (zipLoaded) {
+		fileMsgDiv.innerText="Zip File loading scceeded.";
 	} else {
 		fileMsgDiv.innerText="Some error has occured..";
 	}
@@ -148,6 +168,8 @@ async function listAndselectZipContent(fileData){
 			shps[entk.substring(0,entk.length-4)]=ent;
 		} else if (entk.endsWith(".dbf") ){
 			dbfs[entk.substring(0,entk.length-4)]=ent;
+		} else if (entk.endsWith(".svg") ){
+			gjss[entk]={svgmap:ent};
 		}
 	}
 	
@@ -195,7 +217,12 @@ async function selectZipContent(event){
 
 async function loadZip(geoZipEntry){
 	var geojson;
-	if ( geoZipEntry.shp){ // shapefile
+	if ( geoZipEntry.svgmap){ // svgmap
+		console.log("load svgMap content");
+		var smAB = await geoZipEntry.svgmap.arrayBuffer();
+		loadSvgMap(smAB);
+		return;
+	} else if ( geoZipEntry.shp){ // shapefile
 		var shpAB = await geoZipEntry.shp.arrayBuffer();
 		var dbfAB = await geoZipEntry.dbf.arrayBuffer();
 		geojson = await loadShapefile(shpAB,dbfAB);
@@ -219,6 +246,36 @@ async function loadShapefile(shpAB, dbfAB, encoding){
 	}
 	var geojs = await shapefile.read(shpAB,dbfAB,{encoding: encoding});
 	return ( geojs );
+}
+
+function loadSvgMap(dataABorTxt){
+	console.log("loadSVGMap : ", typeof dataABorTxt);
+	var txt ;
+	if ( typeof dataABorTxt == "string"){
+		txt = dataABorTxt;
+	} else {
+		var data = new Uint8Array(dataABorTxt);
+		var ut_td = new TextDecoder("UTF-8");
+		txt = ut_td.decode(data);
+	}
+	const parser = new DOMParser();
+	const sourceDoc = parser.parseFromString(txt, "text/xml");
+	
+	const sourceRoot = sourceDoc.documentElement;
+	const scm = sourceRoot.getAttribute("property");
+	
+	svgImage.documentElement.setAttribute("property",scm);
+	const targetGElement = svgImage.getElementById("mapContents");
+	removeChildren(targetGElement);
+
+	for (let i = 0; i < sourceRoot.childNodes.length; i++) {
+		const childNode = sourceRoot.childNodes[i];
+		console.log(childNode.nodeName);
+		if (childNode.nodeType === Node.ELEMENT_NODE && childNode.nodeName !== 'metadata' && childNode.nodeName !== 'globalCoordinateSystem' ) {
+			targetGElement.appendChild(childNode.cloneNode(true));
+		}
+	}
+	svgMap.refreshScreen();
 }
 
 function loadGeoJson(dataAB){
@@ -274,7 +331,7 @@ function removeChildren(elm){
 
 function showGeoJson(geojson){
 	if ( typeof svgMap !="object"){console.warn("No svgMap");return;}
-	var parentElm = svgImage.getElementById("mapContents");
+	var parentElm = svgImage.getElementById(_targetSvgContentGrpId);
 	parentElm.removeAttribute("data-contentUrl");
 	var schema = generateMetaSchema(geojson);
 	removeChildren(parentElm);
@@ -300,11 +357,16 @@ async function loadDataFromInet(){
 			srcUrl = svgMap.getCORSURL(srcUrl)
 		}
 		var res = await fetch(srcUrl);
-		
 		console.log(res);
-		var json = await res.json();
-		console.log(json);
-		showGeoJson(json);
+		if ( srcUrl.endsWith(".svg")){
+			var txt = await res.text();
+			loadSvgMap(txt);
+		} else {
+			var json = await res.json();
+			console.log(json);
+			showGeoJson(json);
+		}
+		svgImageProps.hash="";
 	} catch(e){
 		console.warn(e);
 		srcUrlInp.value="";
@@ -331,8 +393,14 @@ function getPermaLink(){
 		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
 		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
 		console.log(dh1, dh2);
-		var chash = dh1 + "#"+ans+dh2;
-		var hashPath = bpm.origin + bpm.pathname + chash;
+		var hashPath;
+		if ( dh2.startsWith("#")){
+			// 既にサブレイヤー識別子アリ
+			hashPath = bpm;
+		} else {
+			var chash = dh1 + "#"+ans+dh2;
+			hashPath = bpm.origin + bpm.pathname + chash;
+		}
 		console.log(hashPath);
 		pathAns.innerText=hashPath;
 		navigator.clipboard.writeText(hashPath);
@@ -362,7 +430,7 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 	<div class="tab_content" id="tab1_content" style="height:300px">
 		<div class="tab_content_description">
-			<div style="font-size:10px">ローカルにあるGeoJSON(拡張子.geojson or .json), ShapeFile(.shpと.dbfの二個を指定), 及びそれらのzipアーカイブファイル(対象は後で選択)を読み込み表示します。ネット上のgeojsonファイルも表示</div>
+			<div style="font-size:10px">ローカルにあるGeoJSON(拡張子.geojson or .json), svgMap(.svg), ShapeFile(.shpと.dbfの二個を指定), 及びそれらのzipアーカイブファイル(対象は後で選択)を読み込み表示します。ネット上のgeojson,svgMapファイルも表示</div>
 
 			<div id="fromLocalUI" style="background-color:#eef">
 				Load File:<input type="file" onchange="loadVectorFile(event)" name="select" id="fileLoadInputUI" multiple></input>
@@ -370,7 +438,7 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 			</div>
 			<div style="font-size:10px">もしくは</div>
 			<div id="fromInetUI" style="background-color:#dfd">
-				<input type="text" style="width:300px" placeholder="geojsonデータのURLを入力" id="loadInetURL"></input><input type="button" value="Load" onclick="loadDataFromInet()"></input>
+				<input type="text" style="width:300px" placeholder="geojsonかsvgMapデータのURLを入力" id="loadInetURL"></input><input type="button" value="Load" onclick="loadDataFromInet()"></input>
 			</div>
 			<div id="fileMsgDiv"></div>
 		</div>
@@ -396,9 +464,9 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 	<div class="tab_content" id="tab3_content" style="height:300px;verflow-x: hidden; overflow-y: scroll">
 		<div class="tab_content_description" style="font-size:12px">
 			<p class="c-txtsp">管理パネル</p>
-			<p>TBDですね。不要な登録項目の削除などは管理者に相談してみてください。</p>
+			<p>TBDですね。何かあれば管理者に相談してみてください。</p>
 			<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
-			<p><a href="uploaded/testStore.php?sync" target="_blank">SYNC</a></p>
+			<p><a href="fileAdminPanel.html#title=userVectorFile" target="_fileAdminVectorFile">Administraion</a></p>
 		</div>
 	</div>
 </div>
