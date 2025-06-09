@@ -114,13 +114,7 @@ input[name="tab_item"] {
 
 
 // Note:
-// 少なくとも
-// https://graphhopper.com/maps/?
-// で
-// https://graphhopper.com/api/1/route
-// に、querySample3.jsonがPOSTで投げられたら確かに迂回ルートが作られた！
-//　ギヤマークに、querySample2.json入れる（板橋区の辺りに迂回ポリゴン生成)
-// ギヤマーク(ghQuerySample2.json)の内容は、custom_modelに入る
+// 迂回経路生成
 // ドキュメントは：
 // https://github.com/graphhopper/graphhopper/blob/master/docs/web/api-doc.md
 // と
@@ -130,6 +124,10 @@ input[name="tab_item"] {
 
 
 onload=async function(){
+	if ( !RountingService && svgImageProps.hash.indexOf("graphhopperurl")>0){
+		RountingService = new URL("?"+svgImageProps.hash.substring(1),location.origin).searchParams.get("graphhopperurl");
+		console.log("Set graphhopper RountingService endpoint by hash : ", RountingService);
+	}
 	setTimeout(testLibs,10);
 	setTimeout(initAuthoringUI,10);
 	setTimeout(addListener,10);
@@ -141,9 +139,8 @@ onload=async function(){
 var reqJsonTemplate;
 var routingResultGroup;
 
-var RountingService = "{{SET YOUR GRAPHHOPPER API ENDPOINT}}";
-// var RountingService3 = "{{SET YOUR GRAPHHOPPER API ENDPOINT}}?point=[lat1],[lon1]&point=[lat2],[lon2]&points_encoded=false&instructions=true&debug=true&profile=car"; // profile: Please note that currently only for car, small_truck, scooter, bike and foot the custom routing support is deployed.  https://www.graphhopper.com/blog/2020/05/31/examples-for-customizable-routing/  The requested profile 'bike' does not exist. Available profiles: [car]
-
+var RountingService = ""; // ⇒ SET YOUR GRAPHHOPPER API ENDPOINT URL
+// var RountingService3 = "{{GRAPHHOPPER API ENDPOINT}}?point=[lat1],[lon1]&point=[lat2],[lon2]&points_encoded=false&instructions=true&debug=true&profile=car"; // profile: Please note that currently only for car, small_truck, scooter, bike and foot the custom routing support is deployed.  https://www.graphhopper.com/blog/2020/05/31/examples-for-customizable-routing/  The requested profile 'bike' does not exist. Available profiles: [car]
 
 
 function addListener(){
