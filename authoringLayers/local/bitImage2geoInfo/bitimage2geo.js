@@ -43,6 +43,7 @@ function initAuthoring(){
 	// オーサリングモードに入ったら、サブレイヤーを削除し、オーサリングの要素を有効に
 	console.log("initAuthoring ",typeof(svgMap));
 	if ( typeof(svgMap) == "object" ){
+		svgImageProps.hash="";
 		var anim = svgImage.getElementById("bitimageSubLayer");
 		if ( anim){
 			anim.parentNode.removeChild(anim);
@@ -287,7 +288,7 @@ async function sendData(data,cbf) {
 				cbf("error");
 			}
 		});
-		XHR.open('POST', 'uploaded/testStore.php');
+		XHR.open('POST', 'uploaded/fileManage.php');
 		XHR.send(FD);
 	}
 }

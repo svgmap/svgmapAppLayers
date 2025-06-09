@@ -80,25 +80,32 @@ function dispCsv(csvdata){
 		var td1 = document.createElement("td");
 		var btn = document.createElement("input");
 		btn.setAttribute("type","button");
-		btn.setAttribute("value","表示");
+		btn.setAttribute("value","選択");
 		var sourceURL=contentDir+csvdata[i][0];
-		btn.addEventListener("click",function(url,title){
+		btn.addEventListener("click",function(contentDir,fileName,title){
 			return(
 				function(){
-					// console.log("URL:",url," title:",title)
-					if ( hexDecode ){
-//						showMapDecodeEmbed(url,title);
-					} else {
-						if ( _int_localFileMode ){
-							showMapLocalEmbed(url,title);
-							hilightSelectedTable(url);
+					if ( getSavedName().indexOf( fileName  )< 0 ){
+						var url = contentDir + fileName
+						// console.log("URL:",url," title:",title)
+						if ( hexDecode ){
+	//						showMapDecodeEmbed(url,title);
 						} else {
-							showMap(url,title);
-							hilightSelectedTable();
+							if ( _int_localFileMode ){
+								showMapLocalEmbed(url,title);
+								hilightSelectedTable(url);
+							} else {
+								showMap(url,title);
+								svgImageProps.hash=`#saved:${fileName.split(".")[0]}`;
+								hilightSelectedTable();
+							}
 						}
+					} else {
+						clearMap();
+						hilightSelectedTable();
 					}
 				});
-		}(sourceURL, csvdata[i][2]));
+		}(contentDir, csvdata[i][0], csvdata[i][2]));
 		btn.setAttribute("data-contentUrl",sourceURL);
 		td1.appendChild(btn);
 //		td1.innerText= csvdata[i][0];
@@ -118,6 +125,12 @@ function dispCsv(csvdata){
 	hilightSelectedTable();
 }
 
+function getSavedName(){
+	savedName = svgImage.getElementById(_bitimageSubLayerId)?.getAttribute("xlink:href");
+	if ( !savedName ){savedName = ""}
+	return savedName;
+}
+	
 async function showMapDecodeEmbed(url,title){
 	console.log("showMapDecodeEmbed");
 	var hex;
@@ -238,25 +251,22 @@ function getHashFromURL(url){
 function hilightSelectedTable(savedName){
 	console.log("hilightSelectedTable");
 	if ( !savedName){
-		savedName = svgImage.getElementById(_bitimageSubLayerId)?.getAttribute("xlink:href");
+		savedName = getSavedName();
 	}
 	console.log("savedName:",savedName);
 	var ltitle;
-	if ( !savedName){
-	} else {
-		var tbl=document.getElementById(_menutblId);
-		var trs = tbl.getElementsByTagName("tr");
-		for ( var tr of trs){
-			var btn = tr.getElementsByTagName("input");
-			if ( btn.length==1 ){
-				//console.log(tr.innerText, btn[0].getAttribute("data-hash"));
-				var hash = btn[0].getAttribute("data-contentUrl");
-				if (hash == savedName){
-					tr.style.backgroundColor="#fdd";
-					ltitle = tr.children[1]
-				} else {
-					tr.style.backgroundColor="";
-				}
+	var tbl=document.getElementById(_menutblId);
+	var trs = tbl.getElementsByTagName("tr");
+	for ( var tr of trs){
+		var btn = tr.getElementsByTagName("input");
+		if ( btn.length==1 ){
+			//console.log(tr.innerText, btn[0].getAttribute("data-hash"));
+			var hash = btn[0].getAttribute("data-contentUrl");
+			if (hash == savedName){
+				tr.style.backgroundColor="#fdd";
+				ltitle = tr.children[1]
+			} else {
+				tr.style.backgroundColor="";
 			}
 		}
 	}
@@ -266,7 +276,7 @@ function hilightSelectedTable(savedName){
 
 function getPermaLink(){
 	var ans;
-	var animHref = svgImage.getElementById(_bitimageSubLayerId)?.getAttribute("xlink:href");
+	var animHref = getSavedName();
 	if ( animHref ){
 		var fileHash=getHashFromURL(animHref);
 		console.log("fileHash:",fileHash);
@@ -277,8 +287,14 @@ function getPermaLink(){
 			var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
 			var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
 			console.log(dh1, dh2);
-			var chash = dh1 + "#saved:"+fileHash+dh2;
-			var hashPath = bpm.origin + bpm.pathname + chash;
+			var hashPath;
+			if ( dh2.startsWith("#")){
+				// 既にサブレイヤー識別子アリ
+				hashPath = bpm;
+			} else {
+				var chash = dh1 + "#saved:"+fileHash+dh2;
+				hashPath = bpm.origin + bpm.pathname + chash;
+			}
 			console.log(hashPath);
 			pathAns.innerText=hashPath;
 			navigator.clipboard.writeText(hashPath);
@@ -296,6 +312,7 @@ function getPermaLink(){
 var _int_localFileMode = false;
 var localDB;
 async function loadIndex_local(cbfunc){
+	await localDB.syncIndex();
 	var indexObj = await localDB.indexData;
 	var ans = [];
 	for ( var fn in indexObj){
@@ -360,10 +377,24 @@ async function showMapLocalEmbed(url,title){
 	svg_img.setAttribute("height",h);
 	svg_img.setAttribute("transform",tf);
 	svg_img.setAttribute("data-anchorPoints",ap);
+	svg_img.setAttribute("data-filename",url);
 	svg_img.setAttribute("display","");
 	svgMap.refreshScreen();
 }
 
+function clearMap(){
+	var anim = svgImage.getElementById(_bitimageSubLayerId);
+	if ( anim){
+		anim.parentNode.removeChild(anim);
+	}
+	var svg_img = svgImage.getElementById("bitimage");
+	if ( svg_img ){
+		svg_img.setAttribute("xlink:href","");
+		svg_img.removeAttribute("data-anchorPoints");
+	}
+	svgImageProps.hash="";
+	svgMap.refreshScreen();
+}
 
 function localFSnote(){
 	var fsNoteSpan = document.getElementById("fileSystemNote");
