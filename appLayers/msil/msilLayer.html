@@ -1,0 +1,17 @@
+<!doctype html>
+<head>
+<meta charset="utf-8"></meta>
+<title>海しるビットイメージデータレイヤ</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+	addEventListener("load",function(){
+		titleHd.innerText=`${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+		
+	});
+</script>
+<body>
+<h5 id="titleHd">海しるレイヤー</h5>
+<div style="font-size:11px"><a href="https://www.msil.go.jp/msil/htm/topwindow.html" target="_blank">海上保安庁：海しる（海洋状況表示システム）</a></div>
+</body>
+</html>

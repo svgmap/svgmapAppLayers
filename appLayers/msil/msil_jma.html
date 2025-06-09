@@ -5,8 +5,8 @@
 
 // 海しるの情報からハックした、気象庁の衛星タイルデータ他へのアクセス
 //
-// Programmed by Satoru Takagi
-// 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -21,27 +21,32 @@ var cats0 = [
 	"satimg","satimg","satimg","satimg",
 	"satprod","satprod","satprod","satprod","satprod",
 	"satprod","satprod","satprod",
-	"nowc"];
+//	"nowc"
+	];
 var cats1 = [
 	"fd","jp","fd","jp",
 	"FD","FD","FD","FD","FD",
 	"FD","JP","JP",
-	"none"];
+//	"none"
+	];
 var cats2 = [
 	"B13/TBB","B13/TBB","B03/ALBD","B03/ALBD",
 	"HCAI/HTC","HCAI/CLM","HCAI/CLC","HCAI/DUST","HCAI/SIM",
 	"HRP/HRP","CCI/CCI","FOG/FGNM",
-	"surf/hrpns"];
+//	"surf/hrpns"
+	];
 var zoomLimits = [
 	5,6,5,6,
 	5,5,5,5,5,
 	5,6,6,
-	9];
+//	9
+	];
 var catsExp = [
 	"衛星画像 雲 赤外","衛星画像 雲 赤外(日本)","衛星画像 雲 可視光","衛星画像 雲 可視光(日本)",
 	"衛星解析 CloudTop(雲の高さ)","衛星解析 CloudMask(曇の有無)","衛星解析 CloudType(雲の種別)","衛星解析 Dust(塵)","衛星解析 Snow_Ice(雪・氷)",
 	"衛星解析 強雨域","衛星解析 積乱雲","衛星解析 霧",
-	"高解像度降水ナウキャスト"];
+//	"高解像度降水ナウキャスト"
+	];
 
 var subps =[
 	"tile/satimg/targetTimes_fd.json",
@@ -49,17 +54,25 @@ var subps =[
 	"tile/satimg/targetTimes_fd.json",
 	"tile/satimg/targetTimes_fd.json",
 	
-	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
-	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
-	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
-	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
-	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hcai/targetTimes.json",
+	"tile/satprod//targetTimes_hcai_fd.json",
+	"tile/satprod//targetTimes_hcai_fd.json",
+	"tile/satprod//targetTimes_hcai_fd.json",
+	"tile/satprod//targetTimes_hcai_fd.json",
+	"tile/satprod//targetTimes_hcai_fd.json",
 	
-	"omaad/rsmc_nowcast/en/jmatile/data/hrp/targetTimes.json",
-	"omaad/aviation/jp/jmatile/data/cci/targetTimes.json",
-	"omaad/aviation/jp/jmatile/data/fog/targetTimes.json",
+//	"omaad/rsmc_nowcast/en/jmatile/data/hrp/targetTimes.json",
+	"tile/satprod//targetTimes_hrp_fd.json",
+//	"omaad/aviation/jp/jmatile/data/cci/targetTimes.json",
+	"tile/satprod//targetTimes_cbi_jp.json",
+//	"omaad/aviation/jp/jmatile/data/fog/targetTimes.json",
+	"tile/satprod//targetTimes_mfg_jp.json",
 	
-	"tile/nowc/targetTimes.json"
+//	"tile/nowc/targetTimes.json"
 ]
 
 var legends =[
@@ -75,8 +88,26 @@ var legends =[
 	"https://www.data.jma.go.jp/omaad/aviation/jp/cci/images/legend_jp_normal_cci.svg",
 	"https://www.data.jma.go.jp/omaad/aviation/jp/fog/images/legend_jp_normal_fog.svg",
 	
-	"https://www.msil.go.jp/legend/10074j.png"
+//	"https://www.msil.go.jp/legend/10074j.png"
 ]
+
+var hrefs =[
+	["https://www.jma.go.jp/bosai/map.html#contents=himawari","気象衛星ひまわり"],
+	["https://www.jma.go.jp/bosai/map.html#contents=himawari","気象衛星ひまわり"],
+	["https://www.jma.go.jp/bosai/map.html#contents=himawari","気象衛星ひまわり"],
+	["https://www.jma.go.jp/bosai/map.html#contents=himawari","気象衛星ひまわり"],
+	
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	
+	["https://www.jma.go.jp/jma/jma-eng/jma-center/nowcasting/","Regional Specialized Meteorological Centre Tokyo for Nowcasting"],
+	["https://www.data.jma.go.jp/airinfo/index.html","航空気象情報-気象衛星プロダクト"],
+	["https://www.data.jma.go.jp/airinfo/index.html","航空気象情報-気象衛星プロダクト"],
+]
+
 
 var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
 
@@ -160,6 +191,8 @@ function changeMapPh2(tData){
 	
 	prepTimeSel(tData);
 	hanrei.src=legends[catSel.selectedIndex];
+	srcHref.href=hrefs[catSel.selectedIndex][0];
+	srcHref.innerText=hrefs[catSel.selectedIndex][1];
 	change();
 }
 
@@ -264,7 +297,8 @@ function checkLoop(){
 </script>
 <body>
 <h3>気象庁タイルデータレイヤー</h3>
-<p><a href="https://www.msil.go.jp/" target="_blank">海しる</a>より解析した、<a href="https://www.data.jma.go.jp" target="_blank">気象庁衛星関連データ</a></p>
+<!--<p><a href="https://www.msil.go.jp/" target="_blank">海しる</a>より解析した、<a href="https://www.data.jma.go.jp" target="_blank">気象庁衛星関連データ</a></p>-->
+<p style="font-size:11px">出典：<a id="src0Href" href="https://www.jma.go.jp/" target="_blank">気象庁ホームページ</a>(<a id="srcHref" href="https://www.jma.go.jp/" target="_blank">ホーム</a>)を加工して作成</p>
 <select id="catSel" onchange="changeMap()"></select> 
 <input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
 <label for="realtime_checked">自動更新</label>

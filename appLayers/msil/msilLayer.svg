@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" >
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" data-controller="msilLayer.html" >
 <script>
 	// msil.go.jpからコンテンツを取得する
 	//
@@ -44,13 +44,13 @@
 	function onload(){ 
 		console.log("mlitRoad: HelloOnloadFUNC! jsonXhr:" , this.location ,  document.firstChild.getAttribute("property") , this.verIE);
 		var hParams = getHashParams(this.location.hash);
-		console.log("hParams:",hParams);
 		if ( hParams["layerName1"] ){
 			layerName1 = hParams["layerName1"] ;
 		}
 		if ( hParams["layerName0"] ){
 			layerName0 = hParams["layerName0"] ;
 		}
+		console.log("hParams:",hParams," layerName0,layerName1:",layerName0,layerName1);
 		
 		docPath = this.location.pathname;
 		if ( docPath.indexOf("?") >= 0){
@@ -75,7 +75,7 @@
 		console.log("call onzoom");
 		canvasSize = getCanvasSize();
 		geoVB = geoViewBox;
-		// console.log("  canvasSize:",canvasSize,"  geoViewBox:",geoViewBox);
+		console.log("msil mercator  geoViewBox:",geoViewBox," layerName0,layerName1:",layerName0,layerName1 );
 		pMin = latLng2XY(geoVB.y,geoVB.x);
 		pMax = latLng2XY(geoVB.y+geoVB.height,geoVB.x+geoVB.width)
 		// console.log( "  webMercatorXY1,2:",pMin,pMax);
@@ -109,15 +109,16 @@
 			} else {
 				reqMsg = proxyPath + reqMsg;
 			}
+			var mvb = getMercatorVB(geoVB);
 			console.log("reqMsg:",reqMsg," token:",token);
 			img.setAttribute("xlink:href",reqMsg);
-			img.setAttribute("x",geoViewBox.x*100);
-			img.setAttribute("y",-(geoViewBox.y+geoViewBox.height)*100);
-			img.setAttribute("width",geoViewBox.width*100);
-			img.setAttribute("height",geoViewBox.height*100);
+			img.setAttribute("x",mvb.x);
+			img.setAttribute("y",mvb.y);
+			img.setAttribute("width",mvb.width);
+			img.setAttribute("height",mvb.height);
 			document.getElementsByTagName("svg")[0].appendChild(img);
 			// console.log("imageElem:",img);
-			img.setAttribute("data-mercator-tile" , "true");
+			//img.setAttribute("data-mercator-tile" , "true");
 		}
 	}
 	
@@ -273,9 +274,70 @@
 			}
 	}
 		
+
+
+function getMercatorVB(geoVB){ // geoVB.x,y,width,height
+	var m = mercator();
+	var p0 =m.transform({x:geoVB.x,y:geoVB.y});
+	var p1 =m.transform({x:geoVB.x+geoVB.width,y:geoVB.y+geoVB.height});
+//	console.log(p0,p1);
+	var x = Math.min(p0.x,p1.x);
+	var y = Math.min(p0.y,p1.y);
+	var width = Math.abs(p0.x-p1.x);
+	var height = Math.abs(p0.y-p1.y);
+	return {x,y,width,height};
+}
+
+function mercator() { // この定義が、svgmapjs内の組み込みmercator
+	function latLng2MercatorXY(lat, lng) {
+		// 正規化メルカトル座標と緯度経度との間の変換関数 (下の関数とセット)
+		// lng:-180..180 -> x:0..1,   lat: 85.051128..-85.051128 -> y:0..1 グラフィックスのY反転座標になってる
+		var size = 1;
+		var sinLat = Math.sin((lat * Math.PI) / 180.0);
+		var pixelX = ((lng + 180.0) / 360.0) * size;
+		var pixelY =
+			(0.5 - Math.log((1 + sinLat) / (1.0 - sinLat)) / (4 * Math.PI)) *
+			size;
+		//	console.log("latLng2MercatorXY: lat,lng:",lat,lng,"  mercatorXY:",pixelX,pixelY);
+		return {
+			x: pixelX,
+			y: pixelY,
+		};
+	}
+
+	function MercatorXY2latLng(px, py) {
+		// px,py: 上のx,y　正規化メルカトル座標
+		var size = 1;
+		var x = px / size - 0.5;
+		var y = 0.5 - py / size;
+		var lat = 90 - (360 * Math.atan(Math.exp(-y * 2 * Math.PI))) / Math.PI;
+		var lng = 360 * x;
+		//	console.log("MercatorXY2latLng: mercatorXY:",px , py,"  lat,lng:",lat,lng  );
+		return {
+			lat: lat,
+			lng: lng,
+		};
+	}
+
+	return {
+		transform: function (inp) {
+			return latLng2MercatorXY(inp.y, inp.x);
+		},
+		inverse: function (inp) {
+			var latlng = MercatorXY2latLng(inp.x, inp.y);
+			return {
+				x: latlng.lng,
+				y: latlng.lat,
+			};
+		},
+		scale: 1 / 360,
+		mercator: true, // 2021/8/10 メルカトルタイルのための特殊処理を起動するキーパラメータ
+	};
+}
+
 </script>
 
-<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="mercator" />
 <defs>
  <g id="p0" >
   <image xlink:href="kouji_24_24.png" preserveAspectRatio="none" x="-11" y="-23" width="24" height="24"/>
