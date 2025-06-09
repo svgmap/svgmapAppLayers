@@ -8,6 +8,7 @@
 	<!-- ジオコーダのライブラリ　それぞれ data , chomokuData ディレクトリがdocumentのディレクトリ直下に必要・・-->
 	<script src="./gsiGeoCoder.js"></script>
 	<script src="csvInputUI_r20.js"></script>
+	<script src="imageMetadataInputUIExtension.js"></script>
 </head>
 <style>
 /* from https://ginpen.com/2012/12/24/fix-window-height/ , https://tmg0525.hatenadiary.jp/entry/2018/04/11/004714 , https://www.nxworld.net/tips/css-variable-width-and-fixed-width-layout.html */
@@ -59,8 +60,8 @@ table tr:nth-child(even){
 <div class="main">
 	<h3 id="frameTitle">CSVデータ入力ウィンド</h3>
 	<div id="csvInputUI" style="">
-		<p style="line-height:10px;font-size: 11px">CSVデータを可視化します。データはブラウザ上で処理されそのPCでのみ表示されます。サーバにCSVデータは送信・保存されません<br/>
-		latitude(緯度),longitude(経度)カラムを指定、又は住所からジオコードで生成し、viewします。CSV1行目として、項目名のヘッダ行が必要です。<a target="_blank" href="/csvLocalGeocoder/">Localジオコーダ</a>はブラウザ上で動作、GSIジオコーダは地理院のジオコーダサービスです<br/>
+		<p style="line-height:10px;font-size: 11px">CSVデータを可視化します。データはブラウザ上で処理され表示されます。<br/>
+		latitude(緯度),longitude(経度)カラムを指定、又は住所からジオコードで生成し、viewします。CSV1行目として、項目名のヘッダ行が必要です。
 		ダブルクオーテーションなどによるカンマのエスケープは無効です</p>
 		<div>
 			<div style="background-color:#C0FFC0">
@@ -94,11 +95,12 @@ table tr:nth-child(even){
 <textarea style="line-height:11px;font-size: 11px;width:100%;height:500px;font-family: monospace;" id="csvArea" cols="45" rows="20" wrap="off" class="editer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ></textarea>
 
 <div>
-	Load CSV:<input type="file" onchange="loadCsvFile(event)" name="select" id="fileLoadInputUI" accept=".csv, .txt, .text" ></input>
+	<span style="background-color:#ddf;font-weight:bold;display: inline-block;height:25px;padding: 3px;">Load CSV:<input style="font-weight:bold;" type="file" onchange="loadCsvFile(event)" name="select" id="fileLoadInputUI" accept=".csv, .txt, .text" ></input></span>
 	<span id="csvStatus" style="line-height:11px;font-size: 11px;"></span>
 	<input id="Tsv2CsvBtn" type="button" onclick="Tsv2Csv()" value="TSV⇒CSV"></input>　　
-	<input type="button" onclick="setTestCsv(testCsv)" value="ジオコーダテスト用CSVセット" style="font-size:10px"></input>
-	<input type="button" onclick="loadJpMountain()" value="主な山のCSVをセット" style="font-size:10px"></input>
+	<span id="imagesLoadUIspan" style="font-size:12px;display:none">参照画像群<span style="font-size:8px">(optional)</span>:<input type="file" name="select" id="imagesLoadUI" multiple="true" accept="image/*" style="font-size:10px"></input></span>
+	<div>Examples:<input type="button" onclick="setTestCsv(testCsv)" value="ジオコーダテスト用CSVセット" style="font-size:10px"></input>
+	<input type="button" onclick="loadJpMountain()" value="主な山のCSVをセット" style="font-size:10px"></input></div>
 </div>
 
 </body>

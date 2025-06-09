@@ -19,22 +19,30 @@ import {LocalDBFileManager} from "./LocalDBFileManager.js";
 window.LocalDBFileManager = LocalDBFileManager;
 </script>
 
+<!-- 画像メタデータ機能拡張 -->
+<script src="zip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.0.0/encoding.min.js"></script>
 <script type="module">
-import {FetchTextProgress} from "./FetchTextProgress.js";
-window.fetchTextProgress = new FetchTextProgress();
+import {ImageMetadata} from "./imageMetadataExtension.js";
+window.imageMetadata = new ImageMetadata(window.Zlib, window.Encoding);
 </script>
+
+
 <script>
 // Description:
 // CSVを表示するSVGMapレイヤー
-//
-// Programmed by Satoru Takagi
 // 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-
+// History:
+// rev20: 四分木混合タイリングをクライアント側で実施して表示、サーバに元データを保存する機能も持つ。
+// 2024/12/02 : 非正規化メタデータ(geojson方面の)の取り扱い機構構築(imageMetadataExtension.js#customShowPoiProperty (properties属性名))-本家にもこれを導入したほうが良いかも
+//
 //=========================================================================================
 //=========================================================================================
 // CSVLayerのメインUI部
@@ -45,8 +53,8 @@ window.fetchTextProgress = new FetchTextProgress();
 
 window.onload = function(){
 	console.log("R20 onload");
-	csvMapper.onload();
 	initUI();
+	csvMapper.onload();
 	csvMapper.setInitCsvCallback(initCsvCbf);
 }
 
@@ -59,7 +67,7 @@ function getFraeTitle(iref){
 
 var csvInputWindow, subWindowOpenRetryCount=0;
 function initUI(){ // 初期化
-	console.log("initUI R19");
+	console.log("initUI R20");
 	if ( csvMapper.csvPath ){ // csvPathが設定されていた場合は概要などの表示
 		(document.getElementById("csvDataPath")).innerHTML="表示中のCSV:"+csvMapper.csvPath;
 		(document.getElementById("csvDataUI")).style.display="";
@@ -80,15 +88,21 @@ var authoringToolProps;
 
 async function initCsvInportMode(){
 	console.log("initCsvInportMode");
-	(document.getElementById("csvDataUI")).style.display="none";
-	(document.getElementById("csvInportUI")).style.display="";
 //	csvMapper.setMessageDiv(document.getElementById("TabMessageDiv"));
 	csvMapper.setMessageDiv(document.getElementById("messageDiv"));
 //		setTimeout(openCsvSubwindow,200);
 	await initLoader("tab2","menutbl", getSourceFunc, showMapFunc, clearMapFunc,"messageDiv"); // tinyFileManagerForCsv.js 
 	
-	processPermaLink();
+	var headlessMode = await processPermaLink(); // サーバ保存データ指定読み込みのパーマリンク処理はここで行っている
 	
+	if ( headlessMode===false ){
+		(document.getElementById("csvDataUI")).style.display="none";
+		(document.getElementById("csvInportUI")).style.display="";
+	} else {
+		(document.getElementById("csvDataUI")).style.display="none";
+		(document.getElementById("csvInportUI")).style.display="none";
+		document.getElementById("frameTitle").innerText = headlessMode.title;
+	}
 }
 
 
@@ -162,8 +176,9 @@ async function editConf(eparam){ // 編集実施状態のコールバック関�
 	}
 }
 
-function processPermaLink(){
+async function processPermaLink(){
 	var hashStr = svgImageProps.Path;
+	var isHeadless = false;
 	if ( hashStr.indexOf("#")>0){
 		hashStr=hashStr.substring(hashStr.indexOf("#")+1);
 	} else {
@@ -172,7 +187,11 @@ function processPermaLink(){
 	if ( hashStr.indexOf("saved:")==0){
 		console.log("Load Saved File");
 		loadByFileName(hashStr.substring(6)); // tinyFileManagerForCsv.jsの関数
+	} else if ( hashStr.indexOf("saved_headless:")==0){
+		// CSVUIのヘッドレス(編集やファイル切り替えUI無し)モード
+		isHeadless = await loadByFileName(hashStr.substring(15)); // tinyFileManagerForCsv.jsの関数
 	}
+	return (isHeadless);
 }
 
 function getSourceFunc(){
@@ -182,17 +201,20 @@ function getSourceFunc(){
 	return json;
 }
 
-async function showMapFunc(localPath){
-	if ( localPath.csv && localPath.schema ){
-		var srcJson = localPath;
-	} else {
-//		var srcJson = await ( await fetch(localPath)).json();
-		var srcJson = JSON.parse(await fetchTextProgress.fetch(localPath,function(byte){
-			messageDiv.innerText=`${Math.floor(10*byte/(1024*1024))/10} MB Loaded`;
-		}));
-	}
+/**
+function setHash(pathOrFileName){
+	var sfp = pathOrFileName.split("/");
+	const fname = sfp[sfp.length-1];
+	const hashStr = `#saved:${fname}`;
+	svgImageProps.hash=hashStr;
+	console.log("setHash :",svgImageProps.hash,svgImageProps.Path);
+}
+**/
+
+function showMapFunc(rawData){
+	var srcJson = JSON.parse(rawData);
 	var schema = srcJson.schema;
-	var vit;
+	var vit, iconIndex;
 	if ( schema.varIconCol >=0){
 		vit = [];
 		iconIndex = schema.varIconCol;
@@ -208,12 +230,44 @@ async function showMapFunc(localPath){
 	csvMapper.initCsv(srcJson.csv, schema.latCol, schema.lngCol, schema.titleCol, iconIndex, vit, schema.firstRecord );
 }
 
+/**
+async function showMapFunc(localPath){
+	
+	
+	if ( localPath.csv && localPath.schema ){
+		var srcJson = localPath;
+	} else {
+//		var srcJson = await ( await fetch(localPath)).json();
+		var srcJson = JSON.parse(await fetchTextProgress.fetch(localPath,function(byte){
+			messageDiv.innerText=`${Math.floor(10*byte/(1024*1024))/10} MB Loaded`;
+		}));
+		setHash(localPath);
+	}
+	var schema = srcJson.schema;
+	var vit, iconIndex;
+	if ( schema.varIconCol >=0){
+		vit = [];
+		iconIndex = schema.varIconCol;
+	} else if ( isNaN (schema.defaultIconNumber)){
+		// カスタムアイコン (下と同じロジックで動く)
+		vit = null;
+		iconIndex = schema.defaultIconNumber;
+	} else {
+		vit = null;
+		iconIndex = schema.defaultIconNumber;
+	}
+	console.log(schema);
+	csvMapper.initCsv(srcJson.csv, schema.latCol, schema.lngCol, schema.titleCol, iconIndex, vit, schema.firstRecord );
+}
+**/
+
 function clearMapFunc(){
+	svgImageProps.hash=""; // 2024/10/02 クリアしたならばハッシュは消されていないとダメでしょう
 	csvMapper.clearMap();
 }
 
 function openCsvSubwindow(){
-//	clearMap(); // この関数は tinyFileManagerForCsv.js のもの　はやくESM化しないと・・
+//	clearMapFunc(); // 消してしまうとcsvのカーソル当たった場所を表示する便利機能が使えないので消さないことにする
 	csvInputWindow = window.open("csvInputUI_r20.xhtml", "csvInputWindow", "height=800,width=800");
 }
 
@@ -374,7 +428,7 @@ function downloadCsv(){ // 読み込み済みのcsvをDLする
 	}
 }
 
-function getPermaLink(){
+function getPermaLink(mode){
 	var ans;
 	var fileHash=getHash();
 	var impURL;
@@ -382,26 +436,58 @@ function getPermaLink(){
 		pathAns.innerText="保存済みコンテンツに対してのみ有効です";
 		return;
 	} else {
-		ans = "saved:"+fileHash;
+		if ( mode?.headless){
+			ans = "saved_headless:"+fileHash;
+		} else {
+			ans = "saved:"+fileHash;
+		}
 	}
-	console.log(ans);
+	console.log("hashParams:",ans);
 //	alert("#"+ans);
-	var lname = svgMap.getLayer(layerID).getAttribute("title");
-	var bpm = svgMap.getBasicPermanentLink()
-	var dhash = decodeURIComponent(bpm.hash);
-	if ( dhash.indexOf(lname)>=0){
-		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
-		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
-		console.log(dh1, dh2);
-		var chash = dh1 + "#"+ans+dh2;
-		var hashPath = bpm.origin + bpm.pathname + chash;
-		console.log(hashPath);
-		pathAns.innerText=hashPath;
-		navigator.clipboard.writeText(hashPath);
-//		alert(hashPath);
+	
+	if ( mode?.layerPath){
+		var lpath = svgImageProps.Path;
+		if ( lpath.indexOf("#") >0){
+			lpath = lpath.substring(0, lpath.indexOf("#")); // もともとついているハッシュは外す
+		}
+		lpath = lpath + "#" + ans;
+		pathAns.innerText=lpath;
+		navigator.clipboard.writeText(lpath);
 	} else {
-		alert("うまく作れませんでした・・・");
+		var lname = svgMap.getLayer(layerID).getAttribute("title");
+		var bpm = svgMap.getBasicPermanentLink()
+		var dhash = decodeURIComponent(bpm.hash);
+		if ( dhash.indexOf(lname)>=0){
+			var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
+			var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
+			console.log(dh1, dh2);
+			var hashPath;
+			if ( dh2.startsWith("#")){
+				// 既にサブレイヤー識別子アリ
+				hashPath = bpm.href;
+			} else {
+				var chash = dh1 + "#"+ans+dh2;
+				hashPath = bpm.origin + bpm.pathname + chash;
+			}
+			console.log(hashPath);
+			if ( mode?.headless){
+				hashPath = hashPath.replace("saved:"+fileHash,"saved_headless:"+fileHash);
+			}
+			pathAns.innerText=hashPath;
+			navigator.clipboard.writeText(hashPath);
+	//		alert(hashPath);
+		} else {
+			alert("うまく作れませんでした・・・");
+		}
 	}
+}
+
+function getPermaLinkButton(event){
+	console.log(uiLessCk.checked,customLayerCk.checked);
+	var mode={};
+	if ( uiLessCk.checked ){mode.headless=true};
+	if ( customLayerCk.checked ){mode.layerPath=true};
+	getPermaLink(mode);
 }
 
 </script>
@@ -457,8 +543,12 @@ function getPermaLink(){
 
 		<div class="tab_content" id="tab3_content" style="height:300px;overflow-x: hidden; overflow-y: scroll">
 			<div class="tab_content_description" style="font-size:12px">
-				<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
-				<p><a href="uploaded/fileManage.php?sync" target="_blank">SYNC</a></p>
+				<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLinkButton(event)"></input><br>
+				<input type="checkbox" id="uiLessCk"></input><label for="uiLessCk">UIレス</label>
+				<input type="checkbox" id="customLayerCk"></input><label for="customLayerCk">カスタムレイヤー用URL</label><br>
+				
+				<span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
+				<p><a href="fileAdminPanel.html" target="_fileAdminCSV">Administraion</a></p>
 			</div>
 		</div>
 	</div>

@@ -1,6 +1,9 @@
 // Description:
 // csvInputUI_r*.js : CSV入力UI for CSVレイヤー
-// Description: Dynamic  plate carrée Tile Pyramid Layer for SVGMap 
+// 
+//  Programmed by Satoru Takagi
+//  
+// Description: Dynamic  plate carree Tile Pyramid Layer for SVGMap 
 //
 // Programmed by Satoru Takagi
 // 
@@ -189,6 +192,9 @@ function updateCsvArea(){
 }
 
 function viewCsv(){
+	// 表示させるviewボタンを押したときの機能
+	// ISSUE:
+	// 2024/10/02 : もしファイルから読み込んだものに対して、再度viewを押したならば、そこからはそのファイルではない新しいファイルという位置づけになるべき。そうしたらファイルが選択されている状態はおかしい
 	if ( !window.opener ){
 		console.warn("NO window.opener");
 		return;
@@ -226,6 +232,7 @@ function viewCsv(){
 	
 //	console.log("csvData:",csvData);
 	console.log("latC:",latC," lngC:",lngC," titleC:",titleC,"  len_csvData:",csvData.length," iconIndex:", iconIndex, "  varIconTh:",varIconTh);
+	window.opener.svgImageProps.hash=""; // 2024/10/02
 	window.opener.csvMapper.initCsv(csvData, latC,lngC,titleC,iconIndex,varIconTh, 1);
 	window.opener.svgMap.refreshScreen();
 }
