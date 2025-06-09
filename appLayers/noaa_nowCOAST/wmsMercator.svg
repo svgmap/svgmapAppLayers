@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" >
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="mercator" />
+<!--
+<image id="wmsSingleImage" xlink:href="https://nowcoast.noaa.gov/geoserver/satellite/wms?REQUEST=GetMap&amp;SERVICE=WMS&amp;VERSION=1.3.0&amp;FORMAT=image/png&amp;STYLES=&amp;TRANSPARENT=true&amp;LAYERS=global_visible_imagery_mosaic&amp;time=2024-08-26T22:00:00.000Z&amp;WIDTH=1466&amp;HEIGHT=1067&amp;CRS=EPSG:3857&amp;BBOX=-27616171.750860594,2975671.45460632,-22929178.211027592,6387009.8632023735" width="0.5" height="0.5" x="0.5" y="0"/>
+-->
+<g id="mapContents"></g>
+
+</svg>

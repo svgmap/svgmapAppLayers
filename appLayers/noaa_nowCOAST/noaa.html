@@ -1,0 +1,174 @@
+<!doctype html>
+<head>
+<title>noaa test</title>
+<meta charset="utf-8"></meta>
+</head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .datetime-picker {
+            margin-bottom: 10px;
+        }
+        label {
+            margin-right: 10px;
+        }
+    </style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script type="module">
+// Description:
+// wmsMercator.jsを使って、NOAA nowCOASTを表示する
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// HISTORY:
+// 2024/08/27 : 従来の実装（dynamic_WMS_general_mercator2pc_noTile_canvas.html）とは別物として、svgmapjsのメルカトルサポートを使った新しい実装を行った
+
+
+import {initWMS} from "./wmsMercator.js";
+
+var cats =[
+	{
+		title:"Global Visible Mosaic",
+		server:"satellite",
+		id:"global_visible_imagery_mosaic",
+		legend:null
+	},
+	{
+		title:"Global Longwave Mosaic",
+		server:"satellite",
+		id:"global_longwave_imagery_mosaic",
+		legend:null
+	},
+	{
+		title:"Gloval Vapor Mosaic",
+		server:"satellite",
+		id:"global_water_vapor_imagery_mosaic",
+		legend:null
+	},
+	{
+		title:"Lightning Detection",
+		server:"lightning_detection",
+		id:"ldn_lightning_strike_density",
+		legend:"https://nowcoast.noaa.gov/geoserver/observations/lightning_detection/ows?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image/png&width=292&height=46&layer=ldn_lightning_strike_density"
+	},
+	{
+		title:"Sea Surface Temperature",
+		server:"sea_surface_temperature",
+		id:"global_sea_surface_temperature",
+		legend:"https://nowcoast.noaa.gov/geoserver/analysis/sea_surface_temperature/ows?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image/png&width=275&height=32&layer=global_sea_surface_temperature",
+		offsetHour:12,
+	}
+];
+
+var baseURL="https://nowcoast.noaa.gov/geoserver/{server}/wms?REQUEST=GetMap&SERVICE=WMS&VERSION=1.3.0&FORMAT=image/png&STYLES=&TRANSPARENT=true&LAYERS={cat}&time={time}";
+
+var _baseURL;
+
+// 現在の日時（分を切り捨てた時刻）を設定
+var _cat =cats[0];
+window.addEventListener("load", function() {
+	var hash = new URL(svgImageProps.Path, location).hash;
+	console.log(hash);
+	if ( hash.length>1){
+		hash=hash.substring(1);
+		for ( var cat of cats){
+			if(cat.id==hash){
+				_cat = cat;
+				break;
+			}
+		}
+	}
+	if ( _cat.legend){
+		document.getElementById("legend").innerHTML=`<img src="${_cat.legend}">`;
+	} else {
+		document.getElementById("legend").innerHTML=``;
+	}
+	titleHead.innerText=`NOAA nowCOAST ${_cat.title}`;
+	setCurrentTime(_cat.offsetHour);
+	getDateTime();
+});
+
+function setCurrentTime(offsetHour){
+	var now = new Date();
+	if ( offsetHour ){
+		now = new Date(now.getTime()-offsetHour*60*60*1000);
+	}
+	const year = now.getFullYear();
+	const month = ('0' + (now.getMonth() + 1)).slice(-2);
+	const day = ('0' + now.getDate()).slice(-2);
+	const hours = ('0' + now.getHours()).slice(-2);
+
+	// 日付と時間の初期値を設定
+	document.getElementById('date').value = `${year}-${month}-${day}`;
+	document.getElementById('time').value = `${hours}:00`;
+}
+
+function getDateTime() {
+	const date = document.getElementById('date').value;
+	const time = document.getElementById('time').value;
+	var isoTime;
+	if (date && time) {
+		const dateTimeString = `${date}T${time}:00`; // "YYYY-MM-DDTHH:MM:SS" 形式
+		const dateTime = new Date(dateTimeString);
+		document.getElementById('output').textContent = `選択された日時: ${date} ${time}`;
+		isoTime = formatDateToISOString(dateTime);
+		console.log(isoTime);
+	
+	} else {
+		document.getElementById('output').textContent = '日付と時間を選択してください。';
+	}
+	var timedURL = baseURL.replace("{cat}",_cat.id);
+	timedURL = timedURL.replace("{time}",isoTime);
+	timedURL = timedURL.replace("{server}",_cat.server);
+	console.log("timedURL:",timedURL);
+	initWMS(timedURL);
+}
+
+window.getDateTime = getDateTime;
+
+function formatDateToISOString(date) {
+	// 年、月、日を取得し、2桁に揃える
+	const year = date.getUTCFullYear();
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(date.getUTCDate()).padStart(2, '0');
+
+	// 時、分、秒、ミリ秒を取得し、2桁および3桁に揃える
+	const hours = String(date.getUTCHours()).padStart(2, '0');
+	const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+	const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+	const milliseconds = String(date.getUTCMilliseconds()).padStart(3, '0');
+
+	// ISO 8601形式の文字列を生成
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}Z`;
+}
+</script>
+
+
+<body>
+<h4 id="titleHead">NOAA </h4>
+<div style="font-size:12px">出典：<a href="https://nowcoast.noaa.gov/" target="_blank">NOAA nowCOAST</a></div>
+
+<div class="datetime-picker">
+	<label for="date">日付を選択:</label>
+	<input type="date" id="date" onchange="getDateTime()">
+</div>
+
+<div class="datetime-picker">
+	<label for="time">時間を選択:</label>
+	<input type="time" id="time" step="3600" onchange="getDateTime()">
+</div>
+
+<div id="output"></div>
+<div id="legend"></div>
+
+</body>
+</html>
