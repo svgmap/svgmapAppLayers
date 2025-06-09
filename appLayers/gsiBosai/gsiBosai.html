@@ -16,12 +16,16 @@ window.HTTPRangeReader = HTTPRangeReader;
 // Description:
 // 地理院の防災・災害対応ページ下にある情報表示するSVGMapレイヤー
 // 
-// Programmed by Satoru Takagi
-// 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// History
+// 2024/07/29 1st release
+// 2025/01/23 簡易CORS Proxyではheadリクエストやrangeリクエストが膜処理できない問題を回避 (initReader)
 
 var pxy = "ProxieForNonSvgMapEnv";
 var rootPage="https://www.gsi.go.jp/bousai.html";
@@ -45,6 +49,9 @@ onload=async function(){
 	await Promise.all(ps);
 	console.log(rootIndex);
 	showIndexTable(rootIndex);
+	if ( svgImageProps.hash){
+		selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1))
+	}
 }
 
 //var styleProps={"_fillColor":"fill","_fillOpacity":"none","_color":"stroke","_opacity":"none","_weight":"none"};
@@ -122,11 +129,24 @@ function setIndexPoi(ipoi){
 async function selectDat(event){
 	var turl = event.target.value;
 	console.log(turl);
+	if ( turl==""){
+		clearData();
+		svgImageProps.hash="";
+		return;
+	}
+	var slHash = event.target.getAttribute("data-hash");
+	svgImageProps.hash=`#${slHash}`;
 	var zipArchive =await initReader(svgMap.getCORSURL(turl));
 	console.log(zipArchive);
 	var jsons = await getGeoJsonFromShapefile(zipArchive);
 	console.log(jsons);
 	showGeoJsons(jsons)
+}
+
+function clearData(){
+	var grp=svgImage.getElementById("vectorMapG");
+	removeChildren(grp);
+	svgMap.refreshScreen();
 }
 
 async function getGeoJsonFromShapefile(zipArchive){
@@ -144,8 +164,15 @@ async function getGeoJsonFromShapefile(zipArchive){
 
 
 async function initReader(zipFilePath){
-	const reader = new HTTPRangeReader(zipFilePath);
-	var zipArchive = await unzip(reader);
+	var zipArchive;
+	try{
+		const reader = new HTTPRangeReader(zipFilePath);
+		zipArchive = await unzip(reader);
+		var entries = zipArchive.entries;
+	} catch ( e ){ // 2025/01/23
+		console.warn("HTTPRangeReaderでのzipArchieのアクセスが使えませんので、通常のfetchで代替します");
+		zipArchive = await unzip(zipFilePath);
+	}
 	return zipArchive;
 }
 
@@ -154,13 +181,15 @@ async function initReader(zipFilePath){
 function showIndexTable(rootIndex){
 	var htm;
 	var idx=0;
+	indexTable.insertAdjacentHTML("beforeend",`<tr><td><input name="dseln" type="radio" value="" id="dat_-1" onchange="selectDat(event)" checked></input></td><td><label for="dat_-1">非選択</label></td>`);
 	for ( var cat0 of rootIndex){ // 個別災害ページ
 		htm= `<tr><td colspan=2><b>${cat0.title}</b>(<a href="${cat0.url}" target="_blank">オリジナルページ</a>)</td></tr>`;
 		indexTable.insertAdjacentHTML("beforeend",htm);
 		//console.log(cat0);
 		if (!cat0.contents){continue}
 		for ( var cat2 of cat0.contents){ // 個別情報
-			htm= `<tr><td><input name="dseln" type="radio" value="${cat2.url}" id="dat_${idx}" onchange="selectDat(event)"></input></td><td><label for="dat_${idx}">${cat2.title.replace("ファイルのダウンロード","").replace("ダウンロード","")}</label> (<a href="${cat2.url}" target="_blank">ダウンロード</a>)</td></tr>`;
+			var tableTitle = cat2.title.replace("ファイルのダウンロード","").replace("ダウンロード","");
+			htm= `<tr><td><input name="dseln" type="radio" value="${cat2.url}" id="dat_${idx}" onchange="selectDat(event)" data-hash=${cyrb53(tableTitle+cat2.url,true)}></input></td><td><label for="dat_${idx}">${tableTitle}</label> (<a href="${cat2.url}" target="_blank">ダウンロード</a>)</td></tr>`;
 			indexTable.insertAdjacentHTML("beforeend",htm);
 			++idx;
 		}
@@ -261,13 +290,42 @@ function removeChildren(ele){
 	}
 }
 
+function selectLayerByHash(hs){
+	// indexだけでなくnameも一致していた時だけレイヤーを選択する
+	var ipt = indexTable.querySelector(`input[data-hash="${hs}"]`);
+	if (ipt ){
+		ipt.click();
+		//changeLayer({target:{value:subLayerIndex}});
+	}
+}
+
+
+// https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+const cyrb53 = (str, byString, seed = 0) => {
+	let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+	for(let i = 0, ch; i < str.length; i++) {
+		ch = str.charCodeAt(i);
+		h1 = Math.imul(h1 ^ ch, 2654435761);
+		h2 = Math.imul(h2 ^ ch, 1597334677);
+	}
+	h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+	h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+	h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+	h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+	
+	if ( byString ){
+		return (h2>>>0).toString(16).padStart(8,0)+(h1>>>0).toString(16).padStart(8,0);
+	} else {
+		return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+	}
+};
 
 
 </script>
 <body>
 <h3>地理院防災・災害情報</h3>
 <div  style="font-size:11px">出典：<a href="https://www.gsi.go.jp/bousai.html" target="_blank">国土地理院　防災・災害対応 ページ</a>
-<table style="font-size:11px"  border=1 id="indexTable"></table>
+<table style="font-size:11px;border: 1px solid #338; border-collapse: collapse;"   border=1 id="indexTable"></table>
 <div id="msgDiv"></div>
 </body>
 </html>

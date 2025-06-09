@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+</head>
+<script type="module">
+// Programmed by Satoru Takagi
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+import{parseCsv, generateCsv} from "./parseCsv.js";
+
+// 指定避難所のCSVのエンドポイント
+var shelterURL = "https://hinanmap.gsi.go.jp/hinanjocp/defaultFtpData/csv/mergeFromCity_1.csv";
+
+onload=async function(){
+	var txt = await fetchCSV("https://service.svgmap.org/corsaw/"+shelterURL);
+	var csv = parseCsv(txt);
+	console.log(csv);
+	var ctxt = generateCsv(csv);
+	console.log(ctxt);
+	var ccsv = parseCsv(ctxt);
+	console.log(ccsv);
+}
+
+async function fetchCSV(url) {
+	const response = await fetch(url);
+	const contentLength = response.headers.get('Content-Length');
+	const reader = response.body.getReader();
+	let result = '';
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		result += new TextDecoder().decode(value);
+		//console.log(result.length,contentLength);
+		updateProgress(result.length, contentLength);
+	}
+	return result;
+}
+
+function updateProgress(p,l){
+	console.log(p,l);
+}
+
+</script>
+<body>
+</body>
+</html>

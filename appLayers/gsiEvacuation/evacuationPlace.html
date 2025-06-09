@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>gsi evacuation place layer webApp</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="QTCTrenderer.js"></script>
+<script src="csvMapper.js"></script>
+
+
+
+<script>
+// 国土地理院の国土地理院 指定緊急避難場所・指定避難所データを直接参照してSVGMapレイヤーとして可視化する
+// Programmed by Satoru Takagi
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History
+// 2024/10/03 最初のリリース (指定緊急避難場所可視化のみ) zipから直接回答して表示する感じ
+// 2024/12/27 サーバの構成が変更になったので追従。　指定避難所の可視化機能も追加 
+
+// 指定緊急避難場所CSVのエンドポイント (GeoJSONは要らんのでｗ)
+var placeURL="https://hinanmap.gsi.go.jp/hinanjocp/defaultFtpData/csv/mergeFromCity_2.csv";
+
+// 指定避難所のCSVのエンドポイント
+var shelterURL = "https://hinanmap.gsi.go.jp/hinanjocp/defaultFtpData/csv/mergeFromCity_1.csv";
+
+var placeCats = ["洪水","崖崩れ、土石流及び地滑り","高潮","地震","津波","大規模な火事","内水氾濫","火山現象"];
+var shelterCats = ["指定緊急避難場所との住所同一","指定緊急避難場所との住所同一でない"];
+
+var csvArray;
+var iconDataURL;
+
+var posCols;
+
+var dataCat;
+
+window.onload = async function(){
+	dataCat = svgImage.documentElement.getAttribute("data-title");
+	frameTitle.innerText=dataCat;
+	console.log("gsi evacuation place or shelter layer onload :", svgImageProps.hash,"  cat:",dataCat);
+	buildUI(dataCat.toLowerCase().indexOf("避難場所")>=0 ? placeCats : shelterCats);
+	var srcCsv = await loadData(dataCat.toLowerCase().indexOf("避難場所")>=0 ? placeURL : shelterURL);
+	iconDataURL=await imageToDataURIByPath(svgImage.getElementById("p0").getElementsByTagName("image")[0].getAttribute("xlink:href"));
+	csvArray = csv2Array(srcCsv);
+	posCols = getPosCols(csvArray);
+	console.log(posCols);
+	csvMapper.onload();
+	csvMapper.setMessageDiv(messageDiv)
+	filterCat();
+//	csvMapper.initCsv(arrayToCsvText(csvArray), 14, 15, 3, iconDataURL, null, 1 );
+//	csvMapper.initCsv(srcCsv, 14, 15, 3, iconDataURL, null, 1 );
+}
+
+function getPosCols(csvArray){
+	var schema = csvArray[0];
+	var lat,lng,title;
+	for ( var i = 0 ; i < schema.length ; i++){
+		if ( schema[i].indexOf("緯度")>=0){
+			lat = i;
+		} else if ( schema[i].indexOf("経度")>=0){
+			lng = i;
+		} else if ( schema[i].indexOf("施設")>=0 && schema[i].indexOf("名")>=0){
+			title = i;
+		}
+	}
+	
+	return {lat,lng,title};
+}
+
+function csv2Array(csvTxt){
+	ans = [];
+	csvTxt = csvTxt.split("\n");
+	csvTxt.forEach(function(line,lidx){
+		line = line.trim();
+		line = line.split(",");
+		line.forEach(function(col,cidx){
+			col = col.trim();
+			line[cidx]=col;
+		});
+		if ( line.length >1){
+			ans.push(line);
+		}
+	});
+	return ans;
+}
+
+function filterArray(arr, filterCats){
+	if ( !filterCats){
+		return arr;
+	}
+	var ans=[];
+	var schemaLine = true;
+	for ( var line of arr ){
+		if (schemaLine){
+			ans.push(line);
+			schemaLine = false;
+			continue;
+		}
+		for ( var colNum of filterCats ){
+			if ( colNum >=0){
+				if ( line[colNum]!=""){
+					ans.push(line);
+					break;
+				}
+			} else { // NOT論理
+				if ( line[-colNum]==""){
+					ans.push(line);
+					break;
+				}
+			}
+		}
+	}
+	return ans;
+}
+
+function unEscapeCsv(csv){ // "でエスケープされたいろいろな特殊文字を省いて正規化しています・・
+	var eCsv="";
+	csv = csv.replace(/¥"¥"/g, "&#034;");
+	var prevPos = 0;
+	var startPos = 0;
+	while ( startPos >=0 ){
+		startPos = csv.indexOf('"',prevPos);
+		if ( startPos >=0 ){
+			var endPos = csv.indexOf('"',startPos+1);
+			if ( endPos <0 ){break}
+			eCsv += csv.substring(prevPos,startPos);
+			var escStr = csv.substring(startPos+1,endPos);
+			escStr = escStr.replace(/\r?\n/g,"");
+			escStr = escStr.replace(/,/g, "&#044;");
+			eCsv += escStr;
+			prevPos = endPos + 1;
+		} else {
+			eCsv += csv.substring(prevPos);
+		}
+		
+	}
+	return ( eCsv );
+}
+
+async function fetchCSV(url) {
+	const response = await fetch(url);
+	const contentLength = response.headers.get('Content-Length');
+	const reader = response.body.getReader();
+	let result = '';
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		result += new TextDecoder().decode(value);
+		//console.log(result.length,contentLength);
+		updateProgress(result.length, contentLength);
+	}
+	return result;
+}
+
+function updateProgress(loaded, clen) {
+	var lmb = (loaded / (1024*1024)).toFixed(2);
+	var p;
+	if ( clen){
+		p = Math.floor(100 * loaded / clen );
+	} else {
+		p = "-";
+	}
+	messageDiv.innerText =`Loading: ${lmb}MB ${p}%`;
+}
+
+function arrayToCsvText(arr){
+	ans=[];
+	for ( var line of arr ){
+		ans.push(line.join(","));
+	}
+	return (ans.join("\n"));
+}
+
+async function loadData(url){
+	var csv = await fetchCSV(svgMap.getCORSURL(url));
+	return unEscapeCsv(csv);
+}
+
+function imageToDataURIByPath(filePath) { // 指定したパスの画像のdataURIを得る
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', filePath, true);
+		xhr.responseType = 'arraybuffer';
+		xhr.onload = () => {
+			if (xhr.status === 200   
+			) {
+				const arrayBuffer = xhr.response;
+				const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+				const dataURI = `data:image/png;base64,${base64}`;
+				resolve(dataURI);
+			} else {
+				reject(new Error('Failed to load file'));
+			}
+		};
+		xhr.onerror = (error) => {
+			reject(error);
+		};
+		xhr.send();
+	});
+}
+
+function buildUI(cats){
+	for ( var cat of cats){
+		var tr = document.createElement("tr");
+		tr.insertAdjacentHTML("beforeend",`<td><input type="checkbox" id="c_${cat}" checked value="${cat}"></input></td><td><label for="c_${cat}">${cat}</label></td>`);
+		filterUI.appendChild(tr);
+	}
+	
+}
+
+function filterCat(){
+	if ( !csvArray){setTimeout(filterCat,1000)}
+	var cats = filterUI.getElementsByTagName("input");
+	var selectedCats=[];
+	var selectedCatCols=[];
+	for ( var cat of cats){
+		if (cat.checked){
+			selectedCats.push(cat.value);
+			var inversion = 1;
+			var catName = cat.value
+			if( cat.value.endsWith("でない")){
+				catName = catName.substring(0,catName.length -3);
+				inversion = -1; // NOTの時はカラム番号をマイナスにする
+			}
+			selectedCatCols.push(inversion * csvArray[0].indexOf(catName));
+		}
+	}
+	if ( cats.length == selectedCatCols.length ){
+		selectedCatCols = null;
+		selectedCats =[];
+	}
+	console.log("filterCat : ", selectedCats,selectedCatCols);
+	svgImageProps.hash=`#${selectedCats.join(":")}`;
+	var fArray = filterArray(csvArray, selectedCatCols);
+	csvMapper.initCsv(arrayToCsvText(fArray), posCols.lat, posCols.lng, posCols.title, iconDataURL, null, 1 );
+}
+
+
+</script>
+
+<script type="module">
+import {gsiHinanCsv2GJS} from "./gsiHinanCsv2GJS.js"; // 地理院避難所/施設 CSVからGeoJSONをつくる関数。手抜きですが・・
+// GeoJSON/CSV保存ボタン実装
+window.addEventListener("load",function(){
+	setupSaveGJS();
+	setupSaveCSV();
+});
+
+function setupSaveGJS(){
+	const saveButton = document.getElementById('saveGJS-button');
+	saveButton.addEventListener('click', () => {
+		if ( !( csvArray instanceof Array)){return}
+		var dat = gsiHinanCsv2GJS(csvArray);
+		// JSON 文字列に変換
+		const jsonData = JSON.stringify(dat, null , "\t");
+		// Blobオブジェクトを作成
+		const blob = new Blob([jsonData], { type: 'application/json' });
+		save2File(blob,'data.json');
+	});
+}
+function setupSaveCSV(){
+	const saveButton = document.getElementById('saveCSV-button');
+	saveButton.addEventListener('click', () => {
+		if ( !( csvArray instanceof Array)){return}
+		
+		var csvData=[];
+		csvArray.forEach(function(line){
+			var txtLine = line.join(",");
+			csvData.push(txtLine);
+		});
+		csvData = csvData.join("\n");
+		// Blobオブジェクトを作成
+		const blob = new Blob([csvData], { type: 'text/plain' });
+		save2File(blob,'data.csv');
+	});
+}
+
+function save2File(blob,fname){
+	// ダウンロード用のリンクを作成
+	const link = document.createElement('a');
+	link.href = URL.createObjectURL(blob);
+	link.download = fname; // ファイル名
+	link.click();
+}
+</script>
+
+<body>
+<h4 style="margin-block-start: 0.5em;margin-block-end: 0.5em" id="frameTitle">指定緊急避難場所</h4>
+<div id="messageDiv" style="color:red;display:;font-size:11px;height:14px;">　</div>
+
+<div style="font-size:12px;" >出典：<a href="https://www.gsi.go.jp/bousaichiri/hinanbasho.html" target="_blank">国土地理院 指定緊急避難場所・指定避難所データ</a></div>
+<table style="font-size:12px;"><tbody id="filterUI"><tr><th colspan="2">表示カテゴリ</th></tr></tbody></table>
+<input type="button" value="表示カテゴリ決定" onclick="filterCat()"></input>
+
+<hr>
+<button  style="font-size:10px;" id="saveGJS-button">GeoJSON を保存</button>
+<button  style="font-size:10px;" id="saveCSV-button">CSV を保存</button>
+</body>
+</html>

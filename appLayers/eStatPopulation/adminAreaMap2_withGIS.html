@@ -459,6 +459,8 @@ function changeGroupVisivility(event){
 
 </script>
 
+<script type="module" src="showSNAME.js"></script>
+
 
 <body>
 <h4>e-statの街区境界・人口・世帯数</h4>
@@ -474,6 +476,7 @@ function changeGroupVisivility(event){
 <!-- <input type="button" onclick="mr.buildMeshData(pcf,true);" value="testInit"></input> -->
 
 <div id="popGISpanel" style="font-size:10px">
+	<button style="font-size: 10px; padding: 1px 1px;" onclick="showSNAME()">町丁・字等名表示</button>
 	<input type="checkbox" id="popGIScheck" onchange="changePopGISpanel(event)"></input><label for="popGIScheck">人口集計機能</label>
 	<div id="popGISui" style="font-size:10px;display:none">
 		Target Layer:<select name="targetLayer0" id="targetLayer0"  ></select>

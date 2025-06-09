@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="extendedShowPoiProperty.js"></script>
+<script>
+	// Description: 放射線モニタリング情報(原子力規制委員会)レイヤー
+	//
+	// Programmed by Satoru Takagi
+	// 
+	// License: (MPL v2)
+	// This Source Code Form is subject to the terms of the Mozilla Public
+	// License, v. 2.0. If a copy of the MPL was not distributed with this
+	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+var pxy ="https://service.svgmap.org/corsaw/";
+
+var indexAPI = "https://www.erms.nsr.go.jp/nra-ramis-webg/general/tab/initialize";
+var dataAPI = "https://www.erms.nsr.go.jp/nra-ramis-webg/general/mapdisplaydoserate/search";
+
+var radData;
+var radRawData={};
+var reqLen;
+
+const searchSiteAreaCodes={ // このデータはindexAPIを呼び出すと取り出せるが、固定値と思われるのでconstとしてハードコードする
+	"01":"A","02":"B","03":"Z","04":"C","05":"Z","06":"Z","07":"D","08":"E","09":"Z","10":"Z",
+	"11":"Z","12":"Z","13":"Z","14":"F,Q","15":"G","16":"H","17":"H","18":"I","19":"Z","20":"Z",
+	"21":"I","22":"J","23":"Z","24":"Z","25":"I","26":"I","27":"K","28":"Z","29":"Z","30":"Z",
+	"31":"M","32":"M","33":"L","34":"Z","35":"N","36":"Z","37":"Z","38":"N","39":"Z","40":"O,R,T",
+	"41":"O,R,T","42":"O,R,T","43":"Z","44":"Z","45":"Z","46":"P","47":"S,U,V"};
+
+onload=async function(){
+	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+	await getAllRadData();
+	generateIcons();
+	setIcons();
+	var tgrp=svgImage.getElementById("poi");
+	svgMapGIStool.drawGeoJson(radData,layerID, "purple", 2, "purple", "p0",undefined,undefined,tgrp,radData.regProps);
+	svgImage.documentElement.setAttribute("property", radData.regProps.join(","));
+	svgMap.refreshScreen();
+}
+
+async function getAllRadData(){
+	var ps=[];
+	for ( var i = 1 ; i <= 47 ; i++){
+		var pcode = String(i).padStart(2,"0");
+		if ( i== 7 ){
+			// 福島だけ特別・・
+			var reg=["A","B","C","D","E","F","G"];
+			for ( var rc of reg ){
+				ps.push(getPrefRadData(pcode, rc));
+			}
+		} else {
+			ps.push(getPrefRadData(pcode));
+		}
+	}
+	reqLen = ps.length;
+	await Promise.all(ps);
+	msgDiv.innerText= "Completed";
+	generateRadData();
+	console.log(radData);
+}
+
+function generateRadData(){
+	radData ={
+		type:"FeatureCollection",
+		features:[],
+	}
+	var minRate=9999;
+	var maxRate=-9999;
+	var regProps={};
+	for ( var pc in radRawData){
+		let prefCode = pc.split("_")[0];
+		const searchSiteAreaCode = searchSiteAreaCodes[prefCode];
+		if ( radRawData[pc] && radRawData[pc].status == 'success'){
+			var rd = radRawData[pc].result;
+			//console.log(rd);
+			for ( pkey in rd ){
+				if ( pkey.indexOf("GeoJson")>0){
+					var gj = rd[pkey];
+					//console.log(pkey, gj);
+					for ( var ft of gj.features ){
+						if ( pkey.indexOf("Missing")>0){
+							// たぶん欠測データ
+						} else {
+							// 多分測定できたデータ
+							radData.features.push(ft);
+							for ( var pn in ft.properties){
+								if ( ft.properties[pn] && !regProps[pn]){
+									regProps[pn]=true;
+								}
+							}
+							if ( ft.properties?.airDoseRate){
+								minRate= Math.min(minRate, ft.properties.airDoseRate);
+								maxRate= Math.max(maxRate, ft.properties.airDoseRate);
+							}
+							ft.properties.prefCode = prefCode;
+							ft.properties.searchSiteAreaCode = searchSiteAreaCode;
+						}
+					}
+				}
+			}
+			
+			
+		}
+	}
+	regProps.prefCode=true;
+	regProps.searchSiteAreaCode=true;
+	
+//	radData.minRate = minRate;
+	radData.minRate = 0;
+//	radData.maxRate = maxRate;
+	radData.maxRate = 1;
+	radData.regProps=Object.keys(regProps);
+}
+
+function generateIcons(){
+	var tdefs=svgImage.getElementsByTagName("defs")[0];
+	removeChildren(tdefs);
+	var ci = 0;
+	var levels=[];
+	var colors=[];
+	for ( var dr = radData.minRate ; dr < radData.maxRate ; dr += (radData.maxRate - radData.minRate)/10 ){
+		levels.push(dr);
+		var hue = 270 - 270 * (dr - radData.minRate) / (radData.maxRate - radData.minRate);
+		var color = svgMapGIStool.hsv2rgb(hue,100,100)
+		var colorStr = svgMapGIStool.getColorString(color.r,color.g,color.b);
+		var grp = svgImage.createElement("g");
+		grp.setAttribute("id", `c_${ci}`)
+		++ci;
+		var circ = svgImage.createElement("circle");
+		circ.setAttribute("cx", "0");
+		circ.setAttribute("cy", "0");
+		circ.setAttribute("r", "5");
+		circ.setAttribute("fill", colorStr);
+		colors.push(colorStr);
+		grp.appendChild(circ);
+		tdefs.appendChild(grp);
+	}
+	radData.levels=levels;
+	buildLegend(levels,colors);
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+function setIcons(){
+	for ( var ft of radData.features){
+		var dr = ft.properties.airDoseRate;
+		var idx = 0;
+		for ( var dk of radData.levels){
+			if ( dr < dk ){
+				ft.properties["marker-symbol"]=`c_${idx-1}`;
+				break;
+			}
+			++idx;
+		}
+		if (idx==radData.levels.length){
+			ft.properties["marker-symbol"]=`c_${radData.levels.length-1}`;
+		}
+		ft.properties.title=` ${ft.properties.obsStationName} : ${dr}μSv/hr`;
+	}
+	
+	radData.features.sort((a, b) => {
+		const drA = a.properties.airDoseRate;
+		const drB = b.properties.airDoseRate;
+		if ( drA == drB ){
+			return 0;
+		} else if (drA < drB) {
+			return -1;
+		} else {
+			return 1;
+		}
+	});
+	
+}
+
+async function getPrefInitData(prefCode, regionCode){
+	var rcStr="";
+	if ( regionCode){
+		rcStr =`&clickableRegionCode=${regionCode}`;
+	}
+	const request = new Request(pxy+indexAPI, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+		},
+		body: `clickablePrefCode=${prefCode}${rcStr}`,
+	});
+	const response =await fetch(request);
+	const txt = await response.text();
+	console.log(txt);
+}
+
+async function getPrefRadData(prefCode, regionCode){
+	var rcStr="";
+	if ( regionCode){
+		rcStr =`&regionCode=${regionCode}`;
+	}
+	const request = new Request(pxy+dataAPI, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+		},
+		body: `prefCode=${prefCode}&spObsStationSearchFlgBind=0${rcStr}`,
+	});
+	//console.log(prefCode, regionCode);
+	
+	const response =await fetch(request);
+	const json = await response.json();
+	//console.log(json);
+	if ( regionCode ){
+		radRawData[prefCode+"_"+regionCode]=json;
+	} else {
+		radRawData[prefCode]=json;
+	}
+	msgDiv.innerText= "Loading Data : " + Object.keys(radRawData).length + " / " + reqLen ;
+}
+
+function buildLegend(levels,colors){
+	console.log("buildLegend");
+	for ( var i = 0 ; i< levels.length ; i++ ){
+		var bt ="";
+		if ( i== levels.length-1){
+			bt = ">";
+		}
+		document.getElementById("legend").insertAdjacentHTML("beforeend",`<span style="background-color:${colors[i]}">${bt}${levels[i].toFixed(1)}　</span>`);
+	}
+}
+
+</script>
+<body>
+<h4>放射線モニタリング情報(原子力規制委員会)</h4>
+
+<div style="font-size:11px" ><a href="https://www.erms.nsr.go.jp/nra-ramis-webg/" target="_blank">出典：放射線モニタリング情報共有・公表システム</a></div>
+<div style="font-size:11px" id="legend">凡例[μSv/hr]</div>
+<div style="font-size:11px" id="msgDiv">ー</div>
+</body>
+</html>

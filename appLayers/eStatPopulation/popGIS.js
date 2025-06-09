@@ -90,8 +90,9 @@ async function doPopGIS(){
 	
 	var compOptions = {
 		areaCompare:true,
-		opacity:0.4,
-		uniteSource1:true
+		opacity:0.5,
+		uniteSource1:true,
+		progrssCallback:progressCBF
 	}
 	
 	console.log("source1ID:",source1ID,"  source2ID:",source2ID ," compOptions:",compOptions);
@@ -103,6 +104,17 @@ async function doPopGIS(){
 	}
 	console.log("Computation has been completed.");
 	setCsvStoreUiAvailability(true);
+}
+
+function progressCBF(percent){
+	
+	if ( percent < 100 ){
+		document.getElementById("popGISmessageDiv").innerHTML= "computing:"+ percent + "/100";
+	} else {
+		document.getElementById("popGISmessageDiv").innerHTML= "completed!!";
+//		document.getElementById("hlt").disabled=true;
+//		completed=true;
+	}
 }
 
 function setCsvStoreUiAvailability(enabled){
