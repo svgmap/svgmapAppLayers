@@ -1,7 +1,7 @@
 // Description:
 // Tiny Csv Data Reader
-//
-// Programmed by Satoru Takagi
+// 
+//  Programmed by Satoru Takagi
 // 
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
