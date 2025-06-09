@@ -22,7 +22,7 @@ window.LocalDBFileManager = LocalDBFileManager;
 <script>
 // Description:
 // よくあるウェブメルカトルXYZタイルを表示・レ部レイヤーとして登録するSVGMapレイヤー
-// 
+//
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -61,14 +61,17 @@ async function initUI(){
 	//clearMap();
 }
 
-async function showMapFunc(localPath){
-	var srcJson;
-	console.log("showMapFunc:",localPath, typeof localPath);
+async function showMapFunc(rawData){
+	var srcJson = JSON.parse(rawData);
+	console.log("showMapFunc:",srcJson, typeof localPath);
+	/**
 	if ( _int_localFileMode){
-		srcJson = JSON.parse(localPath); // ここがあえてJSON.parseになるのはgetSourceFunc()が雑なため
+		srcJson = JSON.parse(rawData); // ここがあえてJSON.parseになるのはgetSourceFunc()が雑なため
 	} else {
 		srcJson = await ( await fetch(localPath)).json();
+		svgImageProps.hash=`#saved:${localPath.substring(contentDir.length)}`;
 	}
+	**/
 	tileInfo.baseURL=decodeURIComponent(new URL(srcJson.baseURL).href);
 	tileInfo.minLevel=Number(srcJson.minLevel);
 	tileInfo.maxLevel=Number(srcJson.maxLevel);
@@ -86,9 +89,19 @@ function clearMapFunc(){
 }
 
 function openXYZtile(){
+	if ( !XYZurlInp.value ||
+	 XYZurlInp.value.indexOf("{x}")<0 ||
+	 XYZurlInp.value.indexOf("{y}")<0 ||
+	 XYZurlInp.value.indexOf("{z}")<0 ||
+	 !XYZurlInp.value.startsWith("http") ){
+		svgImageProps.hash="";
+		clearMapFunc();
+		return;
+	}
 	tileInfo.baseURL=XYZurlInp.value;
 	tileInfo.minLevel=minZoomSel.options[minZoomSel.selectedIndex].value;
 	tileInfo.maxLevel=maxZoomSel.options[maxZoomSel.selectedIndex].value;
+	svgImageProps.hash=`#xyzurl:${tileInfo.baseURL};minlevel:${tileInfo.minLevel};maxlevel:${tileInfo.maxLevel}`;
 	clearTiles();
 	svgMap.refreshScreen();
 }
@@ -100,13 +113,14 @@ function processPermaLink(){
 	} else {
 		hashStr="";
 	}
+	//console.log("processPermaLink:",hashStr);
 	if ( hashStr.indexOf("saved:")==0){
-		console.log("Load Saved File");
+		//console.log("Load Saved File");
 		loadByFileName(hashStr.substring(6)); // tinyFileManagerForCsv.jsの関数
 	} else if ( hashStr.indexOf("xyzurl:")>=0){
 		hashStr = hashStr.split(";");
-		var minLevel = 0;
-		var maxLevel = 0;
+		var minLevel = 5;
+		var maxLevel = 15;
 		var xyzURL=""; 
 		for ( var hs of hashStr){
 			if ( hs.indexOf("xyzurl:")==0){
@@ -138,9 +152,11 @@ function processPermaLink(){
 			} else {
 				tileInfo.maxLevel = 16;
 			}
+			clearTiles();
 			svgMap.refreshScreen();
 			syncLocationUI();
 		}
+		//console.log("xyzURL hash:",xyzURL,minLevel,maxLevel);
 	}
 }
 
@@ -177,6 +193,7 @@ function getPermaLink(){
 		ans = "saved:"+fileHash;
 	}
 //	alert("#"+ans);
+	console.log("getPermaLink:",ans);
 	var lname = svgMap.getLayer(layerID).getAttribute("title");
 	var bpm = svgMap.getBasicPermanentLink()
 	var dhash = decodeURIComponent(bpm.hash);
@@ -184,8 +201,14 @@ function getPermaLink(){
 		var dh1 = dhash.substring(0,dhash.indexOf(lname) + lname.length);
 		var dh2 = dhash.substring(dhash.indexOf(lname) + lname.length);
 		console.log(dh1, dh2);
-		var chash = dh1 + "#"+ans+dh2;
-		var hashPath = bpm.origin + bpm.pathname + chash;
+		var hashPath;
+		if ( dh2.startsWith("#")){
+			// 既にサブレイヤー識別子アリ
+			hashPath = bpm;
+		} else {
+			var chash = dh1 + "#"+ans+dh2;
+			hashPath = bpm.origin + bpm.pathname + chash;
+		}
 		console.log(hashPath);
 		pathAns.innerText=hashPath;
 		navigator.clipboard.writeText(hashPath);
@@ -242,7 +265,7 @@ function getPermaLink(){
 		<div class="tab_content" id="tab3_content" style="height:300px;verflow-x: hidden; overflow-y: scroll">
 			<div class="tab_content_description" style="font-size:12px">
 				<p><input type="button" value="サブレイヤー付きパーマリンク取得" style="font-size:12px" onclick="getPermaLink()"></input><br><span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
-				<p><a href="uploaded/fileManage.php?sync" target="_blank">SYNC</a></p>
+				<p><a href="fileAdminPanel.html#title=userXYZtile" target="_fileAdminXYZ">Administraion</a></p>
 			</div>
 		</div>
 	</div>
