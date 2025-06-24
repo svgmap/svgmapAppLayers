@@ -92,9 +92,13 @@ const weatherIconColors=[
 	[-1,-1,"666666"],
 ];
 
+// kubun_cdに対応
 const jizenKiseiKubun={
-	1: "通行規制区間",
-	2: "特殊通行規制区間"
+	"1": "通行規制区間",
+	"2": "特殊通行規制区間",
+	"100":"降雨による通行規制区間",
+	"110":"強風による通行規制区間",
+	"120":"地震による通行規制区間",
 }
 
 const kiseiIconCats={ // 規制情報アイコンの名前
@@ -148,12 +152,14 @@ async function showMap(){
 		showUpdateButton();
 	}else if ( svgHash.toLowerCase().indexOf("jizenkisei")>0){
 		await showJizenkisei();
+		showJizenKiseiHanrei();
 	}else if ( svgHash.toLowerCase().indexOf("kojiyotei")>0){
 		await showKisei(true);
 		showUpdateButton();
 		showKiseiHanrei();
 	}else if ( svgHash.toLowerCase().indexOf("expressway")>0){
 		await showJizenkisei(true);
+		showJizenKiseiHanrei();
 	} else {
 		await showKisei();
 		showUpdateButton();
@@ -408,6 +414,8 @@ function xmlEscape(str){
 	return ( str );
 }
 
+const jizenkiseiColorDict={};
+
 function drawJizenkisei(dat){
 	console.log("drawWeather",dat);
 	const hanreiDict ={};
@@ -461,9 +469,18 @@ function drawJizenkisei(dat){
 				} else {
 					oneDat.geo_json.properties.stroke=color;
 				}
+				if ( !jizenkiseiColorDict[oneDat.geo_json.properties.stroke]){
+					jizenkiseiColorDict[oneDat.geo_json.properties.stroke]={};
+				}
 				for ( var propName of propNames){
 					if(oneDat[propName]){
 						oneDat.geo_json.properties[propName]=xmlEscape(oneDat[propName]);
+						if (propName == "kubun_cd"){
+							jizenkiseiColorDict[oneDat.geo_json.properties.stroke][oneDat.geo_json.properties[propName]]=true;
+							if ( jizenKiseiKubun[oneDat.geo_json.properties[propName]]){
+								oneDat.geo_json.properties[propName] += ` (${jizenKiseiKubun[oneDat.geo_json.properties[propName]]})`;
+							}
+						}
 					} else {
 						oneDat.geo_json.properties[propName]="";
 					}
@@ -473,7 +490,8 @@ function drawJizenkisei(dat){
 			}
 		}
 	}
-	svgMapGIStool.drawGeoJson( geojs , layerID, "black", 3, "gray", "p0", "poi", null, targetPathGroup, propNames) 
+	svgMapGIStool.drawGeoJson( geojs , layerID, "black", 3, "gray", "p0", "poi", null, targetPathGroup, propNames);
+	console.log("jizenkiseiColorDict:",jizenkiseiColorDict);
 }
 
 function drawWeather(dat){
@@ -851,7 +869,6 @@ function showKiseiHanrei(){
 	commentDiv.style.fontSize="12px";
 	commentDiv.style.lineHeight="12px";
 	var commentTbl=document.createElement("table");
-	var commentTbl=document.createElement("table");
 	commentTbl.style.backgroundColor="#c0c0c0";
 	for ( const kh in kiseiIconCats){
 		if ( usedKiseiIcons[kh]){
@@ -860,6 +877,28 @@ function showKiseiHanrei(){
 		}
 	}
 	commentDiv.insertAdjacentHTML("beforeend","アイコン凡例");
+	commentDiv.appendChild(commentTbl);
+}
+
+function showJizenKiseiHanrei(){
+	removeChildren(commentDiv);
+	commentDiv.style.fontSize="12px";
+	commentDiv.style.lineHeight="12px";
+	var commentTbl=document.createElement("table");
+	commentTbl.style.backgroundColor="#c0c0c0";
+	for ( var color in jizenkiseiColorDict){
+		const codes = Object.keys(jizenkiseiColorDict[color]);
+		if ( codes.length ==1){
+			const kname = jizenKiseiKubun[codes[0]];
+			if ( kname){
+				commentTbl.insertAdjacentHTML("beforeend",`<tr><td><span style="display: inline-block;line-height: 0;margin-bottom: 4px;width: 18px; border-bottom: 3px solid ${color}"></span></td><td>${kname}</td></tr>`);
+			} else {
+				console.warn("事前規制凡例キーに対応する規制名称が見つからないですね・・");
+			}
+		} else {
+			console.warn("事前規制凡例キーが複数あるのでヘンですね・・");
+		}
+	}
 	commentDiv.appendChild(commentTbl);
 }
 	
