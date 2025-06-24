@@ -112,6 +112,10 @@ input[name="tab_item"] {
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
+addEventListener("load",function(){
+	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+	frameTitle.style.visibility="visible";
+})
 
 import {} from "./fileTab.js";
 
@@ -125,7 +129,7 @@ window.changeTabMode = function(event){
 
 
 <body>
-	<h3>Simple Vector BBS</h3>
+	<h4 style="visibility:hidden" id="frameTitle">Simple Vector BBS</h4>
 	
 	<div class="tabs" style="width:95%">
 		<input id="authoringTab" type="radio" name="tab_item" onchange="changeTabMode(event)" checked>

@@ -37,6 +37,8 @@ window.LocalDBFileManager = LocalDBFileManager;
 
 window.onload = function(){
 	console.log("userXYZtile onload");
+	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+	frameTitle.style.visibility="visible";
 	initUI();
 }
 
@@ -222,7 +224,7 @@ function getPermaLink(){
 
 <body>
 <div class="main">
-	<h4 id="frameTitle">XYZタイルデータを表示します</h4>
+	<h4 id="frameTitle" style="visibility:hidden">XYZタイルデータを表示します</h4>
 	
 	<div class="tabs" id="csvInportUI" style="width:400px" >
 		<input id="tab1" type="radio" name="tab_item" checked>

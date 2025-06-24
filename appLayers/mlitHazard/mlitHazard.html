@@ -54,9 +54,12 @@ const indexURL0 = "https://disaportal.gsi.go.jp/maps/config/hazardconfig.txt";
 const indexURL1 = "https://disaportal.gsi.go.jp/maps/config/kakosaigaiconfig.txt";
 //const legendSrc = "https://disaportal.gsi.go.jp/maps/js/mobile_legend.js";
 const legendSrc = "https://disaportal.gsi.go.jp/maps/js/print_legends.js";
+const legendSrcM = "https://disaportal.gsi.go.jp/hazardmap/maps/js/mobile_legend.js";
 
 var indexData; // indexURL*を読み込んだもの＋正規化した物
 var legendData; // legendSrcを読み込んで適当に構造化した物 凡例ビットイメージを取り出している・・・
+var legendDataM; // legendSrcMを読み込んで適当に構造化した物 凡例ビットイメージを取り出している・・・(上だけでは不完全だったので・・・)
+
 var linearLayerList = []; // 多階層レイヤーリストに対して、一次元のシーケンシャルな番号でアクセス可能にする
 
 var disableSpecialRightsContent = false;
@@ -72,7 +75,10 @@ onload=async function(){
 		disableSpecialRightsContent = true;
 	}
 	if ( svgImageProps.hash){
+		checkDisableSubLayersListing(decodeURIComponent(svgImageProps.hash).substring(1))
 		selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1))
+	} else {
+		showCatList();
 	}
 }
 
@@ -83,8 +89,14 @@ async function initList(event){
 	if ( idx == 1){
 		indexURL = indexURL1;
 	}
-	var legendTxt = await loadText(legendSrc);
-	legendData = parseLegend(legendTxt);
+
+//	var legendTxt = await loadText(legendSrc);
+//	legendData = parseLegend(legendTxt);
+	legendData = extractLegendInfoGeneric(await loadText(legendSrc),"printLegendFuncObj",  "print_legend_title",  "print_legend_image", origHome);
+	console.log("legendData:",legendData);
+	
+	legendDataM = extractLegendInfoGeneric(await loadText(legendSrcM),"mobileLegendFuncObj",  "mobile_legend_title",  "mobile_legend_image", origHome);
+	console.log("legendDataM:",legendDataM);
 	
 	indexData = await loadJson(indexURL);
 	
@@ -131,6 +143,9 @@ function getTrHtmlAndArrangeStruct(lvData, lvNumb, parentKey){
 	if ( lvData.path){
 		// 凡例ビットイメージを探索
 		var legendURL = legendData[lvData.key];
+		if ( !legendURL){
+			legendURL = legendDataM[lvData.key];
+		}
 		if ( !legendURL){// 代替として上層のkeyで探索をかける・・・
 			//console.log("parentKey:",parentKey);
 			for ( var i = parentKey.length -1 ; i >= 0 ; i-- ){
@@ -138,6 +153,9 @@ function getTrHtmlAndArrangeStruct(lvData, lvNumb, parentKey){
 				if ( key && legendData[key]){
 					legendURL = legendData[key];
 					//console.log("found AltLegendKey:",key);
+					break;
+				}else if ( key && legendDataM[key]){
+					legendURL = legendDataM[key];
 					break;
 				}
 			}
@@ -148,7 +166,8 @@ function getTrHtmlAndArrangeStruct(lvData, lvNumb, parentKey){
 			lvData.desc={};
 		}
 		if ( legendURL ){
-			lvData.desc.legendURL = legendURL;
+			lvData.desc.legendURL = legendURL.imageUrl;
+			lvData.desc.legendTitle = legendURL.title;
 		}
 		if ( lvData.html){
 			var htInfo = unHTML(lvData.html);
@@ -280,7 +299,11 @@ function selectLayer(event){
 			minzoom = layerData.maxnativezoom;
 		}
 		dynamicWebTile.setServerParams(path, maxzoom, minzoom);
-		svgImageProps.hash=`#${event.target.getAttribute("data-hash")}`;
+		let listOption = "";
+		if ( svgImageProps.hash.toLowerCase().indexOf("_disablelist")>0){
+			listOption = "_disablelist";
+		}
+		svgImageProps.hash=`#${event.target.getAttribute("data-hash")}${listOption}`;
 		//svgMap.refreshScreen();
 	}
 	
@@ -290,10 +313,11 @@ function getDescHTML(desc){
 	var ans = "";
 	for ( var key in desc){
 		var content ="";
+		console.log(key,desc[key]);
 		if ( desc[key].indexOf("http")==0){
 			if ( desc[key].toLowerCase().indexOf("png")>0 || desc[key].toLowerCase().indexOf("jpg")>0 || desc[key].toLowerCase().indexOf("gif")>0 || desc[key].toLowerCase().indexOf("jpeg")>0 ){
 				if ( key == "legendURL"){
-					content = `<img alt="凡例" src="${desc[key]}" align="top">`;
+					content = `<img alt="凡例" src="${desc[key]}" align="top" style="max-width: 65%;">`;
 					key="凡例";
 				} else {
 					content = `<img src="${desc[key]}" align="top">`;
@@ -310,6 +334,7 @@ function getDescHTML(desc){
 }
 
 
+/* Obsoluted and changed to extractLegendInfoGeneric 2025/06/20
 function parseLegend(src){
 	// jsのソースコードから、凡例ビットイメージのデータを抜き出している
 	src = src.split("\n");
@@ -338,6 +363,77 @@ function parseLegend(src){
 	console.log("parseLegend:",ans);
 	return ( ans );
 }
+*/
+
+/**
+ * 与えられたJavaScriptの文字列から、指定されたオブジェクトに定義されている全ての凡例のタイトルと画像を抽出します。
+ * DOMParserを使用することで、HTML文字列のパースを堅牢に行います。
+ *
+ * @param {string} jsString 凡例情報を含むJavaScriptの文字列。
+ * @param {string} funcObjName 対象となる凡例オブジェクトの変数名 (例: "mobileLegendFuncObj", "printLegendFuncObj")。
+ * @param {string} titleClassName タイトル要素のクラス名 (例: "mobile_legend_title", "print_legend_title")。
+ * @param {string} imageClassName 画像要素のクラス名 (例: "mobile_legend_image", "print_legend_image")。
+ * @returns {object} 全ての凡例情報を含む連想配列。
+ * 例: {
+ * "key1": { title: "タイトル1", imageUrl: "画像URL1" },
+ * "key2": { title: "タイトル2", imageUrl: "画像URL2" },
+ * ...
+ * }
+ */
+function extractLegendInfoGeneric(jsString, funcObjName, titleClassName, imageClassName, origHome) {
+	const allLegendInfo = {};
+	const parser = new DOMParser();
+	// 対象となる funcObjName["key"] = function () { ... } の形式のブロックを全て抽出する正規表現
+	// funcObjName を動的に埋め込む
+	const funcBlockRegex = new RegExp(
+		`${funcObjName}\\["(.*?)"\\]\\s*=\\s*function\\s*\\(\\)\\s*{([^}]*)}`,
+		"gs"
+	);
+	let match;
+	while ((match = funcBlockRegex.exec(jsString)) !== null) {
+		const key = match[1]; // キャプチャグループ1: キー
+		const funcContent = match[2]; // キャプチャグループ2: 関数の内容部分
+		// var title = "..." と var img = "..." の文字列を抽出
+		const titleStringMatch = funcContent.match(/var\s+title\s*=\s*"(.*?)";/);
+		const imgStringMatch = funcContent.match(/var\s+img\s*=\s*"(.*?)";/);
+		let title = null;
+		let imageUrl = null;
+		if (titleStringMatch) {
+			const doc = parser.parseFromString(titleStringMatch[1], "text/html");
+			// titleClassName を動的に指定
+			const titleElement = doc.querySelector(`.${titleClassName}`);
+			if (titleElement) {
+				title = titleElement.innerHTML;
+			}
+		}
+		if (imgStringMatch) {
+			const doc = parser.parseFromString(imgStringMatch[1], "text/html");
+			// imageClassName を動的に指定
+			const imageElement = doc.querySelector(`.${imageClassName}`);
+			if (imageElement) {
+				imageUrl = imageElement.getAttribute('src');
+			} else {
+				// class が指定されていない img タグも考慮 (例: width/height属性のみの場合)
+				const genericImageElement = doc.querySelector('img');
+				if (genericImageElement) {
+					imageUrl = genericImageElement.getAttribute('src');
+				}
+			}
+		}
+		if (title && imageUrl) {
+			imageUrl = new URL(imageUrl, origHome).href
+			allLegendInfo[key] = {
+				title: title,
+				imageUrl: imageUrl,
+			};
+		} else {
+			console.warn(
+				`キー "${key}" の凡例情報からタイトルまたは画像URLを抽出できませんでした。`
+			);
+		}
+	}
+	return allLegendInfo;
+}
 
 function removeChildren(node){
 	while(node.firstChild){
@@ -345,7 +441,10 @@ function removeChildren(node){
 	}
 }
 
-function selectLayerByHash(hstr){
+function selectLayerByHash(hash){
+	console.log("selectLayerByHash:",hash);
+	let hstr = hash.split("_");
+	hstr = `${hstr[0]}_${hstr[1]}`;
 	console.log("selectLayerByHash:",hstr);
 	var ipt = hz_table.querySelector(`input[data-hash="${hstr}"]`);
 	if (ipt ){
@@ -373,13 +472,48 @@ const cyrb53 = (str, byString, seed = 0) => {
 	}
 };
 
+function checkDisableSubLayersListing(hash){
+	let hstr = hash.split("_");
+	console.log("checkDisableSubLayersListing:",hstr);
+	if ( hstr.length>2 &&  hstr[2].toLowerCase().indexOf("disablelist")==0 ){
+		subLayersCats.style.display="none";
+		hz_table.style.display="none";
+		var ipt = hz_table.querySelector(`input[data-hash="${hstr[0]}_${hstr[1]}"]`);
+		if (ipt ){
+			const lbl =ipt.nextElementSibling;
+			if (lbl.tagName === 'LABEL') {
+				titleHd.innerHTML=`国土交通省 重ねるハザードマップ<br><br>${lbl.innerText}レイヤー`;
+			}
+		}
+	} else {
+		showCatList();
+	}
+}
+
+function parseHash(hash){
+	if ( !hash.startsWith("#")){return null}
+	const ah = hash.substring(1).split("&");
+	const ans = {};
+	ah.forEach(function(kv){
+		const kva = kv.split("=");
+		ans[kva[0].trim()]=kva[1].trim();
+	});
+	return ans;
+}
+
+function showCatList(){
+	subLayersCats.style.display="";
+	hz_table.style.display="";
+}
+
 </script>
 <body>
-<h3>MLIT重ねるハザードマップレイヤー</h3>
+<h4 id="titleHd">国土交通省 重ねるハザードマップレイヤー</h4>
+<div style="font-size:12px">
 出典：<a href="https://disaportal.gsi.go.jp/maps/" target="_blank">国土交通省 重ねるハザードマップ</a>
-
-<div>サブレイヤー <select onchange="initList(event)" id="subLayerCategory"><option selected>ハザードマップ</option><option>過去の災害</option></select> <span style="font-size:11px" id="subLayerCountSpan"></span></div>
-<table class="table_sticky" id="hz_table" style="font-size:11px">
+</div>
+<div id="subLayersCats" style="display:none">サブレイヤー <select onchange="initList(event)" id="subLayerCategory"><option selected>ハザードマップ</option><option>過去の災害</option></select> <span style="font-size:11px" id="subLayerCountSpan"></span></div>
+<table class="table_sticky" id="hz_table" style="font-size:11px;display:none">
 </table>
 
 <div id="layerNoteDiv" style="font-size:10px"></div>

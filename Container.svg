@@ -48,6 +48,7 @@
 <!-- 災害情報系 -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastOldNowCast/jmaHrRain_r3.svg" title="JMA過去の災害記録(-2020年)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2" title="JMA過去の災害記録(2021年)" class="災害" visibility="hidden" opacity="0.6"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/pastLog2022.svg#layers=危険度分布-洪水害(JMA),危険度分布-浸水害(JMA),危険度分布-土砂災害(JMA),警報注意報(JMA),大雨危険度(JMA),雨雲の動き（軽量版）(JMA),今後の雨（軽量版）(JMA),台風(JMA)" title="JMA過去の災害記録(2022-)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/droneBird/droneBird.svg" title="DRONEBIRD" class="災害" visibility="hidden" opacity="0.7"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/nasa_FIRMS/firms.svg" title="火災情報(NASA FIRMS)" class="災害" visibility="hidden" opacity="0.7"/>
 
@@ -149,6 +150,8 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/yrNoWfsResp.svg" title="yr.no:ポイント予想" class="気象" visibility="hidden" opacity="0.7"/> 
 <animation class="気象" title="JAXA 衛星全球降水マップ" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=GSMaP_NOW&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="JAXA 衛星全球降水マップ(風向矢印)" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=NEXRA:ss_uv10m_img&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="今後の雨（軽量版）(JMA)" xlink:href="./appLayers/jma/jma_bm_tiny.svg#forecast=true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="雨雲の動き（軽量版）(JMA)" xlink:href="./appLayers/jma/jma_bm_tiny.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="天気分布予報(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=16&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象 clickable" title="早期注意情報(JMA)" xlink:href="./appLayers/jma/warnings/probability.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/> 
 <animation class="気象 clickable" title="警報注意報(JMA)" xlink:href="./appLayers/jma/warnings/warnings.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/> 

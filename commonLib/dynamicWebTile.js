@@ -167,6 +167,7 @@ var dynamicWebTile = function(){
 		if ( options && options.crossorigin){
 			tileOptions.crossorigin=true;
 		}
+		removeOverflowPicts();
 		removeAllTiles();
 		existTiles={};
 		svgImage.documentElement.removeAttribute("property");

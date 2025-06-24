@@ -26,8 +26,8 @@ window.HTTPRangeReader = HTTPRangeReader;
 // e-statの街区データを使ったリバースジオコーダ
 // shapefile(https://github.com/mbostock/shapefile)と、unzipit(https://github.com/greggman/unzipit)を使用
 //
-// Programmed by Satoru Takagi
-// 
+//  Programmed by Satoru Takagi
+//  
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -62,8 +62,8 @@ var featureWriter = new jsts.io.GeoJSONWriter(); // featureWriter.write(feature)
 
 onload=async function(){
 	estatSchema = await buildEstatSchema();
-	await initJpMesh();
 	await initGaikuDB();
+	await initJpMesh();
 }
 
 async function initGaikuDB(){

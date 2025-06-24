@@ -49,6 +49,9 @@ _targetSvgContentGrpId = "mapContents";
 
 onload=async function(){
 	console.log("ONLOAD: vectorFileLoader2");
+	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+	frameTitle.style.visibility="visible";
+	
 	await initLoader("tab2","menutbl", getSource, showMapEmbed, clearMap);
 	await sleep(100);
 	var hashStr = svgImageProps.Path;
@@ -416,7 +419,7 @@ const sleep = ms => new Promise(res => setTimeout(res, ms));
 </script>
 
 <body>
-<h4>Shapefile, GeoJSONローカルファイルの表示</h4>
+<h4 id="frameTitle" style="visibility:hidden">Shapefile, GeoJSONローカルファイルの表示</h4>
 <div class="tabs">
 	<input id="tab1" type="radio" name="tab_item" checked>
 	<label class="tab_item" for="tab1">読込・表示</label>

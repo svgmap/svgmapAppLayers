@@ -18,6 +18,7 @@ var yearSel , monthSel, eqSel, maxiSel;
 
 onload = function () {
 	initUI();
+	drawHanrei();
 	//await getIndexData();
 	selectMonth();
 	if ( typeof svgMap == "object"){
@@ -236,6 +237,7 @@ function drawIndexData(){
 		window.svgImage.getElementById("quakes").appendChild(cr);
 	}
 	window.svgMap.refreshScreen();
+	showHanrei(true);
 }
 
 async function selectEq(){
@@ -279,6 +281,7 @@ function drawObs(eqDat){
 		//console.log(qcUse);
 	}
 	window.svgMap.refreshScreen();
+	showHanrei();
 }
 
 async function getIndexData(fromDate,toDate,maxi) {
@@ -379,7 +382,7 @@ function hankaku2Zenkaku(str) {
 
 // ISSUE 震度5弱,6弱は判明　5強,6強がまだ判明していないので検索できないかも
 // 震度記号,色,アイコンID,震度文字列,色2(pngアイコンより取得)
-var intLegend=[
+const intLegend=[
 	["1","#e0e0ef","#q1","1","#f2f2ff"],
 	["2","#80baff","#q2","2","#00aaff"],
 	["3","#80a1ff","#q3","3","#0041ff"],
@@ -421,5 +424,26 @@ function showLegend(){
 		td.innerText=leg[3];
 		//console.log(td);
 		tbl.appendChild(td);
+	}
+}
+
+
+function drawHanrei(){
+	const hm = document.getElementById("hanreiMag");
+	for ( let mag = 1 ; mag<10 ; mag+=2){
+		hm.insertAdjacentHTML("beforeend",`${mag}<svg style="vertical-align: top;" width="38" height="38" viewBox="0,0,38,38"><circle cx="19" cy="19" fill="blue" r="${mag*2}"/></svg>　`);
+	}
+	const hi = document.getElementById("hanreiInt");
+	for ( const inten of intLegend){
+		hi.insertAdjacentHTML("beforeend",`<span>${inten[3]}<span style="color:${inten[4]}">●　</span></span>`);
+	}
+}
+function showHanrei(magMode){
+	if ( magMode){
+		hanreiMag.style.display="";
+		hanreiInt.style.display="none";
+	} else {
+		hanreiMag.style.display="none";
+		hanreiInt.style.display="";
 	}
 }

@@ -1,11 +1,3 @@
-<!doctype html>
-<html>
-<head>
-<title>CSISシンプルジオコーディング実験を利用したジオコーダ</title>
-<meta charset="utf-8"></meta>
-</head>
-<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
-<script type="module">
 // Description: CSISシンプルジオコーディング実験を利用したジオコーダレイヤ
 //
 // Programmed by Satoru Takagi
@@ -85,7 +77,7 @@ async function searchAddress(){
 			var latitude = Number(can.y);
 			var longitude = Number(can.x);
 			var level =  Number(can.level);
-			var parsedAddress = can.fullname.join(" ");
+			var parsedAddress = can.matched;
 			ans.push({latitude,longitude,level,parsedAddress});
 		}
 	}
@@ -118,17 +110,3 @@ function setCenter(lat,lng,radiusKm){
 function removeChildren(element){
 	while (element.firstChild) element.removeChild(element.firstChild);
 }
-
-</script>
-<body>
-<h3 id="pageTitle">CSISジオコーダ</h3>
-<div id="referInfo">
-<a href=" https://geocode.csis.u-tokyo.ac.jp/" target="_blank">CSISシンプルジオコーディング実験を利用</a>
-</div>
-<div>
-<input type="text" style="width:300px" id="addressInput"></input><input type="button" value="住所検索" id="searchButton"></input>
-</div>
-<div id="messageDiv">
-</div>
-</body>
-</html>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" data-controller="pastLog2022.html#exec=appearOnLayerLoad&amp;requiredHeight=550" >
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+<g id="tileGroup"></g>
+<!--
+<animation xlink:href="jma_bm_r2_tilesSub.svg" x="-30000" y="-30000" width="60000" height="60000"/>
+-->
+<g id="vectorGroup" ></g>
+</svg>

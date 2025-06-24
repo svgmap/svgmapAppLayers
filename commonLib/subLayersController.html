@@ -6,21 +6,33 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 
-<script>
-
-var subCatD;
+<script type="module">
+// Description:
+// Layer Specific UI for sub layers
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History
+// 2025/06/17 subLayersControllerKSJ.html(customShowPoiPropertyKSJ)を統合化
 
 onload=function(){
 	setTimeout(initUI,200);
+	addEventListener("screenRefreshed",showIcons);
 }
+
+let propertyDictionary=null; //2025/06/17
 
 var subLayers =[];
 
 var initialHash;
 
 function initUI(){
-	buildSubCatD();
-	initAnims();
+	subLayers = svgImage.getElementsByTagName("animation");
 	if ( svgImage.documentElement.getAttribute("title")){
 		document.getElementById("uiName").innerHTML="List of " + svgImage.documentElement.getAttribute("title") + " SubLayers";
 	} else {
@@ -32,6 +44,10 @@ function initUI(){
 	}
 	
 	initialHash = getCurrentHash();
+	getAppHash();
+	if ( propertyDictionary ){
+		setCustomShowPoiProperty();
+	}
 	
 	setVisibilityFromHash();
 	
@@ -43,7 +59,7 @@ function initUI(){
 		inp.value = i;
 		inp.id="i"+i;
 		inp.setAttribute("onClick","changeLayer(event)");
-		if ( subLayers[i].getAttribute("visibility") == "visible" ){
+		if ( subLayers[i].getAttribute("visibility") != "hidden"  ){
 			inp.checked = true;
 		} else {
 			inp.checked = false;
@@ -54,13 +70,16 @@ function initUI(){
 		span.setAttribute("for","i"+i);
 		li.appendChild(inp);
 		li.appendChild(span);
+		
+		const iid =  subLayers[i].getAttribute("iid");
+		li.insertAdjacentHTML("beforeend",`<img style="display:none" height="18" id="icon_${iid}">`);
 		ul.appendChild(li);
 	}
 	
 	document.getElementById("message").innerHTML= countVisibleLayers() + " out of " + subLayers.length + " visible sublayers.";
 	
 	document.getElementById("list").appendChild(ul);
-	
+	setTimeout(showIcons,1000); // これでいいかな・・・
 }
 
 function changeLayer(event){
@@ -78,25 +97,7 @@ function changeLayer(event){
 	svgMap.refreshScreen();
 	setHash();
 }
-
-function initAnims(){
-//	console.log("iframe's svgMap:",svgMap,"  id:",layerID," svgImageProps:",svgImageProps," svgImage:",svgImage);
-//	console.log(svgImage, svgImage.documentElement,svgImageProps.Path,"\n",svgImageProps.script,"\n");
-//	console.log("subCatD:",subCatD);
-	var anims = svgImage.getElementsByTagName("animation");
-	for ( var i = 0 ; i < anims.length ; i++ ){
-		// special impl. for kokudo suuchi P02
-		var subCat = (anims[i].getAttribute("xlink:href")).split(".")[0];
-		if ( !anims[i].getAttribute("title") ){
-			var subLayerTitle = findTitleBySubCatD(subCat);
-			anims[i].setAttribute("title",subLayerTitle);
-//		console.log(subCat,subCatD[subCat]);
-		}
-//		subLayers[subCat]=anims[i];
-	}
-	subLayers = anims;
-//	console.log(subLayers);
-}
+window.changeLayer = changeLayer;
 
 function countVisibleLayers(){
 	var ans = 0;
@@ -109,14 +110,33 @@ function countVisibleLayers(){
 }
 
 // 2024/10/30 サブレイヤーパーマリンク対応
+// 2025/06/16 forKSJのプロパティ名のコード番号を名称に変換する辞書を使った機能をhashで稼働させるようにする
+
+// hashは#で始まる文字列であること
+function getAppHash(){
+	const ahash = parseHash(location.hash);
+	if ( ahash && ahash["propertyDictionary"]){
+		if ( !propertyDictionary){propertyDictionary={}};
+		propertyDictionary.name = ahash["propertyDictionary"];
+	}
+}
+
 function getCurrentHash(){
-	subLayerNumbs =[];
+	const subLayerNumbs =[];
+	const lhash = parseHash(svgImageProps.hash);
+	if (lhash && lhash["propertyDictionary"]){
+		propertyDictionary = {name:lhash["propertyDictionary"]};
+	}
 	for (var i = 0 ; i < subLayers.length ; i++ ){
 		if ( subLayers[i].getAttribute("visibility") != "hidden" ){
 			subLayerNumbs.push(i);
 		}
 	}
-	return `#visibleSub=${subLayerNumbs.join("_")}`;
+	var ans = `#visibleSub=${subLayerNumbs.join("_")}`;
+	if ( propertyDictionary ){
+		ans +=`&propertyDictionary=${propertyDictionary.name}`;
+	}
+	return ans;
 }
 
 function setHash(){
@@ -124,16 +144,22 @@ function setHash(){
 	if ( initialHash != chash ){
 		svgImageProps.hash=chash;
 	} else {
-		svgImageProps.hash="";
+		if ( propertyDictionary ){
+			svgImageProps.hash=`#popertyDict=${propertyDictionary.name}`;
+		} else {
+			svgImageProps.hash="";
+		}
 	}
 }
 
 function setVisibilityFromHash(){
-	const slHash = svgImageProps.hash;
-	if ( !slHash || slHash.indexOf("#visibleSub=")!=0){
+	const slHash = parseHash(svgImageProps.hash);
+	
+	if ( !slHash || !slHash["visibleSub"]){
 		return;
 	}
-	const visibleIndex = slHash.substring(12).split("_");
+	let visibleIndex = slHash["visibleSub"].split("_");
+	
 	for ( var i = 0 ; i < subLayers.length ; i++){
 		if (visibleIndex.indexOf(String(i))<0){
 			subLayers[i].setAttribute("visibility","hidden");
@@ -144,30 +170,96 @@ function setVisibilityFromHash(){
 	svgMap.refreshScreen();
 }
 
-function buildSubCatD(){
-	var scds = svgImage.documentElement.getAttribute("data-subLayersDict")
-	if ( !scds){ return;}
-	subCatD={};
-	scds = scds.split(";");
-	scds.forEach(function(val){
-		var kv = val.split(":");
-		if ( kv.length==2){
-			subCatD[kv[0]]=kv[1];
-		}
+function parseHash(hash){
+	if ( !hash.startsWith("#")){return null}
+	const ah = hash.substring(1).split("&");
+	const ans = {};
+	ah.forEach(function(kv){
+		const kva = kv.split("=");
+		ans[kva[0].trim()]=kva[1].trim();
 	});
-	//console.log(subCatD);
-}
-
-function findTitleBySubCatD(subCat){
-	var ans = subCat;
-	for ( var catKey in subCatD ){
-		if ( subCat.indexOf(catKey)>=0){
-			ans = subCatD[catKey];
-			break;
-		}
-	}
 	return ans;
 }
+
+function showIcons(){
+	for ( const la of subLayers){
+		if (la.getAttribute("visibility")!="hidden"){
+			const iid = la.getAttribute("iid");
+			var iconImg = document.getElementById("icon_"+iid);
+			// 一度だけチェックして終了にしていいかな・・・手抜きだけど
+			if ( iconImg.style.display=="none" && !iconImg.getAttribute("data-iconChecked")){
+				const iconURL = searchIcon(iid);
+				if (iconURL === true){ 
+					// このコンテンツにはアイコンはないとみなす
+					iconImg.setAttribute("data-iconChecked","true");
+				} else if ( iconURL ){
+					iconImg.setAttribute("src", iconURL);
+					iconImg.style.display="";
+					iconImg.setAttribute("data-iconChecked","true");
+				}
+			}
+		}
+	}
+}
+
+function searchIcon(subLayerId){
+	const svgImages = svgMap.getSvgImages();
+	const svgImagesProps = svgMap.getSvgImagesProps();
+	
+	// 再帰的にアイコンを調査する
+	function traceIcon(imagId){
+		let targetImage = svgImages[imagId];
+		
+		// まずそのドキュメントにアイコンがあるかどうかを確認する
+		const uses = targetImage.getElementsByTagName("use");
+		console.log("uses:",uses);
+		let icon;
+		if ( uses.length >0){
+			const iconId = uses[0].getAttribute("xlink:href").trim().substring(1);
+			const iconG = targetImage.getElementById(iconId);
+			if (iconG){
+				const imgs = iconG.getElementsByTagName("image");
+				if ( imgs.length > 0 ){
+					icon = imgs[0].getAttribute("xlink:href"); // ビットマップ
+				} else {
+					icon = iconG; // ベクトルのケース
+				}
+			}
+		}
+		
+		// ない場合は子ドキュメントのアイコンを調査する
+		if(!icon) {
+			const anims = targetImage.getElementsByTagName("animation");
+			if ( anims.length == 0 ){ return true} // 枝の先まで行きついて見つからないときは、trueを返却する
+			let targetProps = svgImagesProps[imagId];
+			const childImages = targetProps.childImages;
+			console.log("childImages:",childImages);
+			if ( childImages && Object.keys(childImages).length > 0){
+				for ( const childId in childImages ){
+					console.log("childId:",childId)
+					icon = traceIcon(childId);
+					// 一個でも見つかれば終了
+					if ( icon ){
+						break;
+					}
+				}
+			} else {
+				return null;
+			}
+		}
+		return icon;
+	}
+	
+	const foundIcon = traceIcon(subLayerId);
+	console.log("searchIcon: ",subLayerId," : " , foundIcon);
+	return foundIcon;
+}
+
+async function setCustomShowPoiProperty(){
+	const module = await import("./customShowPoiPropertyKSJ.js");
+	window.intializeCustomShowPoiProperty();
+}
+
 </script>
 
 </head>

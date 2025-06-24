@@ -44,6 +44,7 @@ window.KMLrenderer = KMLrenderer;
 //
 // History: 
 // 2025/02/20: 1st rev. ひとまずできたけど手抜きね・・　種別色分けとかメタデータとか設定できてると良いよね　引くと重すぎは何とかしたいねQTCT・・
+// 2025/06/19: 重すぎなので改善する・九州のポンコツデータの修正機能を拡充
 
 const prefBboxes = { // 国土数値情報の行政界ポリゴンから生成した県のバウンディングボックス
 	"01": {"minLat": 41.35164556,"minLng": 139.33396017,"maxLat": 45.55724341,"maxLng": 148.89440319,"prefectureName": "北海道"},
@@ -95,6 +96,8 @@ const prefBboxes = { // 国土数値情報の行政界ポリゴンから生成�
 	"47": {"minLat": 24.04561583,"minLng": 122.93260637,"maxLat": 27.88596444,"maxLng": 131.33212489,"prefectureName": "沖縄県"},
 };
 
+const minScale = 1000;
+const maxAreas = 8;
 
 const kmlURLs={
 //	北海道：ない
@@ -155,16 +158,27 @@ const kmlURLs={
 	"47":"https://www.dc.ogb.go.jp/road/doro_bosaijoho_webmap/kml/47_okinawa_kinkyuuyusou_line.kml"
 };
 
-addEventListener("load",checkAndPrepareRequiredMaps);
+let mapRootG;
+
+addEventListener("load",function(){
+	mapRootG = svgImage.getElementById("data");
+	window.kmlRenderer = new KMLrenderer(svgMap);
+	checkAndPrepareRequiredMaps();
+});
 
 addEventListener("zoomPanMap",checkAndPrepareRequiredMaps);
 
 function checkAndPrepareRequiredMaps(){
 	//console.log("zoomPanMap vb:",svgImageProps.geoViewBox);
 	prefs = getOverlapedPrefs(svgImageProps.geoViewBox);
+	printSpecialMessage(prefs);
+	if ( svgImageProps.scale < minScale && prefs.length >maxAreas ){
+//		message.innerText=`拡大してください。${Math.floor(10*minScale/svgImageProps.scale)/10}倍拡大すると表示されます`;
+		message.innerText=`拡大してください。`;
+		prefs =[];
+	}
 	//console.log(prefs);
 	checkLackedDataAndDraw(prefs);
-	window.kmlRenderer = new KMLrenderer(svgMap);
 };
 
 function getOverlapedPrefs(vbox){
@@ -196,45 +210,89 @@ function isBBoxOverlap(bbox1, bbox2) {
 	return true; // 重なっている
 }
 
-async function getXML(url){
-	showLoadingStatus();
-	const txtSrc = await ( await fetch(url)).text();
-	const parser = new DOMParser();
-	const dom = parser.parseFromString(txtSrc, "text/xml");
-	++ loadedCount;
-//	svgMapGIStool.drawKml(dom,layerID);
-	if (url.indexOf("https://www.qsr.mlit.go.jp/")>=0){
-		repairQsrLineStyle(dom);
+let svgDomCache ={};
+
+async function getXMLandDrawMap( pcode){
+	if ( svgDomCache[pcode]){
+		mapRootG.appendChild(svgDomCache[pcode].cloneNode(true));
 	} else {
-		setLineStyle(dom);
+		const parentG = svgImage.createElement("g");
+		parentG.setAttribute("id",`area_${pcode}`);
+		mapRootG.appendChild(parentG);
+		if ( !kmlURLs[pcode]){
+			++ loadedCount;
+			return;
+		}
+		const url = svgMap.getCORSURL(kmlURLs[pcode]);
+		showLoadingStatus();
+		const txtSrc = await ( await fetch(url)).text();
+		const parser = new DOMParser();
+		const kmlDom = parser.parseFromString(txtSrc, "text/xml");
+	//	svgMapGIStool.drawKml(kmlDom,layerID);
+		if (url.indexOf("https://www.qsr.mlit.go.jp/")>=0){
+			repairQsrLineStyle(kmlDom);
+		} else {
+			setLineStyle(kmlDom);
+		}
+		
+		
+		kmlRenderer.drawKml(kmlDom,layerID,undefined,undefined,undefined,undefined,undefined,undefined,parentG);
+		svgDomCache[pcode] = parentG.cloneNode(true);
 	}
-	kmlRenderer.drawKml(dom,layerID);
+	++ loadedCount;
 	svgMap.refreshScreen();
 	showLoadingStatus();
-	return dom;
+	return;
 }
 
-let loadScheduledPrefs={};
 let loadingTotal, loadedCount;
 async function checkLackedDataAndDraw(pcodes){
+	console.log(pcodes);
 //	loader.style.display="";
 	var srcPs=[];
-	loadingTotal = 0;
+	loadingTotal = pcodes.length;
 	loadedCount = 0;
-	for ( let pcode of pcodes){
-		if ( !loadScheduledPrefs[pcode]){
-			++loadingTotal;
-			loadScheduledPrefs[pcode]=true; //
-			if (kmlURLs[pcode]){
-				srcPs.push(getXML(svgMap.getCORSURL(kmlURLs[pcode])));
-			}
+	const renderedAreaGs = mapRootG.getElementsByTagName("g");
+	// 不要なエリアを削除し軽くする
+	for ( var i = renderedAreaGs.length-1 ; i>=0 ; i--){
+		const areaG = renderedAreaGs[i];
+		const pcodeG = areaG.getAttribute("id").substring(5);
+		console.log(pcodeG);
+		if ( pcodes.indexOf(pcodeG)<0){
+			areaG.remove();
 		}
+	}
+	if ( pcodes.length == 0 ){
+		svgMap.refreshScreen();
+		return
+	};
+	// 不足エリアを追加する
+	for ( let pcode of pcodes){
+		if ( svgImage.getElementById(`area_${pcode}`)){
+			continue; // 描画済み
+		}
+		srcPs.push(getXMLandDrawMap(pcode));
 	}
 	await Promise.all(srcPs);
 	console.log("done");
 //	loader.style.display="none";
 	message.innerText="-";
 }
+
+function printSpecialMessage(pcodes){
+	var msg ="";
+	for ( pcode of pcodes ){
+		if ( !kmlURLs[pcode] ){
+			msg +=" " + prefBboxes[pcode].prefectureName;
+		}
+	}
+	if (msg.length>0){
+		message2.innerText = `${msg} はデータがありません`;
+	} else {
+		message2.innerText = "";
+	}
+}
+
 
 function showLoadingStatus(){
 //	++loadedCount;
@@ -253,18 +311,36 @@ function repairQsrLineStyle(kml){
 	// 色設定ロジック間違ってる・・ KMLのcolorの並びはAARRGGBBじゃなくて、AABBGGRRが正しい。
 	// https://developers.google.com/kml/documentation/kmlreference?hl=ja#colorstyle
 	// しかも九州だけ他と凡例が違う・・色々ポンコツ・・・ということで修正する
+	// 2025/06/19 また独自の怪しい改修を入れてる様子、もうダメすぎ
 	QsrCatColors={
 		"FFFF0000":"1",
 		"FF00FF00":"2",
 		"FFE69138":"3"
 	}
+	function convertARGBtoABGR(colorString) {
+		colorString = colorString.trim();
+		// 入力文字列が8文字であることを確認（例: "FFFF0000"）
+		if (colorString.length !== 8) {
+			console.warn("警告: 入力されたカラーコードの長さが8文字ではありません。", colorString);
+			return null; // またはエラーをスローするなど
+		}
+		// 各成分を抽出
+		const alpha = colorString.substring(0, 2); // AA
+		const red = colorString.substring(2, 4);   // RR
+		const green = colorString.substring(4, 6); // GG
+		const blue = colorString.substring(6, 8);  // BB
+		// AABBGGRRの順に結合して返す
+		const ans = alpha + blue + green + red;
+		console.log(colorString,"->",ans);
+		return ans;
+	}
 	var styles = kml.getElementsByTagName("Style");
 	for ( var st of styles ){
+		console.log("repairQsrLineStyle:",st," : " , st.getAttribute("id"));
 		if ( st.getAttribute("id")){
-			var co = st.getElementsByTagName("color")[0];
-			var catNumb = QsrCatColors[co.textContent.trim()];
-			if (catNumb){
-				co.textContent = catStyles[catNumb];
+			var colors = st.getElementsByTagName("color");
+			for ( colorE of colors){
+				colorE.textContent = convertARGBtoABGR(colorE.textContent);
 			}
 		}
 	}
@@ -301,6 +377,7 @@ function setLineStyle(kml){
 	}
 }
 
+
 </script>
 <body>
 <h3>国交省緊急輸送道路レイヤー</h3>
@@ -310,6 +387,7 @@ function setLineStyle(kml){
 <span title="Collapse this branch"><i class="icon-folder-open icon-minus-sign"></i> 緊急輸送道路凡例<br>（<font color="#00aaff">■</font>：一次、<font color="#4c7300">■</font>：二次、<font color="#cc9933">■</font>：三次）</span>
 
 <div id="message" style="color:red">-</div>
+<div id="message2" style="color:orange"></div>
 <!--<div id="loader"></div>-->
 
 </body>

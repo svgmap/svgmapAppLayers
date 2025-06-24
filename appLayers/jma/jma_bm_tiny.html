@@ -1,0 +1,629 @@
+<!doctype html>
+<html>
+<head>
+	<title>気象庁簡易版ビットイメージ雨・雨雲可視化レイヤー</title>
+	<meta charset="utf-8"></meta>
+</head>
+
+<style>
+/* -- 降雨量カラーバーに関するスタイル（修正） -- */
+
+/* コンテナ */
+.rain-legend:first-of-type { /* 最初の rain-legend (カラーバー) に限定 */
+  position: relative; /* 子要素の絶対位置の基準 */
+  overflow: visible; /* テキストがコンテナからはみ出しても表示させる */
+  padding-bottom: 20px; /* テキストラベルの表示領域を確保 (調整) */
+  box-sizing: content-box;
+  display: inline-block; /* 必要に応じて調整 */
+}
+
+/* 降雨量の色分けボックス (高さと位置を調整) */
+.rain-legend-box {
+  position: absolute; /* コンテナ relative に基づく絶対位置 */
+  top: 0; /* コンテナの上端に配置 */
+  /* left はHTMLのインラインスタイルで指定されている */
+  width: 30px; /* 各ボックスの幅 (left の増分に合わせる) */
+  height: 12px; /* ★ ボックスの高さを小さくする (調整) */
+  /* background-color はHTMLのインラインスタイルで指定されている */
+}
+
+/* テキストラベル (数値や単位) (位置を調整) */
+.rain-legend-text {
+  position: absolute; /* コンテナ relative に基づく絶対位置 */
+  top: 15px; /* ★ ボックスの下に配置 (ボックスの高さ 12px + 隙間 約3px) (調整) */
+  /* left はHTMLのインラインスタイルで指定されている */
+  text-align: center; /* テキストを水平方向に中央寄せ */
+  font-size: 11px; /* フォントサイズを少し小さくすると収まりやすい (調整) */
+  color: #333; /* テキストの色 (必要に応じて調整) */
+  white-space: nowrap; /* テキストの折り返しを防ぐ */
+  transform: translateX(-50%); /* left の位置を中心に、テキスト自体を左に半分ずらして中央に配置 */
+}
+
+/* -- SVG (楕円) に関するスタイル（追加） -- */
+
+/* SVG要素自体 */
+.rain-legend svg.rain-legend-ellipse {
+  display: block; /* インライン要素の下にできる余白をなくす */
+  margin: 0; /* デフォルトのマージンをなくす */
+  padding: 0; /* デフォルトのパディングをなくす */
+  /* サイズは viewBox と親要素、またはwidth/height属性で制御されます */
+  /* 例: 幅と高さを明示的に設定する場合 (計算値: 42x18px) */
+  width: 42px;
+  height: 32px;
+}
+
+/* SVGを含む rain-legend コンテナ */
+.rain-legend:nth-of-type(n+2) { /* 2番目以降の rain-legend (SVGを含むもの) に限定 */
+    /* デフォルトの padding-bottom をなくす */
+    padding-bottom: 0;
+    /* SVGコンテナ同士の間に隙間が必要なら margin-bottom を追加 */
+    margin-bottom: 10px; /* 例: 10px の隙間 */
+}
+
+/* SVGのテキスト部分 */
+.rain-legend-ellipse-text {
+    /* テキストのスタイル調整 */
+    font-size: 12px; /* 必要に応じて調整 */
+    line-height: 1.4; /* 行の高さを調整 */
+    color: #333; /* 必要に応じて調整 */
+    margin-top: 5px; /* SVGとの間に隙間が必要なら追加 */
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description
+// 気象庁簡易版ビットイメージ雨・雨雲可視化レイヤー
+//
+// 過去の気象データがこの簡易版データのみの提供となっているため、まずはカレントの雨データの可視化を実現する
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// HISTORY
+// 2025/04/17 1st rev
+// 2025/04/22 今後の雨対応
+// 2025/05/01 過去の災害記録再生対応
+
+// TBD: 線状降水帯・過去の災害(https://www.data.jma.go.jp/review/)
+
+// https://www.jma.go.jp/bosai/rain/ 雨雲の動き（軽量版）
+// https://www.jma.go.jp/bosai/rain/rasrf.html 今後の雨（軽量版）
+
+let forecastFlag = false;
+
+const datasetNames={
+	forecast:{
+		href:"https://www.jma.go.jp/bosai/rain/rasrf.html ",
+		credit:"気象庁ホームページ 今後の雨(軽量版)を加工して作成",
+		title:"気象庁:今後の雨(軽量版)"
+	},
+	current:{
+		href:"https://www.jma.go.jp/bosai/rain/ ",
+		credit:"気象庁ホームページ 雨雲の動き(軽量版)を加工して作成",
+		title:"気象庁:雨雲の動き(軽量版)"
+	}
+}
+
+const legends={
+	rain:`<div class="rain-legend" style="width: 240px;"><div class="rain-legend-box" style="left: 0px; background-color: rgb(242, 242, 255);"></div><div class="rain-legend-box" style="left: 30px; background-color: rgb(160, 210, 255);"></div><div class="rain-legend-box" style="left: 60px; background-color: rgb(33, 140, 255);"></div><div class="rain-legend-box" style="left: 90px; background-color: rgb(0, 65, 255);"></div><div class="rain-legend-box" style="left: 120px; background-color: rgb(255, 245, 0);"></div><div class="rain-legend-box" style="left: 150px; background-color: rgb(255, 153, 0);"></div><div class="rain-legend-box" style="left: 180px; background-color: rgb(255, 40, 0);"></div><div class="rain-legend-box" style="left: 210px; background-color: rgb(180, 0, 104);"></div><div class="rain-legend-text" style="left: -15px;"></div><div class="rain-legend-text" style="left: 15px;">1</div><div class="rain-legend-text" style="left: 45px;">5</div><div class="rain-legend-text" style="left: 75px;">10</div><div class="rain-legend-text" style="left: 105px;">20</div><div class="rain-legend-text" style="left: 135px;">30</div><div class="rain-legend-text" style="left: 165px;">50</div><div class="rain-legend-text" style="left: 195px;">80</div><div class="rain-legend-text" style="left: 225px;">mm/h</div></div><div class="rain-legend"><svg class="rain-legend-ellipse"><ellipse cx="22" cy="18" rx="20" ry="8" stroke="red" stroke-width="2" fill="none"></ellipse></svg><div class="rain-legend-ellipse-text">大雨災害発生の危険性が急激に<br>高まっている線状降水帯の雨域<br>（現在時刻の解析）</div></div><div class="rain-legend"><svg class="rain-legend-ellipse"><ellipse cx="22" cy="18" rx="20" ry="8" stroke="red" stroke-width="2" stroke-dasharray="5" fill="none"></ellipse></svg><div class="rain-legend-ellipse-text">大雨災害発生の危険性が急激に<br>高まっている線状降水帯の雨域<br>（10〜30分先の解析）</div></div>`,
+	thunder:`<div class="rain-legend" style="width: 120px;"><div class="rain-legend-box" style="left: 0px; background-color: rgb(255, 245, 0);"></div><div class="rain-legend-box" style="left: 30px; background-color: rgb(255, 170, 0);"></div><div class="rain-legend-box" style="left: 60px; background-color: rgb(255, 40, 0);"></div><div class="rain-legend-box" style="left: 90px; background-color: rgb(200, 0, 255);"></div><div class="rain-legend-text" style="left: 0px;">1</div><div class="rain-legend-text" style="left: 30px;">2</div><div class="rain-legend-text" style="left: 60px;">3</div><div class="rain-legend-text" style="left: 90px;">4</div></div>`,
+	tornado:`<div class="rain-legend" style="width: 60px;"><div class="rain-legend-box" style="left: 0px; background-color: rgb(255, 245, 0);"></div><div class="rain-legend-box" style="left: 30px; background-color: rgb(255, 40, 0);"></div><div class="rain-legend-text" style="left: 0px;">1</div><div class="rain-legend-text" style="left: 30px;">2</div></div>`
+}
+
+const cats={
+	// 雨雲の動き
+	rain:{name:"雨",interval:5,forecastMax:12,prevMax:64, init:true,legend:legends.rain},
+	thunder:{name:"雷",interval:10,forecastMax:6,prevMax:32,legend:legends.thunder},
+	tornado:{name:"竜巻",interval:10,forecastMax:6,prevMax:32,legend:legends.tornado},
+	
+	// 今後の雨
+	rain01:{name:"今後の雨-1時間降水量", supportedCat2s:{past:"ra30",current:"ra",forecast:"srf",forecastMore:"srf15"}, init:true, init:true,legend:legends.rain},
+	rain03:{name:"今後の雨-3時間降水量", supportedCat2s:{past:"ra30",current:"ra",forecast:"srf"}, init:true,legend:legends.rain},
+	rain24:{name:"今後の雨-24時間降水量", supportedCat2s:{past:"ra30",current:"ra",forecast:"srf"}, init:true,legend:legends.rain},
+	
+};
+
+const cat2s={
+	ra30:{name:"過去の雨",interval:30,forecastMax:-1,prevMax:25},
+	ra:{name:"現在の雨",interval:60,forecastMax:0,prevMax:0},
+	srf:{name:"降水短時間予報",interval:60,forecastMax:6,prevMax:-1},
+	srf15:{name:"降水 15 時間予報",interval:60,forecastMax:15,prevMax:-7}
+};
+
+const currentBaseURL = "https://www.jma.go.jp/";
+const currentPath = "bosai/rain/data/[[cat]]/time.json";
+const contentPath = "bosai/rain/data/[[cat2]]/[[baseTime]]/[[cat]]_[[targetTime]]_f[[forecast]]_[[area]].png";
+
+const currentEllipsePath ="bosai/rain/data/ellipse/ellipse.json"; // これは線状降水帯だったっけかな？(現在未使用)
+
+let baseURL = currentBaseURL; // 過去の災害記録を見るときにはbaseURLを変更する
+
+let targetSubImageLayer;
+
+const areas={};
+
+let cat;
+
+addEventListener("load",async function(){
+	if ( svgImageProps.hash.indexOf("forecast")>0){
+		forecastFlag = true;  
+	}
+	targetSubImageLayer = await getTargetSublayer("imageSubLayer");
+	setTitle();
+	getAreas(targetSubImageLayer);
+	addEventListener("zoomPanMap",zpmFunc);
+	
+	await changeBaseURL();
+});
+
+async function changeBaseURL(url,message){ // 過去の災害記録表示モードの時はそのベースのURLをセットする
+	if(!url){
+		baseURL = currentBaseURL;
+		setTitle();
+	} else {
+		baseURL = url;
+		if (!message){
+			message="過去の災害時の記録を表示中です。";
+		}
+		pageNote.innerHTML=`<span style="font-weight:bold;color:brown;font-size:12px">${message}</span>`;
+	}
+	initCatSel();
+	zpmFunc();
+	await buildInitialMap(cat);
+	svgMap.refreshScreen();
+}
+
+function setTitle(){
+	let title=datasetNames.current;
+	if ( forecastFlag ){
+		title=datasetNames.forecast;
+	}
+	pageDesc.innerHTML=`<span style="font-size:12px">出典：<a href="${title.href}" target="_blank">${title.credit}</a></span>`;
+	datanameHead.innerText=`${title.title}`;
+}
+
+async function buildInitialMap(cat){
+	const baseTimeObj={};
+	let currentBaseTimeStr;
+	const currentURL = baseURL + currentPath;
+	if ( cats[cat].supportedCat2s){ // 予報情報
+		const supportedCat2s =cats[cat].supportedCat2s; 
+		for ( let cat2key in supportedCat2s){
+			baseTimeObj[cat2key] = await (await fetch(`${currentURL.replace("[[cat]]",supportedCat2s[cat2key])}?t=${new Date().getTime()}`)).json();
+		}
+		console.log(baseTimeObj);
+		currentBaseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj.current.time);
+		setContent(cat,"ra",currentBaseTimeStr,0);
+	} else { // 現況・これまでの情報
+		const baseTimeObj0 = await (await fetch(`${currentURL.replace("[[cat]]",cat)}?t=${new Date().getTime()}`)).json();
+		baseTimeObj.past= baseTimeObj0;
+		baseTimeObj.current= baseTimeObj0;
+		baseTimeObj.forecast= baseTimeObj0;
+		currentBaseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj0.time);
+		setContent(cat,cat,currentBaseTimeStr,0);
+		await drawEllipse(currentBaseTimeStr);
+	}
+	console.log("currentBaseTimeStr:",currentBaseTimeStr);
+	buildTimeLineUI(baseTimeObj,cat);
+	showLegend(cat);
+}
+
+
+function setContent(cat,cat2,baseTime,forecastNum){
+	const targetTime = baseTime;
+	const contentURL = baseURL + contentPath;
+	var baseUrl = contentURL.replace("[[cat]]",cat).replace("[[cat2]]",cat2).replace("[[baseTime]]",baseTime).replace("[[targetTime]]",targetTime).replace("[[forecast]]",String(forecastNum).padStart(2, '0'));
+//	console.log("setContent:",baseUrl);
+	for ( const ak in areas){
+		const img = areas[ak].img;
+		const imgUrl = baseUrl.replace("[[area]]",ak);
+		img.setAttribute("xlink:href",imgUrl);
+	}
+}
+
+function zpmFunc(){}
+function preRenderFunction(){
+	const vb = svgImageProps.geoViewBox;
+	var area = selectArea(vb);
+	//console.log("area:",area);
+	var targetArea;
+	if ( area.length ==0){
+		targetArea="a00";
+	} else {
+		targetArea=area[0];
+	}
+	showOneArea(targetArea, targetSubImageLayer);
+}
+
+function showOneArea(aid,svgChildImage){
+	/**
+	for ( const ak in areas ){
+		var img = areas[ak].img;
+		if ( ak == aid){
+			img.setAttribute("display","");
+		} else {
+			img.setAttribute("display","none");
+		}
+	}
+	**/
+	var imgs = svgChildImage.getElementsByTagName("image");
+	for ( const img of imgs){
+		var imgId = img.getAttribute("id");
+		if ( imgId == aid ){
+			img.setAttribute("display","");
+		} else {
+			img.setAttribute("display","none");
+		}
+	}
+}
+
+function selectArea(viewBox){
+	const containedBoxes = [];
+	for (const ak in areas) {
+		if ( ak=="a00") continue;
+		var box = areas[ak];
+		if (
+			viewBox.x >= box.x &&
+			viewBox.y >= box.y &&
+			viewBox.x + viewBox.width <= box.x + box.width &&
+			viewBox.y + viewBox.height <= box.y + box.height
+		) {
+			containedBoxes.push(ak);
+		}
+	}
+	return containedBoxes;
+}
+
+function getAreas(targetSubImageLayer){
+	const imgs = targetSubImageLayer.getElementsByTagName("image");
+	for ( var img of imgs){
+		var id = img.getAttribute("id");
+		var x=img.getAttribute("x");
+		var y=img.getAttribute("y");
+		var width=img.getAttribute("width");
+		var height=img.getAttribute("height");
+		var tf = img.getAttribute("transform");
+		tf = tf.replaceAll("matrix(","").replaceAll(")","").split(",");
+		tf.forEach(function(t,idx){
+			tf[idx]=Number(t.trim());
+		});
+		x = x*tf[0]+tf[4];
+		y = y*tf[3]+tf[5];
+		width = width*tf[0];
+		height = height*tf[3];
+		y = -(y+height);
+		// console.log(x,y,width,height,tf);
+		areas[id]={x,y,width,height,img};
+	}
+	console.log(areas);
+};
+
+function getUTCdateStringToQueryDateString(utcs){
+	const dateObject = new Date(utcs);
+	return ( getDateToQueryDateString(dateObject));
+}
+function getDateToQueryDateString(dateObject){
+	const year = dateObject.getUTCFullYear();
+	const month = String(dateObject.getUTCMonth() + 1).padStart(2, '0'); // 月は0から始まるので+1し、2桁になるように0埋め
+	const day = String(dateObject.getUTCDate()).padStart(2, '0');      // 日付を2桁になるように0埋め
+	const hours = String(dateObject.getUTCHours()).padStart(2, '0');    // 時を2桁になるように0埋め
+	const minutes = String(dateObject.getUTCMinutes()).padStart(2, '0');  // 分を2桁になるように0埋め
+	const seconds = String(dateObject.getUTCSeconds()).padStart(2, '0');  // 秒を2桁になるように0埋め
+
+	const formattedString = `${year}${month}${day}${hours}${minutes}${seconds}`;
+
+	return(formattedString);
+}
+
+/**
+ * UTC 時間文字列から Date オブジェクトを作成する関数
+ * @param {string} utcString - 'YYYYMMDDHHmmss'形式の文字列 (例: '20240920235000')
+ * @returns {Date} 対応する Date オブジェクト
+ */
+function parseUTCString(utcString) {
+	// 入力のバリデーション
+	if (!utcString || utcString.length !== 14 || !/^\d{14}$/.test(utcString)) {
+		throw new Error('無効な入力形式です。YYYYMMDDHHmmss形式の文字列を入力してください。');
+	}
+	// 文字列を年、月、日、時、分、秒に分割
+	const year = parseInt(utcString.substring(0, 4), 10);
+	const month = parseInt(utcString.substring(4, 6), 10) - 1; // JavaScriptの月は0-11
+	const day = parseInt(utcString.substring(6, 8), 10);
+	const hours = parseInt(utcString.substring(8, 10), 10);
+	const minutes = parseInt(utcString.substring(10, 12), 10);
+	const seconds = parseInt(utcString.substring(12, 14), 10);
+	// 値の範囲チェック
+	if (
+		year < 1970 || year > 9999 ||
+		month < 0 || month > 11 ||
+		day < 1 || day > 31 ||
+		hours < 0 || hours > 23 ||
+		minutes < 0 || minutes > 59 ||
+		seconds < 0 || seconds > 59
+	) {
+		throw new Error('日付または時刻の値が無効です。');
+	}
+
+	// UTC日時を作成
+	return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+}
+
+
+function initCatSel(){
+	catSel.innerHTML="";
+	for ( var catK in cats){
+		if ( forecastFlag && cats[catK].supportedCat2s){
+		} else if (!forecastFlag && !cats[catK].supportedCat2s){
+		} else {
+			continue;
+		}
+		var sel="";
+		if ( cats[catK].init){
+			sel="selected";
+			cat = catK;
+		}
+		catSel.insertAdjacentHTML("beforeend",`<option value="${catK}" >${cats[catK].name}</option>`);
+	}
+}
+async function changeMap(){
+	cat = catSel.options[catSel.selectedIndex].value;
+	await buildInitialMap(cat);
+	svgMap.refreshScreen();
+}
+
+function showLegend(cat){
+	const ldiv = document.getElementById("legend");
+	ldiv.innerHTML=cats[cat].legend;
+}
+
+function buildTimeLineUI(baseTimeObj,cat){
+	timeSel.innerHTML="";
+	
+	
+	let pastCat2, currentCat2, forecastCat2, forecastMoreCat2;
+	let supportedCat2s;
+	
+	if ( cats[cat].supportedCat2s ){ // foreCaset
+		supportedCat2s = cats[cat].supportedCat2s;
+		pastCat2 = cat2s[supportedCat2s.past];
+		currentCat2 = cat2s[supportedCat2s.current];
+		forecastCat2 = cat2s[supportedCat2s.forecast];
+		if ( supportedCat2s.forecastMore){
+			forecastMoreCat2 = cat2s[supportedCat2s.forecastMore];
+		}
+	} else {
+		pastCat2 = cats[cat];
+		currentCat2 = cats[cat];
+		forecastCat2 = cats[cat];
+		supportedCat2s={past:cat,current:cat,forecast:cat};
+	}
+	
+	console.log(supportedCat2s, baseTimeObj);
+	
+	let intvl,fmax,baseTime,baseTimeStr;
+	if ( forecastMoreCat2 ){
+		// 将来のもの
+		intvl = forecastMoreCat2.interval;
+		fmax = forecastMoreCat2.forecastMax;
+		fmin = -forecastMoreCat2.prevMax;
+		baseTime = new Date(baseTimeObj.forecastMore.time).getTime();
+		baseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj.forecastMore.time);
+		
+		for ( let i =fmax ; i>= fmin ; i--){ // 将来のもの
+			const ftTime = new Date(baseTime + i * intvl * 60 * 1000);
+			timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${supportedCat2s.forecastMore},${baseTimeStr},${i}" >${ftTime.toLocaleString()}(予想)</option>`);
+		}
+	}
+	
+	// 将来のもの
+	intvl = forecastCat2.interval;
+	fmax = forecastCat2.forecastMax;
+	baseTime = new Date(baseTimeObj.forecast.time).getTime();
+	baseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj.forecast.time);
+	
+	for ( let i =fmax ; i> 0 ; i--){ // 将来のもの
+		const ftTime = new Date(baseTime + i * intvl * 60 * 1000);
+		timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${supportedCat2s.forecast},${baseTimeStr},${i}" >${ftTime.toLocaleString()}(予想)</option>`);
+	}
+	
+	
+	// 現在のもの
+	baseTime = new Date(baseTimeObj.current.time);
+	console.log("CURRENT:",baseTime, getDateToQueryDateString(baseTime));
+	baseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj.current.time);
+	timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${supportedCat2s.current},${getDateToQueryDateString(baseTime)},0" selected>${baseTime.toLocaleString()}</option>`);
+	
+	// 過去のもの
+	intvl = pastCat2.interval;
+	let prevMax = pastCat2.prevMax;
+	baseTime = new Date(baseTimeObj.past.time).getTime();
+	let prevStartIndex=0;
+	if ( supportedCat2s.current == supportedCat2s.past){
+		prevStartIndex=1;
+	}
+	for ( let i = prevStartIndex ; i <= prevMax ; i++){ 
+		const optTime = new Date(baseTime - i * intvl * 60 * 1000);
+		timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${supportedCat2s.past},${getDateToQueryDateString(optTime)},0" >${optTime.toLocaleString()}</option>`);
+	}
+}
+
+/**
+function buildTimeLineUI_obsoluted(baseTimeObj,cat){
+	timeSel.innerHTML="";
+	const intvl = cats[cat].interval;
+	const fmax = cats[cat].forecastMax;
+	const prevMax = cats[cat].prevMax
+	const baseTime = new Date(baseTimeObj.time).getTime();
+	const baseTimeStr=getUTCdateStringToQueryDateString(baseTimeObj.time);
+	for ( let i =fmax ; i> 0 ; i--){
+		const ftTime = new Date(baseTime + i * intvl * 60 * 1000);
+		timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${baseTimeStr},${i}" >${ftTime.toLocaleString()}(予想)</option>`);
+	}
+	for ( let i = 0 ; i <= prevMax ; i++){
+		const optTime = new Date(baseTime - i * intvl * 60 * 1000);
+		let sel="";
+		if ( i ==0){
+			sel="selected";
+		}
+		timeSel.insertAdjacentHTML("beforeend",`<option value="${cat},${getDateToQueryDateString(optTime)},0" ${sel}>${optTime.toLocaleString()}</option>`);
+	}
+}
+**/
+
+async function changeTime(){
+	const selOptVal =  timeSel.options[timeSel.selectedIndex].value.split(",");
+	const cat =  selOptVal[0];
+	const cat2 =  selOptVal[1];
+	const targetTime  = selOptVal[2];
+	const forecastNum = selOptVal[3];
+	setContent(cat,cat2,targetTime,forecastNum)
+	await drawEllipse(targetTime);
+	console.log(cat,cat2,targetTime,forecastNum);
+	svgMap.refreshScreen();
+}
+
+
+// 
+// 線状降水帯描画ルーチン
+// 2025/05/07
+
+async function drawEllipse(targetTime){
+	const targetElement = svgImage.getElementById("vectorGroup");
+	removeChildren(targetElement);
+//	console.log("targetElement:", targetElement);
+	const ellipsePath = baseURL + currentEllipsePath;
+	const ellipseObj = await (await fetch(`${ellipsePath}?t=${new Date().getTime()}`)).json();
+	const times=Object.keys(ellipseObj).sort(); // 最新のデータは末尾に存在する
+	const ellipseTargetTime = getNearestTime(targetTime,times);
+	console.log("ellipseTargetTime:",ellipseTargetTime);
+//	const latestData = ellipseObj[times[times.length-1]];
+	const latestData = ellipseObj[ellipseTargetTime];
+//	console.log(latestData);
+	for ( let dat of latestData){
+		const points = ellipseToPolyline(dat);
+		let d = "M";
+		for ( var poi of points){
+			d += `${poi.lon },${-poi.lat } `;
+		}
+		d+="z";
+		const path = svgImage.createElement("path");
+		path.setAttribute("d",d);
+		path.setAttribute("fill","none");
+		path.setAttribute("stroke","red");
+		path.setAttribute("stroke-width",3);
+		if ( dat.ft>0 ){
+			path.setAttribute("stroke-dasharray","6");
+		}
+		path.setAttribute("vector-effect","non-scalind-stroke");
+		//console.log("drawEllipse:", path,points);
+		targetElement.appendChild(path);
+	}
+}
+
+/**
+ * 楕円データから緯度経度座標系上のポリラインを生成する関数
+ * @param {Object} ellipse - 楕円データ
+ * @param {number} ellipse.lon - 楕円の中心経度
+ * @param {number} ellipse.lat - 楕円の中心緯度
+ * @param {number} ellipse.chojiku - 長軸の長さ（km単位と仮定）
+ * @param {number} ellipse.tanjiku - 短軸の長さ（km単位と仮定）
+ * @param {number} ellipse.angle - 楕円の回転角度（度数法、北から時計回り）
+ * @param {number} [numPoints=32] - 生成するポリラインの頂点数
+ * @returns {Array<Object>} - 緯度経度座標のポイント配列
+ */
+function ellipseToPolyline(ellipse, numPoints = 32) {
+	const { lon, lat, chojiku, tanjiku, angle } = ellipse;
+	const EARTH_RADIUS = 6371.0;
+	const latRad = lat * Math.PI / 180;
+	const angleRad = -angle * Math.PI / 180 - Math.PI/2;
+
+	// 長軸と短軸の半分の長さ（半径）
+	const a = chojiku / 2; 
+	const b = tanjiku / 2;
+
+	// ポリラインの点を格納する配列
+	const points = [];
+
+	for (let i = 0; i < numPoints; i++) {
+		// パラメトリック角度 t (0～2π)
+		const t = (i / numPoints) * 2 * Math.PI;
+
+		const x0 = a * Math.cos(t);
+		const y0 = b * Math.sin(t);
+
+		const x = x0 * Math.cos(angleRad) - y0 * Math.sin(angleRad);
+		const y = x0 * Math.sin(angleRad) + y0 * Math.cos(angleRad);
+
+		const latOffset = y / 111.32;
+		const lonOffset = x / (111.32 * Math.cos(latRad));
+
+		const newLon = lon + lonOffset;
+		const newLat = lat + latOffset;
+
+		points.push({ lon: newLon, lat: newLat });
+	}
+	return points;
+}
+
+function getNearestTime(targetTime,availableTimes){
+	// targetTime: Date.getTime()の値
+	// availableTimes : ellipse.jsonのkeysの配列
+	// targetTimeを超えない、一番大きいavailableTimesの値を返却する
+	//console.log("getNearestTime:",targetTime,availableTimes);
+	let ats;
+	const ttv = parseUTCString(targetTime).getTime();
+	for ( let i =  availableTimes.length -1 ; i >= 0 ; i--){
+		ats = availableTimes[i]
+		const at = parseUTCString(ats).getTime();
+		//console.log(ttv,at);
+		if ( ttv - at >= 0 ){
+			break;
+		}
+	}
+	return ats;
+}
+
+
+
+async function getTargetSublayer(containerElementId){
+	let tgid= svgImage.getElementById(containerElementId);
+	let tlayer;
+	while(!tlayer){
+		await sleep(100);
+		tgid = tgid.getAttribute("iid");
+		tlayer= svgMap.getSvgImages()[tgid];
+//		console.log("tgid:",tgid, " tlayer:",tlayer);
+	}
+	return tlayer;
+}
+
+function removeChildren(element){
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+
+
+</script>
+<body>
+<h4><span id="datanameHead">気象庁簡易ビットイメージデータ</span>レイヤー</h4>
+<div id="pageDesc"></div>
+<div id="pageNote"></div>
+<select id="catSel" onchange="changeMap()"></select> 
+<!--
+<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
+<label for="realtime_checked">自動更新</label>
+-->
+<br>
+<select id="timeSel" onchange="changeTime()"></select>(JST) <span id="lastupdatetimespan" style="font-size:11px"></span><br>
+<div style="font-size:10px">凡例：
+<div id="legend" ></div>
+</div>
+</body>
+</html>

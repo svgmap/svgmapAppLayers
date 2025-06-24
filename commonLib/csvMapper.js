@@ -35,12 +35,13 @@
 	// 2022/12/01 : iconCol系いろいろデバッグ  FileAPIでローカルファイル読み込み->csvInputUI_r17.html
 	// 2022/12/13 : データのサイズに応じて、オンメモリQuadTreeComposite Tilingを実装
 	// 2024/08/01 : 複数のcsvのサブレイヤーでの同時表示をサポートできるよう、インスタンスを複数立ち上げ、ターゲットのドキュメントも個別に指定できる機能を追加する
+	// 2025/06/13 : editCsv
 	
 	// Issues:
 	//    iconCol系の実装(9/11の)が、未検証多々あります！
 	//    windowObjがQTCTrendererを持つことを想定しているなどいろいろ整理ができてない
 /**
-windowObjから直接取得しているリソースは以下の通り
+windowObjから直接取得している(整理できていない)リソースは以下の通り
 	useQTCT
 	parent.location.href
 	svgImage
@@ -50,6 +51,7 @@ windowObjから直接取得しているリソースは以下の通り
 	buildQTCTdata()
 	removePrevTiles()
 	clearQTCTdata()
+	clientSideQTCT
 **/
 	// ToDo:
 	//    from 2a: ｘｘKm圏の円(楕円)を表示する機能(circleRadius),(radiusCol)
@@ -57,8 +59,8 @@ windowObjから直接取得しているリソースは以下の通り
 	
 csvMapperClass = function (windowObj){
 	var svgImage;
-	var csv;
-	var currentSchema;
+	var csv; // このデータがこのクラスのインスタンスにおける基幹のCSV生データ
+	var currentSchema; // 現在のこのオブジェクトが処理しているデータのスキーマ
 	var messageDivElm;
 	
 	var hashParamCsvSchema={
@@ -104,6 +106,7 @@ csvMapperClass = function (windowObj){
 	
 	
 	function getCsv(progressCallBack){
+		console.log("getCsv:csv:",csv);
 		if ( !csv && windowObj.useQTCT ){
 			if ( globalObj.restoreCsvDataFromZipFile ){ // QTCTrenderer_r2の関数(モジュール化すべき)
 				return restoreCsvArrayFromZipFile(progressCallBack); //この場合はpromiseが返ってくる
@@ -373,6 +376,44 @@ csvMapperClass = function (windowObj){
 	
 	var sleep = ms => new Promise(res => setTimeout(res, ms));
 	
+	// csv生データの割り切った簡単化
+	function simplifyCsv(csv){
+		var eCsv="";
+		// 改行コードの正規化を行っておく
+		csv = csv.replace(/\r\n/g, "\n");
+		if (csv.endsWith("\n")) {
+		    csv = csv.slice(0, -1);
+		}
+		
+		// ダブルクオーテーションによるエスケープを消す
+		// そのとき、ダブルクオーテーションはシングルクォーテーションに、　カンマは;に、　改行は除去する
+//		csv = csv.replace(/¥"¥"/g, "&#034;");
+		csv = csv.replace(/\"\"/g, "'");
+		var prevPos = 0;
+		var startPos = 0;
+		while ( startPos >=0 ){
+			startPos = csv.indexOf('"',prevPos);
+			if ( startPos >=0 ){
+				var endPos = csv.indexOf('"',startPos+1);
+				if ( endPos <0 ){break}
+				eCsv += csv.substring(prevPos,startPos);
+				var escStr = csv.substring(startPos+1,endPos);
+				escStr = escStr.replace(/\r?\n/g,"");
+//				escStr = escStr.replace(/,/g, "&#044;");
+				escStr = escStr.replace(/,/g, ";");
+				eCsv += escStr;
+				prevPos = endPos + 1;
+			} else {
+				eCsv += csv.substring(prevPos);
+			}
+			
+		}
+		
+		csv = eCsv;
+		csv = csv.replace(/"/g, "'");
+		return csv;
+	}
+	
 	async function initCsv(inputCsv, latC,lngC,titleC,iconIndexOrCustomIconDataURL, varIconThParam, firstRecordParam){
 		console.log("called: initCsv",iconIndexOrCustomIconDataURL,varIconThParam, firstRecordParam);
 		var iconIndex;
@@ -390,35 +431,11 @@ csvMapperClass = function (windowObj){
 		svgImage.firstChild.setAttribute("property","");
 		
 		// CSVを準備する
-		var eCsv="";
 		if(inputCsv){
 			csv = inputCsv;
 		}
 		
-		csv = csv.replace(/¥"¥"/g, "&#034;");
-		var prevPos = 0;
-		var startPos = 0;
-		while ( startPos >=0 ){
-			startPos = csv.indexOf('"',prevPos);
-			if ( startPos >=0 ){
-				var endPos = csv.indexOf('"',startPos+1);
-				if ( endPos <0 ){break}
-				eCsv += csv.substring(prevPos,startPos);
-				var escStr = csv.substring(startPos+1,endPos);
-				escStr = escStr.replace(/\r?\n/g,"");
-				escStr = escStr.replace(/,/g, "&#044;");
-				eCsv += escStr;
-				prevPos = endPos + 1;
-			} else {
-				eCsv += csv.substring(prevPos);
-			}
-			
-		}
-		
-		
-		csv = eCsv;
-		
-//		console.log( "eCsv:",eCsv);
+		csv = simplifyCsv(csv);
 		
 		csv = csv.split(LF); // CSVデータは、1次元配列、配列の要素は、1レコード分のCSVデータ（2次元配列ではない・・）
 		//console.log("CSV:",csv);
@@ -747,6 +764,75 @@ csvMapperClass = function (windowObj){
 		}
 	}
 	
+	// アイコンの図形・画像～文字列：もしくは配列(varIconTh>0のとき) 2025/6/12
+	function getUsedIcon(){
+		if (!currentSchema){return}
+		if ( currentSchema.varIconTh.length > 1 ){
+			// TBD
+			// カラム番号の値(currentSchema.varIconCol)によってアイコンが変わるケース
+			return ["現在のところ値による可変アイコンの提供は未対応です"];
+		} else {
+			if ( typeof currentSchema.defaultIconNumber =="string"){
+				return currentSchema.defaultIconNumber; // dataURLが入るはず
+			} else {
+				var iconElmg = svgImage.getElementById(category[currentSchema.defaultIconNumber]);
+				var iconImg =  iconElmg.getElementsByTagName("image");
+				if (iconImg.length > 0){
+					return iconImg[0].getAttribute("xlink:href"); // 登録済みアイコンのケース
+				} else {
+					return iconElmg; // ベクトルアイコンのケースはElementが入る・・・
+				}
+			}
+		}
+	}
+	
+	// CSVを操作する 2025/06
+	// action:
+	// "add": lineが必要
+	// "replace": line, prevLineが必要
+	// "delete": lineが必要
+	// useQTCTではない場合は、オーサリングツールが静的なsvgコンテンツ実体を編集していることを前提とし、再レンダリングしない制約がある
+	async function editCsv(action,line,prevLine){
+		let q,stat=true;
+		if (!line){return false}
+		line = simplifyCsv(line);
+		if ( action.toLowerCase()=="add"){
+			csv.push(line);
+			if ( windowObj.useQTCT ){
+				q = line.split(",");
+				stat = await windowObj.clientSideQTCT.registOneData(q);
+			}
+		} else if ( action.toLowerCase()=="replace"){
+			if ( !prevLine){return false};
+			prevLine = simplifyCsv(prevLine);
+			const hitLine = csv.indexOf(prevLine);
+			if ( hitLine >=0){
+				csv[hitLine]=line; // まったく同じ内容のレコードがある場合は失敗するが大目に見てくださいｗ・・・
+			} else {
+				return false;
+			}
+			if ( windowObj.useQTCT ){
+				q = prevLine.split(",");
+				stat = await windowObj.clientSideQTCT.deleteOneData(q);
+				q = line.split(",");
+				stat = await windowObj.clientSideQTCT.registOneData(q);
+			}
+		} else if (action.toLowerCase()=="delete"){
+			const hitLine = csv.indexOf(line);
+			if ( hitLine >=0){
+				csv.splice(hitLine,1); 
+			} else {
+				return false;
+			}
+			if ( windowObj.useQTCT ){
+				q = line.split(",");
+				stat = await windowObj.clientSideQTCT.deleteOneData(q);
+			}
+		}
+		return stat;
+	}
+	
+	
 	return{
 		getIconId:getIconId,
 		initCsv:initCsv,
@@ -772,6 +858,9 @@ csvMapperClass = function (windowObj){
 		setMessageDiv:setMessageDiv,
 		clearMap:clearMap,
 		buildCustomIconDefs,
+		getUsedIcon,
+		editCsv,
+		simplifyCsv,
 	}
 };
 

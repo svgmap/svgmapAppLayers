@@ -56,7 +56,7 @@ const contents={ // obsoluted (2024/10)
 const indexContents={ // 2024/10/30
 	"url":"https://www.road-info-prvs.mlit.go.jp/roadinfo/pc/pcTukokisei_83_1.html", // ここにカメラ以外すべて統合されたか？
 	category : ["TukoKisei","TokiTuko","MichiNoEki","Jimusho","JizenTukokisei","Kisho","KojiYotei","ExpresswayJizenTukokisei"],
-	categoryName:["通行規制","陶器通行規制","道の駅","事務所","事前通行規制","道路気象","工事予定","高速道路事前通行規制区間"]
+	categoryName:["通行規制","冬季通行規制","道の駅","事務所","事前通行規制","道路気象","工事予定","高速道路事前通行規制区間"]
 //	"冬季通行規制":"https://www.road-info-prvs.mlit.go.jp/roadinfo/pc/pcTokiTukokisei_83_1.html", // なくなった感じがする
 //	"道の駅":"https://www.road-info-prvs.mlit.go.jp/roadinfo/json/MichiNoEki/" // なくなった感じがする
 }
@@ -92,10 +92,32 @@ const weatherIconColors=[
 	[-1,-1,"666666"],
 ];
 
+const jizenKiseiKubun={
+	1: "通行規制区間",
+	2: "特殊通行規制区間"
+}
+
+const kiseiIconCats={ // 規制情報アイコンの名前
+	"icon_stop.png":"通行止(異常気象等)",
+	"icon_stop_kouji.png":"通行止(工事)",
+	"icon_stop_ogata.png":"大型通行止",
+	"icon_stop_winter.png":"冬期通行止",
+	"icon_kisei_shasen.png":"車線規制",
+	"icon_kisei_katagawa.png":"片側交互通行",
+	"icon_kisei_idou.png":"移動規制",
+	"icon_kisei_chain.png":"チェーン規制",
+	"icon_kisei_other.png":"その他規制",
+	"michinoeki.png":"道の駅",
+	"jimusho.png":"国道事務所等国の機関",
+	"icon_shidou_chain.png":"チェーン指導",
+	"icon_cam":"CCTV",
+}
+
 var data;
 var targetGroup,targetPathGroup; // POI,pathを入れるSVGのグループ
 var progressInfo={total:jpMesh1.length*2, current:0};
 var svgHash;
+let usedKiseiIcons={}; // 2025/06/23 規制情報表示で現在使用しているアイコン
 onload=async function(){
 	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
 	svgHash = new URL(svgImageProps.Path,location.href).hash;
@@ -129,11 +151,13 @@ async function showMap(){
 	}else if ( svgHash.toLowerCase().indexOf("kojiyotei")>0){
 		await showKisei(true);
 		showUpdateButton();
+		showKiseiHanrei();
 	}else if ( svgHash.toLowerCase().indexOf("expressway")>0){
 		await showJizenkisei(true);
 	} else {
 		await showKisei();
 		showUpdateButton();
+		showKiseiHanrei();
 	}
 }
 
@@ -386,6 +410,7 @@ function xmlEscape(str){
 
 function drawJizenkisei(dat){
 	console.log("drawWeather",dat);
+	const hanreiDict ={};
 	var geojs = {
 		"type":"FeatureCollection",
 		"features":[]
@@ -689,6 +714,7 @@ function drawKiseiInfo(dat){
 		"type":"FeatureCollection",
 		"features":[]
 	}
+	usedKiseiIcons={};
 	var propNames=parseMetaSchema(dat);
 	svgImage.documentElement.setAttribute("property",propNames.join(","));
 	console.log(propNames);
@@ -728,6 +754,7 @@ function drawKiseiInfo(dat){
 					titleStr,
 					targetGroup
 				)
+				usedKiseiIcons[oneDat.iconData.icon_name]=true;
 			}
 			if ( oneDat.geo_json ){
 				geojs.features.push(oneDat.geo_json);
@@ -807,7 +834,7 @@ function showWeatherHanrei(){
 	commentDiv.style.fontSize="12px";
 	commentDiv.style.lineHeight="12px";
 	var commentTbl=document.createElement("table");
-	commentTbl.style.backgroundColor="#a0a0a0";
+	commentTbl.style.backgroundColor="#c0c0c0";
 	for ( var lvl of weatherIconColors){
 		if(lvl[0]==-1){
 			commentTbl.insertAdjacentHTML("beforeend",`<tr><td><span style="color:#${lvl[2]}">●</span> データなし</td></tr>`);
@@ -816,6 +843,23 @@ function showWeatherHanrei(){
 		}
 	}
 	commentDiv.insertAdjacentHTML("beforeend","時間雨量");
+	commentDiv.appendChild(commentTbl);
+}
+
+function showKiseiHanrei(){
+	removeChildren(commentDiv);
+	commentDiv.style.fontSize="12px";
+	commentDiv.style.lineHeight="12px";
+	var commentTbl=document.createElement("table");
+	var commentTbl=document.createElement("table");
+	commentTbl.style.backgroundColor="#c0c0c0";
+	for ( const kh in kiseiIconCats){
+		if ( usedKiseiIcons[kh]){
+			const kn = kiseiIconCats[kh];
+			commentTbl.insertAdjacentHTML("beforeend",`<tr><td><img src="./icons/${kh}"/></td><td>${kn}</td></tr>`);
+		}
+	}
+	commentDiv.insertAdjacentHTML("beforeend","アイコン凡例");
 	commentDiv.appendChild(commentTbl);
 }
 	
@@ -835,11 +879,11 @@ function updateLatest(){
 </script>
 <body>
 <h3>国交省　<span id="layerTitle">通行規制情報</span></h3>
-<ul>
+<ul style="font-size:12px">
 <li>出典: 国土交通省 全国版<a href="http://www.road-info-prvs.mlit.go.jp/roadinfo/pc/" target="_blank">道路情報提供システム</a>
 </ul>
-<div style="font-size:12px" id="commentDiv"><br><br></div>
 <input id="updateButton" type="button"  style="display:none" onclick="updateLatest()" value="UPDATE"></input>
 <div id="messageDiv" class="blink" style="color:red">データ読み込み中 <span id="progressMessage"></span></div>
+<div style="font-size:12px" id="commentDiv"><br><br></div>
 </body>
 </html>

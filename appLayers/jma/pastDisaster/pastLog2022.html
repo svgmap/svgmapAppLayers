@@ -1,0 +1,429 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>2022年以降の過去の災害時の気象状況</title>
+<style>
+  .past-disaster-info a.active {
+    color: red; /* 例：クリックしたら赤色にする */
+    /* 他にも必要なスタイルがあれば追加 */
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+// 気象庁2022年以降の過去の災害時の気象状況レイヤー
+//
+// Programmed by Satoru Takagi
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+let pastSupportedCats=[
+	"警報注意報(JMA)",
+	"大雨危険度(JMA)",
+	"危険度分布-洪水害(JMA)", // ベクトルのもの
+	"危険度分布-浸水害(JMA)", // ビットイメージタイルのもの
+	"危険度分布-土砂災害(JMA)", // ビットイメージタイルのもの
+	"台風(JMA)",
+	"雨雲の動き（軽量版）(JMA)",
+	"今後の雨（軽量版）(JMA)",
+];
+/**
+const pastSupportedCats={ // 過去の情報が存在する情報カテゴリ
+	"気象警報・注意報":"警報注意報(JMA)",
+	"大雨危険度":"大雨危険度(JMA)",
+	"危険度分布(キキクル)":false,
+	"危険度分布(キキクル)-洪水":"危険度分布-洪水害(JMA)", // ベクトルのもの
+	"危険度分布(キキクル)-浸水":"危険度分布-浸水害(JMA)", // ビットイメージタイルのもの
+	"危険度分布(キキクル)-土砂":"危険度分布-土砂災害(JMA)", // ビットイメージタイルのもの
+	"台風":"台風(JMA)",
+	"気象情報":false,
+	"竜巻注意情報":false,
+	"記録的短時間大雨情報":false,
+	"指定河川洪水予報":false,
+	"雨雲の動き（軽量版）":"雨雲の動き（軽量版）(JMA)",
+	"今後の雨（軽量版）":"今後の雨（軽量版）(JMA)",
+	"アメダス":false,
+}
+**/
+
+let selectedCats0={};
+
+const indexEndPoint = "https://www.data.jma.go.jp/review/case.txt";
+let cases, simus;
+
+addEventListener("load",async function(){
+	setInterval(buildCat0SelectUI,1000);
+	cases = await(await fetch(indexEndPoint)).text();
+	cases = (new DOMParser()).parseFromString(cases, "text/html");
+	console.log(cases);
+	simus = buildSimuStruct(cases);
+	console.log(simus);
+	buildUI(simus);
+	if (svgImageProps.hash.indexOf("layers=")>=0){
+		buildPastSupportedCats(svgImageProps.hash);
+	}
+	console.log("pastSupportedCats:",pastSupportedCats);
+});
+
+function buildPastSupportedCats(hash){
+	hash=decodeURIComponent(hash);
+	pastSupportedCats =[];
+	const hp = hash.indexOf("layers=");
+	const tp = hash.indexOf("&",hp);
+	let ls;
+	if ( tp >0){
+		ls = hash.substring(hp+7,tp);
+	} else {
+		ls = hash.substring(hp+7);
+	}
+	pastSupportedCats = ls.split(",");
+}
+
+function buildSimuStruct(dom){
+	const itms = dom.getElementsByClassName("simu-item");
+	console.log(itms);
+	const ss = {};
+	for ( let itm of itms){
+		const itemName = itm.getElementsByClassName("simu-item-name")[0].childNodes[0].textContent.trim();
+		const linksA=itm.getElementsByClassName("simu-links")[0].getElementsByTagName("a");
+		const links=[]
+		for ( let link of linksA){
+			const href = link.getAttribute("href");
+			const txt = link.textContent;
+			const base = getPastEndPoint(href);
+			links.push({href,text:txt,base});
+		}
+		//console.log(itm, itemName,links);
+		ss[itemName]=links;
+	}
+	return ss;
+}
+
+function getPastEndPoint(url){
+	var di = extractDatesFromUrl(url);
+	var ans = new URL(`${di.target}/${di.current}/`,indexEndPoint);
+	return ans.href;
+}
+
+function extractDatesFromUrl(url) {
+	const fragment = url.split('#')[1];
+	if (!fragment) {
+		return {}; // フラグメントがない場合は空のオブジェクトを返す
+	}
+	const params = fragment.split('&');
+	const extractedData = {};
+	for (const param of params) {
+		if (param.includes('=')) {
+			const [key, value] = param.split('=');
+			if (key === 'target') {
+				extractedData.target = value;
+			} else if (key === 'current') {
+				extractedData.current = value;
+			} else if (key === 'range') {
+				extractedData.range = value;
+			}
+		}
+	}
+	return extractedData;
+}
+
+function buildUI(simus){
+	var pd = document.getElementById("pastDisasters");
+	const snameArray = Object.keys(simus); // オブジェクトのキーを配列として取得
+//	snameArray.reverse(); // 配列を降順にソート
+	for ( var sname of snameArray){
+//	for ( var sname in simus){
+		var simu = simus[sname];
+		var details = document.createElement("details");
+		details.classList.add("past-disaster-info");
+		var summary = document.createElement("summary");
+		summary.style.fontWeight = "bold";
+		summary.textContent = sname;
+		details.appendChild(summary);
+		var linkContainer = document.createElement("div");
+		let firstItem = true;
+		for ( var st of simu){
+			var dt = st.text;
+			var base = st.base;
+			if ( dt.indexOf(" ")>0 & !firstItem){
+				linkContainer.insertAdjacentHTML("beforeend",`<br>`);
+			}
+			const link = document.createElement("a");
+			link.href = "javascript:void(0);";
+			link.dataset.href = base;
+			link.textContent = dt;
+			link.addEventListener('click', showPastDisaster);
+			linkContainer.appendChild(link);
+			linkContainer.insertAdjacentHTML("beforeend",` `);
+			firstItem = false;
+		}
+		details.appendChild(linkContainer);
+		pd.appendChild(details);
+	}
+	//document.getElementById("pastTable").remove(); // 元のテーブルを削除
+}
+
+function setActive(targetElement){
+	const pastDisasters = document.getElementById('pastDisasters');
+	const links = pastDisasters.querySelectorAll('a');
+	links.forEach(otherLink => {
+		otherLink.classList.remove('active');
+	});
+	targetElement.classList.add('active');
+}
+
+let currentBaseURL;
+function showPastDisaster(event){
+	event.preventDefault();
+	const baseURL = event.target.getAttribute("data-href");
+	var jst = convertUtcToJst(baseURL.substring(baseURL.indexOf("review")).split("/")[2]);
+	console.log(baseURL,jst);
+	msg.innerText=jst;
+	// ここに取得したURLを使った処理を記述 (例: 新しいコンテンツの表示など)
+		
+	setActive(event.target);
+	
+	currentBaseURL = baseURL;
+	
+	for ( var cn in selectedCats0 ){
+		let targetLayerController = selectedCats0[cn];
+		targetLayerController.changeBaseURL(baseURL);
+	}
+}
+
+function selectBefore(){
+	const pastDisasters = document.getElementById('pastDisasters');
+	const activeLink = pastDisasters.querySelector('a.active');
+
+	if (activeLink) {
+		const detailsElement = activeLink.closest('details');
+		if (detailsElement && !detailsElement.open) {
+			detailsElement.open = true; // 折りたたまれていたら展開
+		}
+		let previousSibling = activeLink.previousElementSibling;
+		while (previousSibling && previousSibling.tagName !== 'A') {
+			previousSibling = previousSibling.previousElementSibling;
+		}
+		if (previousSibling) {
+			previousSibling.click();
+		}
+	}
+	// else の部分を削除。アクティブなリンクがない場合は何もしない
+}
+
+function selectNext(){
+	const pastDisasters = document.getElementById('pastDisasters');
+	const activeLink = pastDisasters.querySelector('a.active');
+
+	if (activeLink) {
+		const detailsElement = activeLink.closest('details');
+		if (detailsElement && !detailsElement.open) {
+			detailsElement.open = true; // 折りたたまれていたら展開
+		}
+		let nextSibling = activeLink.nextElementSibling;
+		while (nextSibling && nextSibling.tagName !== 'A') {
+			nextSibling = nextSibling.nextElementSibling;
+		}
+		if (nextSibling) {
+			nextSibling.click();
+		}
+	}
+	// else の部分を削除。アクティブなリンクがない場合は何もしない
+}
+
+function getLayerController(layerNameOrLayerPath){
+	const spid=svgMap.getLayerId(layerNameOrLayerPath);
+	if ( !spid){return null}
+	const sip = svgMap.getSvgImagesProps()[spid];
+	if ( sip){
+		const controller = sip.controllerWindow;
+		return controller;
+	} else {
+		return null;
+	}
+}
+
+async function openLayer(layerNameOrLayerPath){
+	// 指定したレイヤをオンにする
+	// ISSUE： appearOnLayerLoadのレイヤの場合は呼び元のwebAppがhiddenになっちゃうよ・・・
+	const spid=svgMap.getLayerId(layerNameOrLayerPath);
+	if ( !spid){return null}
+	svgMap.setLayerVisibility(spid,true,{exec:"hiddenOnLayerLoad"});
+	var sleep = ms => new Promise(res => setTimeout(res, ms));
+	let ready=false;
+	let limit = 100;
+	let sp;
+	while (ready==false && limit >0){
+		await sleep(100);
+		const sip = svgMap.getSvgImagesProps()[spid];
+		if ( sip ){
+			if ( !svgMap.getSvgImages()[spid]){
+				console.log("SVG Doc Not yet loaded");
+				continue
+			}
+			const controller = sip.controller;
+			console.log(sip,sip.controller);
+			if ( controller ){
+				sp =sip.controllerWindow;
+				if ( sp){
+					if (sp.document.readyState === 'complete' ){
+						// controllerがある場合はそのロード完了時点でそのwindowを返却する
+						ready=true;
+					} else{
+						console.log("opend but not completed wait");
+					}
+				} else {
+					console.log("not opened wait");
+				}
+			} else {
+				// controllerがない場合は、getSvgImagesPropsができた時点でtrueを返却する
+				sp = true;
+				ready=true;
+			}
+		}
+		--limit;
+	}
+	return ( sp );
+}
+
+function convertUtcToJst(utcString) {
+	// UTCの文字列をDateオブジェクトに変換
+	const utcDate = new Date(
+		Date.UTC(
+			parseInt(utcString.substring(0, 4)),   // 年
+			parseInt(utcString.substring(4, 6)) - 1, // 月 (0-indexed)
+			parseInt(utcString.substring(6, 8)),   // 日
+			parseInt(utcString.substring(8, 10)),  // 時
+			//      parseInt(utcString.substring(10, 12))  // 分
+		)
+	);
+
+	// 日本のタイムゾーンを設定
+	const jstOptions = {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Asia/Tokyo',
+	};
+	//	console.log(utcDate);
+	// 日本の年月日時の文字列を生成
+	const jstFormatter = new Intl.DateTimeFormat('ja-JP', jstOptions);
+	return jstFormatter.format(utcDate);
+}
+
+function buildCat0SelectUI(){
+//	console.log("cat0selectUI.children.length:",cat0selectUI.children.length);
+	if ( cat0selectUI.children.length==0){
+		cat0selectUI.addEventListener("change",changeCat0LayerVisibility);
+		for ( var catName of pastSupportedCats){
+			cat0selectUI.insertAdjacentHTML("beforeend",`<li><input style="transform: scale(1);margin: 0px 0px 0px 0px" type="checkbox" id="cat0_${catName}" value="${catName}"></input><label for="cat0_${catName}" id="cat0_label_${catName}">${catName}</label>`);
+		}
+	}
+	
+//	cat0selectUI.innerHTML="";
+	selectedCats0={};
+	for ( var catName of pastSupportedCats){
+		const lc = getLayerController(catName);
+		const targetInput = document.getElementById(`cat0_${catName}`);
+		const targetLabel = document.getElementById(`cat0_label_${catName}`);
+		if ( lc ){
+			targetLabel.style.color="#000000";
+			targetInput.checked = true;
+			selectedCats0[catName]=lc;
+		} else {
+			targetLabel.style.color="#a0a0a0";
+			targetInput.checked = false;
+		}
+	}
+}
+
+function changeCat0LayerVisibility(event){
+	const targetLayerName = event.target.value;
+	const targetLayerOn = event.target.checked;
+	console.log(targetLayerName,targetLayerOn);
+	const targetLayerID=svgMap.getLayerId(targetLayerName);
+	svgMap.setLayerVisibility(targetLayerID,targetLayerOn,{exec:"hiddenOnLayerLoad"});
+	if ( targetLayerOn ){
+		setTimeout(function(){
+			var targetLayerController = getLayerController(targetLayerName);
+			if ( targetLayerController ){
+				targetLayerController.changeBaseURL(currentBaseURL);
+			}
+		},1000);
+	}
+}
+
+/** obsoluted
+function buildCat0SelectUI(){
+	cat0selectUI.innerHTML="";
+	selectedCats0={};
+	for ( var catName in pastSupportedCats){
+		if ( pastSupportedCats[catName] == false){continue}
+		const lc = getLayerController(pastSupportedCats[catName]);
+		if ( lc ){
+			cat0selectUI.insertAdjacentHTML("beforeend",`<li>${catName}`);
+			selectedCats0[catName]=lc;
+		} else {
+			cat0selectUI.insertAdjacentHTML("beforeend",`<li style="color:#a0a0a0">${catName}`);
+		}
+	}
+}
+function buildCat0SelectUI0(){
+	for ( var catName in pastSupportedCats){
+		cat0selectUI.insertAdjacentHTML("beforeend",`<li><input type="checkbox" id="k_${catName}"><label for="k_${catName}">${catName}</label>`);
+	}
+}
+function buildCat0SelectUI1(){
+	var sel = document.createElement("select");
+	sel.style="font-size:12px;width:300px";
+	sel.setAttribute("multiple",true);
+	sel.id="cat0select";
+	for ( var catName in pastSupportedCats){
+		let disabled="disabled";
+		if( catName.indexOf("軽量")>=0){
+			disabled="";
+		}
+		let selected="";
+		if ( disabled==""){
+			selected = checkSelected(catName);
+		}
+		sel.insertAdjacentHTML("beforeend",`<option value="${catName}"  ${disabled} ${selected}>${catName}</option>`);
+	}
+	cat0selectUI.appendChild(sel);
+}
+function checkSelected(catName){
+}
+**/
+
+addEventListener("closeFrame",function(){
+	console.log("closeFrame :  set current");
+	for ( var cn in selectedCats0 ){
+		let targetLayerController = selectedCats0[cn];
+		targetLayerController.changeBaseURL();
+	}
+});
+
+</script>
+<body>
+<h4>2022年以降の主な災害時の気象庁による情報</h4>
+<div style="font-size:10px">出典：<a href="https://www.data.jma.go.jp/review/" target="_blank">気象庁ホームページ：過去の主な災害時の情報発表状況</a>を加工して作成</div>
+<!--<div id="cat0selectUI" style="font-size:11px;height: 140px; overflow-y: auto;">-->
+<div id="cat0selectUI" style="font-size:11px;">
+	
+</div>
+<div>
+	<input type="button" onclick="selectBefore()" value="＜"></input>
+	<input type="button" onclick="selectNext()" value="＞"></input>
+	<span id="msg"></span>
+</div>
+
+<div id="pastDisasters" style="height: 250px; overflow-y: auto;font-size:11px;">
+</div>
+
+</html>

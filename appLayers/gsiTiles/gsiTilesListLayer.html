@@ -287,7 +287,7 @@ function makeTable(tileList){
 	var superTitle="";
 	var td0,rs;
 	var bgClr,slc=0;
-	list.insertAdjacentHTML("beforeend",`<tr style="background-color:#eee"><td></td><td><input type="radio" name="layerSel" value="-1" checked onChange="changeLayer(event)"></td><td>非選択</td><td></td></tr>`);
+	list.insertAdjacentHTML("beforeend",`<tr style="background-color:#eee"><td></td><td><input type="radio" name="layerSel" value="-1" checked onChange="changeLayer(event)" id="subLayerRadio_none"></td><td><label for="subLayerRadio_none">非選択</label></td><td style="width:60px">詳細情報</td></tr>`);
 	for ( var i = 0 ; i < tileList.length ; i++){
 		var tile = tileList[i];
 		var tr = document.createElement("tr");
@@ -329,7 +329,8 @@ function makeTable(tileList){
 		}
 		console.log("makeTable:",tile);
 //		var tname = tile.title;
-		td1.innerHTML='<a href="'+srcContent+'#'+tile.gid+'" target="_blank">'+tname+'</a>';
+		td1.innerHTML=`<label for="subLayerRadio_${i}">${tname}</label>`;
+//		td1.innerHTML='<a href="'+srcContent+'#'+tile.gid+'" target="_blank">'+tname+'</a>';
 		td1.style.backgroundColor=tdBgClr;
 		
 		/**
@@ -347,13 +348,15 @@ function makeTable(tileList){
 		
 		var td3 = document.createElement("td");
 		td3.style.backgroundColor=tdBgClr;
-		td3.style.fontSize="2px";
-		td3.innerHTML=tile.format+":"+tile.zoomLevel.min+".."+tile.zoomLevel.max;
+		td3.style.fontSize="11px";
+		td3.innerHTML=`${tile.format}, <a href="${srcContent}#${tile.gid}" target="_blank">詳細</a>`;
+//		td3.innerHTML=tile.format+":"+tile.zoomLevel.min+".."+tile.zoomLevel.max;
 		
 		var rdo=document.createElement("input");
 		rdo.setAttribute("type","radio");
 		rdo.setAttribute("name","layerSel");
 		rdo.setAttribute("value",i);
+		rdo.setAttribute("id",`subLayerRadio_${i}`);
 		rdo.setAttribute("data-sublayername",tname);
 		if ( !supportedFormat){
 			rdo.disabled=true;
@@ -416,7 +419,11 @@ function getSMTemplate(gsiTemplateString,forceRes){
 </head>
 <body>
 <h4 id="uiName">地理院タイルレイヤー</h4>
-<p style="font-size:11px" id="message">下記<span id="slcSpan"></span>個のサブレイヤーから表示レイヤーを選択ください<br>出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院 地理院タイル</a></p>
+<p style="font-size:11px" id="message">
+下記<span id="slcSpan"></span>個のサブレイヤーから表示レイヤーを選択ください。<br>
+凡例や詳細情報は、各項目の「詳細」リンクで確認ください。<br>
+出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院 地理院タイル</a>
+</p>
 <table id="list" style="font-size:11px">
 </table>
 </body>

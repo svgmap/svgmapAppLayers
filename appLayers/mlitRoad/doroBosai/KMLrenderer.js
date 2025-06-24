@@ -34,7 +34,7 @@ class KMLrenderer{
 		styleData,
 		recursiveCalled
 	) {
-		console.log("kml draw method.");
+		//console.log("kml draw method.");
 		var svgImages = this.#svgMap.getSvgImages();
 		var svgImagesProps = this.#svgMap.getSvgImagesProps();
 		var svgImage = svgImages[targetSvgDocId];
@@ -42,7 +42,7 @@ class KMLrenderer{
 		var crs = svgImagesProp.CRS;
 		//フォルダについて文法解釈
 		var folders = kml.querySelectorAll("Folder");
-		console.log(folders);
+		//console.log(folders);
 		if ( !recursiveCalled){
 			this.#processStyleUrls(kml);
 		}
@@ -83,12 +83,13 @@ class KMLrenderer{
 			var placemarkAll = kml.querySelectorAll("Placemark");
 			//console.log(placemarkAll);
 			var plm = Array.prototype.slice.call(placemarkAll, 0);
+			//console.log(plm);
 			let arr_metadata = [];
 			plm.forEach((placemark, index) => {
 				var kmlName = this.#getNameFromKML(placemark);
 				var kmlDescription = this.#getDescriptionFromKML(placemark);
 				var kmlStyle = this.#getStyleFromKML(placemark);
-				//console.log('FOLDER',folder);
+				//console.log('placemark',placemark);
 				if ( kmlStyle?.LineStyle?.color?.color){
 					strokeColor = kmlStyle.LineStyle.color.color;
 				}
@@ -96,8 +97,13 @@ class KMLrenderer{
 					kmlName = poiTitle;
 					kmlDescription = metadata;
 				}
+				// kmlDescriptionにHTMLが埋め込まれているものは反則というこにして無視ｗ
+				if ( typeof kmlDescription =="string" && kmlDescription.indexOf("<html")>=0){
+					kmlDescription = "-";
+				}
 				var kmlGeometory = this.#getGeometryFromKML(placemark);
 				var kmlCoordinate = this.#getCordinamteFromKML(placemark);
+				//console.log(kmlGeometory);
 
 				if (kmlGeometory == "point") {
 					this.#putPoint(
@@ -190,7 +196,7 @@ class KMLrenderer{
 	
 	#processStyleUrls(kml){
 		var styleUrls = kml.getElementsByTagName("styleUrl");
-		console.log(styleUrls);
+		//console.log(styleUrls);
 		if ( styleUrls.length < 1){
 			return;
 		}
@@ -203,11 +209,11 @@ class KMLrenderer{
 				styleDict["#"+stid]=st;
 			}
 		}
-		console.log(styleDict);
+		//console.log(styleDict);
 		if ( Object.keys(styleDict)<1){
 			return;
 		}
-		console.log(styleUrls);
+		//console.log(styleUrls);
 		for ( var su of styleUrls){
 			var se = styleDict[su.textContent.trim()];
 			if ( se ){
@@ -216,7 +222,7 @@ class KMLrenderer{
 				console.log("UN Hit style : ",su.textContent.trim());
 			}
 		}
-		console.log("styled kml:",kml);
+		//console.log("styled kml:",kml);
 	}
 	
 	#getStyleFromKML(item){

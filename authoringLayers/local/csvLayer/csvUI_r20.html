@@ -42,6 +42,7 @@ window.imageMetadata = new ImageMetadata(window.Zlib, window.Encoding);
 // History:
 // rev20: 四分木混合タイリングをクライアント側で実施して表示、サーバに元データを保存する機能も持つ。
 // 2024/12/02 : 非正規化メタデータ(geojson方面の)の取り扱い機構構築(imageMetadataExtension.js#customShowPoiProperty (properties属性名))-本家にもこれを導入したほうが良いかも
+// 2025/06/13 編集機能のバグを直すため、editConf()を本来あるべき形に向けて変更
 //
 //=========================================================================================
 //=========================================================================================
@@ -49,10 +50,12 @@ window.imageMetadata = new ImageMetadata(window.Zlib, window.Encoding);
 //=========================================================================================
 //=========================================================================================
 
-// ISSUE: 2024/6/7: editConf()の作法がよくない
+// ISSUE: 2025/6/7: editConf()がまだ整理しきれていないかも(csvMapperの整理が必要)
 
 window.onload = function(){
 	console.log("R20 onload");
+	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+	frameTitle.style.visibility="visible";
 	initUI();
 	csvMapper.onload();
 	csvMapper.setInitCsvCallback(initCsvCbf);
@@ -137,6 +140,7 @@ function initPoiTool(){
 	iconselection.parentElement.style.display="none"
 }
 
+/**
 async function editConf(eparam){ // 編集実施状態のコールバック関数
 	console.log(eparam);
 	// ISSUE: 2024/6/7: 以下の実装はCSVMapperにAPIを構築し、そこで行うべき。
@@ -170,6 +174,38 @@ async function editConf(eparam){ // 編集実施状態のコールバック関�
 			if ( eparam.prevAttrs){ // change
 				csvInputWindow.replaceCsvRecord(eparam.attrs.content,eparam.prevAttrs.content);
 			} else {
+				csvInputWindow.addCsvRecord(eparam.attrs.content);
+			}
+		}
+	}
+}
+**/
+
+async function editConf(eparam){ // 編集UIで編集実施完了状態のコールバック関数
+	console.log(eparam);
+	// 2025/06/13 ISSUEを大幅に改善。ただ、csvMapperがまだカオス
+	if (eparam.confStat== 'Cancel'){return}
+	var q,stat;
+	if ( eparam.confStat== 'Delete'){
+		stat = await csvMapper.editCsv("delete",eparam.prevAttrs.content);
+		console.log("delete:",stat);
+		if (csvInputWindow && !csvInputWindow.closed){
+			if ( eparam.prevAttrs){ // change
+				csvInputWindow.deleteCsvRecord(eparam.prevAttrs.content);
+			}
+		}
+	} else {
+		if ( eparam.prevAttrs){ // change
+			stat =await csvMapper.editCsv("replace",eparam.attrs.content,eparam.prevAttrs.content);
+			console.log("replace:",stat);
+		} else { // add
+			stat =await csvMapper.editCsv("add",eparam.attrs.content);
+			console.log("add:",stat);
+		}
+		if (csvInputWindow && !csvInputWindow.closed){
+			if ( eparam.prevAttrs){ // change
+				csvInputWindow.replaceCsvRecord(eparam.attrs.content,eparam.prevAttrs.content);
+			} else { // add
 				csvInputWindow.addCsvRecord(eparam.attrs.content);
 			}
 		}
@@ -493,7 +529,7 @@ function getPermaLinkButton(event){
 </script>
 
 <body>
-<h4 style="margin-block-start: 0.5em;margin-block-end: 0.5em" id="frameTitle">CSVデータを可視化します</h4>
+<h4 style="margin-block-start: 0.5em;margin-block-end: 0.5em;visibility:hidden" id="frameTitle">CSVデータを可視化します</h4>
 <div id="messageDiv" style="color:red;display:;font-size:11px;height:14px;">　</div>
 <div class="main">
 	<div id="csvDataUI" style="display:none">
