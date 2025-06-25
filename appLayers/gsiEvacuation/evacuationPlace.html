@@ -41,10 +41,15 @@ var posCols;
 
 var dataCat;
 
-window.onload = async function(){
+addEventListener("load", async function(){
 	dataCat = svgImage.documentElement.getAttribute("data-title");
 	frameTitle.innerText=dataCat;
 	console.log("gsi evacuation place or shelter layer onload :", svgImageProps.hash,"  cat:",dataCat);
+	if ( svgImageProps.hash.toLowerCase().indexOf("nosaveui")>0){
+		saveUI.style.display="none";
+	} else {
+		saveUI.style.display="";
+	}
 	buildUI(dataCat.toLowerCase().indexOf("避難場所")>=0 ? placeCats : shelterCats);
 	var srcCsv = await loadData(dataCat.toLowerCase().indexOf("避難場所")>=0 ? placeURL : shelterURL);
 	iconDataURL=await imageToDataURIByPath(svgImage.getElementById("p0").getElementsByTagName("image")[0].getAttribute("xlink:href"));
@@ -52,11 +57,12 @@ window.onload = async function(){
 	posCols = getPosCols(csvArray);
 	console.log(posCols);
 	csvMapper.onload();
-	csvMapper.setMessageDiv(messageDiv)
+	csvMapper.setMessageDiv(messageDiv);
+	processHash();
 	filterCat();
 //	csvMapper.initCsv(arrayToCsvText(csvArray), 14, 15, 3, iconDataURL, null, 1 );
 //	csvMapper.initCsv(srcCsv, 14, 15, 3, iconDataURL, null, 1 );
-}
+});
 
 function getPosCols(csvArray){
 	var schema = csvArray[0];
@@ -236,12 +242,40 @@ function filterCat(){
 		selectedCatCols = null;
 		selectedCats =[];
 	}
+	
 	console.log("filterCat : ", selectedCats,selectedCatCols);
-	svgImageProps.hash=`#${selectedCats.join(":")}`;
+	const hashCats = selectedCats.slice();
+	if ( saveUI.style.display=="none" ){
+		hashCats.push("nosaveui");
+	}
+	svgImageProps.hash=`#${hashCats.join(":")}`;
 	var fArray = filterArray(csvArray, selectedCatCols);
 	csvMapper.initCsv(arrayToCsvText(fArray), posCols.lat, posCols.lng, posCols.title, iconDataURL, null, 1 );
 }
 
+function processHash(){
+	let hs = svgImageProps.hash;
+	if ( !hs.startsWith("#")){
+		return;
+	}
+	
+	hs = decodeURIComponent(hs.substring(1)).split(":");
+	if ( hs.indexOf("nosaveui")>=0){
+		hs.splice(hs.indexOf("nosaveui"),1);
+	}
+	if ( hs.length == 0 ){return}
+	console.log("processHash:",hs);
+	const catInps = document.getElementById("filterUI").getElementsByTagName("input");
+
+	for ( const catInp of catInps){
+		const catName = catInp.getAttribute("value");
+		if ( hs.indexOf(catName)>=0){
+			catInp.checked = true;
+		} else {
+			catInp.checked = false;
+		}
+	}
+}
 
 </script>
 
@@ -300,7 +334,9 @@ function save2File(blob,fname){
 <input type="button" value="表示カテゴリ決定" onclick="filterCat()"></input>
 
 <hr>
+<span id="saveUI" style="display:none">
 <button  style="font-size:10px;" id="saveGJS-button">GeoJSON を保存</button>
 <button  style="font-size:10px;" id="saveCSV-button">CSV を保存</button>
+</span>
 </body>
 </html>

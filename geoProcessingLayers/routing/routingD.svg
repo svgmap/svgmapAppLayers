@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="12078.24557, -4750.342539, 2637.1512, 2526.396468" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="" data-controller="routingD.html#exec=appearOnLayerLoad">
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="12078.24557, -4750.342539, 2637.1512, 2526.396468" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="text,time,note" data-controller="routingD.html#exec=appearOnLayerLoad">
  <metadata>
   <rdf:RDF xmlns:rdf="http://www.w3.og/1999/02/22-rdf-syntax-ns#" xmlns:crs="http://www.ogc.org/crs" xmlns:svg="http://www.w3.org/svg">
    <rdf:Description>
@@ -36,6 +36,10 @@
   <g id="syl13" > 
 <!--   <image xlink:href="mappin3.png" preserveAspectRatio="none" x="-4" y="-12.5" width="9.5" height="13.5"/>-->
 	<circle cx="0" cy="0" r="3" fill="purple"/>
+  </g>
+  
+  <g id="wpp">
+	<circle cx="0" cy="0" r="5" fill="orange"/>
   </g>
  </defs>
 

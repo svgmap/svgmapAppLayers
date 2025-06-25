@@ -48,7 +48,7 @@
 <!-- 災害情報系 -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastOldNowCast/jmaHrRain_r3.svg" title="JMA過去の災害記録(-2020年)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate&amp;zmax=10&amp;zstep=2" title="JMA過去の災害記録(2021年)" class="災害" visibility="hidden" opacity="0.6"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/pastLog2022.svg#layers=危険度分布-洪水害(JMA),危険度分布-浸水害(JMA),危険度分布-土砂災害(JMA),警報注意報(JMA),大雨危険度(JMA),雨雲の動き（軽量版）(JMA),今後の雨（軽量版）(JMA),台風(JMA)" title="JMA過去の災害記録(2022-)" class="災害" visibility="hidden" opacity="0.6"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/pastDisaster/pastLog2022.svg#layers=危険度分布-洪水害(JMA),危険度分布-浸水害(JMA),危険度分布-土砂災害(JMA),警報注意報(JMA),大雨危険度(JMA),雨雲の動き（軽量版）(JMA),今後の雨（軽量版）(JMA),台風(JMA)" title="JMA過去の災害記録(2022年-)" class="災害" visibility="hidden" opacity="0.6"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/droneBird/droneBird.svg" title="DRONEBIRD" class="災害" visibility="hidden" opacity="0.7"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/nasa_FIRMS/firms.svg" title="火災情報(NASA FIRMS)" class="災害" visibility="hidden" opacity="0.7"/>
 
@@ -137,9 +137,9 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_water_vapor_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 湿度" class="気象" visibility="hidden" opacity="0.6"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_longwave_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 赤外線" class="気象" visibility="hidden" opacity="0.6"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_visible_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 可視光" class="気象" visibility="hidden" opacity="0.6"/> 
-<animation class="気象" title="GPV降雨予報(MSM)" xlink:href="./appLayers/niiDigitalArchives2011/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="gpv_msm_rain.html#exec=appearOnLayerLoad&amp;requiredWidth=400" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.4"/>
-<animation class="気象" title="GPV風予報 [Animated-α版]" xlink:href="./appLayers/windy/windy.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/niiDigitalTyphoon/wind.svg" title="GPV風予報" class="気象" visibility="hidden" opacity="0.7" /> 
+<animation class="気象" title="GPV降雨情報(MSM)" xlink:href="./appLayers/niiDigitalArchives2011/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="gpv_msm_rain.html#exec=appearOnLayerLoad&amp;requiredWidth=400" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.4"/>
+<animation class="気象" title="GPV風情報 [Animated-α版]" xlink:href="./appLayers/windy/windy.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/niiDigitalTyphoon/wind.svg" title="GPV風情報" class="気象" visibility="hidden" opacity="0.7" /> 
 <animation title="気象警報" xlink:href="./appLayers/niiDigitalTyphoon/warning/warning.svg" class="気象 clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
 <animation title="JTWC 台風情報(Joint Typhoon Warning Center)" xlink:href="./appLayers/niiDigitalTyphoon/jtwcN.svg" class="気象" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
 <animation title="JTWC KML 台風情報" xlink:href="./appLayers/niiDigitalTyphoon/jtwc_KML.svg" class="気象 clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.6" visibility="hidden"/>

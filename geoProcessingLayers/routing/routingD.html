@@ -99,6 +99,7 @@ input[name="tab_item"] {
 
 
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
 // graphhopperでルート探索を行うためのsvgMapLayerApp
 //
@@ -111,7 +112,7 @@ input[name="tab_item"] {
 //
 // 2018.01.12 : GraphHopperを実装してみた(on CesiumとかOSSテストサーバ)
 // 2023.09.08 : POST Queryに変更し、ポリゴンで迂回領域を指定する機能：
-
+// 2025.06.25 : 経路の経由点表示機能追加
 
 // Note:
 // 迂回経路生成
@@ -138,6 +139,9 @@ onload=async function(){
 
 var reqJsonTemplate;
 var routingResultGroup;
+var routingResultData;
+
+let wayPointShow = false;
 
 var RountingService = ""; // ⇒ SET YOUR GRAPHHOPPER API ENDPOINT URL
 // var RountingService3 = "{{GRAPHHOPPER API ENDPOINT}}?point=[lat1],[lon1]&point=[lat2],[lon2]&points_encoded=false&instructions=true&debug=true&profile=car"; // profile: Please note that currently only for car, small_truck, scooter, bike and foot the custom routing support is deployed.  https://www.graphhopper.com/blog/2020/05/31/examples-for-customizable-routing/  The requested profile 'bike' does not exist. Available profiles: [car]
@@ -252,7 +256,7 @@ async function doRoutingAndRenderMap(start,end,detourFts){
 	
 	console.log(JSON.parse(responseText));
 	
-	drawRoutingResult({readyState:4,status:200,responseText});
+	drawRoutingResult({readyState:4,status:200,responseText}); // 昔の方式の関数への入力のために適当に作ってます・・
 }
 
 function getMultiPolygon(fts){
@@ -325,6 +329,7 @@ function removeAllRoutingPath(){
 			p[i].parentNode.removeChild(p[i]);
 		}
 	}
+	clearWaypoints();
 }
 
 function removeAllMarkers(){
@@ -444,6 +449,37 @@ function convGhJson(ghj){
 	return ( gj );
 }
 
+function getGhWaypoints(ghj){
+	const ans = {
+		type:"FeatureCollection",
+		features:[]
+	};
+	console.log(ghj);
+	if ( !ghj.paths[0] ){return}
+	var linePoints = ghj.paths[0].points.coordinates;
+	let totalDistance = 0, totalTime =0;
+	for (const inst of ghj.paths[0].instructions){
+//		const poi = getPointFromRouteByDistanceSimple(linePoints,totalDistance); // ちょっと長距離だと精度が厳しいので・・
+		const poi = getPointFromRouteByDistanceTurf(linePoints,totalDistance); // ちゃんとしたライブラリを使うことにします
+		var ft = {
+			type: "Feature",
+			geometry: {
+				type: "Point",
+				coordinates: poi,
+			},
+			properties: {
+				text: inst.text,
+				time:Math.floor(10*totalTime/60000)/10,
+				note:""
+			}
+		}
+		ans.features.push(ft);
+		totalDistance += inst.distance;
+		totalTime += inst.time;
+	}
+	return ans;
+}
+
 function drawRoutingResult( httpRes ){
 	console.log("drawRoutingResult");
 	if (( httpRes.readyState == 4 ) ){
@@ -453,28 +489,29 @@ function drawRoutingResult( httpRes ){
 		}
 //		console.log("xhrRes:",httpRes.responseText, " state:",httpRes.readyState, "  res:",httpRes);
 		var jst = httpRes.responseText;
-		var geoJson = JSON.parse(jst);
+		routingResultData = JSON.parse(jst);
 		
-		console.log("res JSON:", geoJson);
-		
+		console.log("res JSON:", routingResultData);
+		let routeGeoJson;
 		// とりあえずGraphHopperのresponseを描画させてみる
-		if ( geoJson.hints ){
-			geoJson = convGhJson(geoJson);
+		if ( routingResultData.hints ){
+			routeGeoJson = convGhJson(routingResultData);
 		}
 		
-		
-		
-		svgMapGIStool.drawGeoJson( geoJson , layerID, "#FF0000", 2, null, "syl13" ,null, null, routingResultGroup); // layerIDは環境が設定したこの文書の対応するsvg文書のID
+		svgMapGIStool.drawGeoJson( routeGeoJson , layerID, "#FF0000", 2, null, "syl13" ,null, null, routingResultGroup,["text","time","note"]); // layerIDは環境が設定したこの文書の対応するsvg文書のID
+		if ( wayPointShow ){
+			drawWaypoints();
+		}
 		svgMap.refreshScreen();
 		var dmessage ="";
-		if ( geoJson.meters ){
-			dmessage = floatFormat(Number(geoJson.meters)/1000,3)+"Km ";
+		if ( routeGeoJson.meters ){
+			dmessage = floatFormat(Number(routeGeoJson.meters)/1000,3)+"Km ";
 		}
-		if ( geoJson.seconds ){
-			dmessage += "Estimated time:"+floatFormat(Number(geoJson.seconds)/60,2)+"minutes";
+		if ( routeGeoJson.seconds ){
+			dmessage += "Estimated time:"+floatFormat(Number(routeGeoJson.seconds)/60,2)+"minutes";
 		}
-		if ( geoJson.message ){
-			dmessage += "ERROR: " + geoJson.message;
+		if ( routeGeoJson.message ){
+			dmessage += "ERROR: " + routeGeoJson.message;
 		}
 		document.getElementById("distance").innerHTML=dmessage;
 	}
@@ -487,6 +524,7 @@ function floatFormat( number, n ) {
 }
 
 function clearSearch(){
+	routingResultData = null;
 	var sp = svgImage.getElementById("startP");
 	if ( sp ){
 		sp.parentNode.removeChild(sp);
@@ -513,6 +551,153 @@ window.changeTabMode = function(event){
 	initAuthoringUI(event.target.id);
 }
 
+/**
+ * ルート情報と距離から地図上のポイント（緯度経度）を算出します。
+ * 各セグメントは直線として扱います。
+ *
+ * @param {Array<Object>} routePoints - ルートを構成する緯度経度ポイントの配列。
+ * 例: [{lat: 35.681236, lng: 139.767125}, {lat: 35.685, lng: 139.770}, ...]
+ * @param {number} targetDistance - 算出したいポイントのルート開始地点からの距離 (メートル)。
+ * @returns {Object|null} 算出された緯度経度ポイント ({lat: number, lng: number})。
+ * 指定された距離がルートの範囲外の場合は null を返します。
+ */
+function getPointFromRouteByDistanceSimple(routePoints, targetDistance) {
+	if (!routePoints || routePoints.length < 2 || targetDistance < 0) {
+		console.warn("getPointFromRouteByDistanceSimple: 無効な入力です。");
+		return null;
+	}
+
+	let currentDistance = 0;
+
+	for (let i = 0; i < routePoints.length - 1; i++) {
+		const p1 = routePoints[i];
+		const p2 = routePoints[i + 1];
+
+		// 2点間の直線距離を計算 (ヒュベニの公式の簡易版、あるいは近似計算)
+		// ここでは、緯度・経度の差をメートルに変換する簡単な方法を使用します。
+		// より正確な距離計算が必要な場合は、Haversine式やVincenty式などを利用してください。
+		const R = 6378137; // 地球の平均半径 (メートル)
+		const dLat = (p2[1] - p1[1]) * Math.PI / 180;
+		const dLon = (p2[0] - p1[0]) * Math.PI / 180;
+		const a =
+		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+		Math.cos(p1[1] * Math.PI / 180) * Math.cos(p2[1] * Math.PI / 180) *
+		Math.sin(dLon / 2) * Math.sin(dLon / 2);
+		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+		const segmentLength = R * c; // セグメントの長さをメートルで取得
+
+		if (currentDistance + segmentLength >= targetDistance) {
+			// 目的の距離がこのセグメント内にある
+			const distanceInSegment = targetDistance - currentDistance;
+			const ratio = distanceInSegment / segmentLength;
+
+			const lat = p1[1] + (p2[1] - p1[1]) * ratio;
+			const lng = p1[0] + (p2[0] - p1[0]) * ratio;
+
+			return [ lng,lat];
+		}
+
+		currentDistance += segmentLength;
+	}
+
+	// 目的の距離がルートの終点を超えている場合
+	console.warn(`getPointFromRouteByDistanceSimple: 指定された距離 (${targetDistance}m) がルートの全長 (${currentDistance}m) を超えています。`);
+	return null;
+}
+
+/**
+ * turf.js を使用して、ルート情報と距離から地図上のポイント（緯度経度）を算出します。
+ *
+ * @param {Array<Object>} routePoints - ルートを構成する緯度経度ポイントの配列。
+ * 例: [[139.767125,35.681236], [139.770,35.685], ...]
+ * @param {number} targetDistance - 算出したいポイントのルート開始地点からの距離 (メートル)。
+ * @returns {Object|null} 算出された緯度経度ポイント ([number, number])。
+ * 指定された距離がルートの範囲外の場合は null を返します。
+ */
+function getPointFromRouteByDistanceTurf(routePoints, targetDistance) {
+	if (!window.turf) {
+		console.error("turf.js がロードされていません。");
+		return null;
+	}
+	if (!routePoints || routePoints.length < 2 || targetDistance < 0) {
+		console.warn("getPointFromRouteByDistanceTurf: 無効な入力です。");
+		return null;
+	}
+
+	// turf.js の LineString 形式に変換
+	const lineCoordinates = routePoints.map(p => [p[0], p[1]]);
+	const line = turf.lineString(lineCoordinates);
+
+	// turf.along を使用して、指定された距離のポイントを取得
+	// turf.along は距離をキロメートルで受け取るため、メートルから変換
+	const point = turf.along(line, targetDistance / 1000, { units: 'kilometers' });
+
+	if (point && point.geometry && point.geometry.coordinates) {
+		return [
+			point.geometry.coordinates[0],
+			point.geometry.coordinates[1]
+		];
+	}
+
+	// 目的の距離がルートの終点を超えている場合など
+	console.warn(`getPointFromRouteByDistanceTurf: 指定された距離 (${targetDistance}m) に対応するポイントが見つかりませんでした。`);
+	return null;
+}
+
+function drawWaypoints(){
+	if ( !routingResultData || !routingResultData.hints){return}
+	let wayPointsGeoJson = getGhWaypoints(routingResultData);
+	svgMapGIStool.drawGeoJson( wayPointsGeoJson , layerID, "#FF0000", 2, null, "wpp" ,null, null, routingResultGroup,["text","time","note"]);
+	showWayPointList(wayPointsGeoJson);
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+function showWayPointList(wpgj){
+	removeChildren(wayPointsTable);
+	wayPointsTable.insertAdjacentHTML("beforeend",`<option selected>ガイド, 時間　（項目選択で中心に表示）</option>`);
+	let stxt = "スタート:";
+	for ( var ft of wpgj.features){
+		wayPointsTable.insertAdjacentHTML("beforeend",`<option value="${ft.geometry.coordinates[0]},${ft.geometry.coordinates[1]}">${stxt}${ft.properties.text}, ${ft.properties.time}分</option>`);
+		stxt="";
+	}
+	wayPointsTable.style.visibility="visible";
+}
+
+function showCenter(event){
+	const crds = event.target.value.split(",");
+	console.log("showCenter:",crds);
+	svgMap.setGeoCenter(Number(crds[1]),Number(crds[0]));
+}
+
+function clearWaypoints(){
+	wayPointsTable.style.visibility="hidden";
+	const p = routingResultGroup.getElementsByTagName("use");
+	console.log("removeAllRoutingPoints:",p);
+	if ( p && p.length >0 ){
+		for ( var i = p.length-1 ; i >= 0 ; i-- ){
+//			console.log("remove i:",i);
+			p[i].parentNode.removeChild(p[i]);
+		}
+	}
+}
+
+function switchWayPoints(event){
+	if( event.target.value=="経由点表示" ){
+		wayPointShow = true;
+		drawWaypoints();
+		event.target.value="経由点非表示"
+	} else {
+		wayPointShow = false;
+		clearWaypoints();
+		event.target.value="経由点表示"
+	}
+	svgMap.refreshScreen();
+}
 
 </script>
 <body>
@@ -533,6 +718,11 @@ window.changeTabMode = function(event){
 		<div class="tab_content" id="stareEndTab_content">
 			<span style="color:red">START</span><div id="poiTools1"></div>
 			<span style="color:green">GOAL</span><div id="poiTools2"></div>
+			
+			<div style="font-size:13px;color:blue">Distance<span id="distance">---</span></div>
+
+			<input type="button" value="消去" onClick="clearSearch()"></input> <input type="button" value="経由点表示" onclick="switchWayPoints(event)"></input>
+			<select  id="wayPointsTable" style="font-size:10px;width:90%;height:100px;overflow-y:auto;visibility: hidden;" size="10" onchange="showCenter(event)"></select>
 		</div>
 		
 		<div class="tab_content" id="detourTab_content">
@@ -542,8 +732,5 @@ window.changeTabMode = function(event){
 	</div>
 
 
-Distance<div id="distance">---</div>
-
-<input type="button" value="Clear" onClick="clearSearch()"/>
 </body>
 </html>

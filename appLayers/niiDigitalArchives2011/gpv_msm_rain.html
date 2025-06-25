@@ -16,8 +16,13 @@
 //var baseURL = "http://agora.ex.nii.ac.jp/cgi-bin/tile/msmr.pl?z=[[zoom]]&x=[[tx]]&y=[[ty]]&t=[[date]]&l=surf"; // https強制のため・・
 var baseURL = "http://agora.ex.nii.ac.jp/cgi-bin/tile/msmr.pl?z=[[zoom]]&x=[[tx]]&y=[[ty]]&t=[[date]]&l=surf";
 
+let noforecast=false; // 予想情報の表示を行うかどうか
+
 onload=function(){
 	setTimeout(setTimeSel,30);
+	if ( location.hash.indexOf("noforecast")>0){
+		noforecast = true;
+	}
 }
 
 var timeData;
@@ -71,6 +76,9 @@ function prepTimeSel2(tData){
 			opt.innerText=tTxt;
 		} else {
 			opt.innerText=tTxt + " 予想";
+			if ( noforecast ){
+				continue;
+			}
 		}
 		timeSel.appendChild(opt);
 	}
@@ -100,7 +108,7 @@ function zPad(num,length){
 
 </script>
 <body>
-<h3>GPV MSMの降雨予想レイヤー</h3>
+<h3>GPV MSMの降雨情報レイヤー</h3>
 <p><a href="http://agora.ex.nii.ac.jp/earthquake/201103-eastjapan/weather/gpv/rain/" target="_blank">NIIの福島第一原発周辺の雨量マップ（Google Mapsタイリング版）</a>のデータ</p>
 <select id="timeSel" onchange="change()"></select><br>
 <p>
