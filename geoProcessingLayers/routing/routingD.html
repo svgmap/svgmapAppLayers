@@ -130,7 +130,7 @@ input[name="tab_item"] {
 
 onload=async function(){
 	if ( !RountingService && svgImageProps.hash.indexOf("graphhopperurl")>0){
-		RountingService = new URL("?"+svgImageProps.hash.substring(1),location.origin).searchParams.get("graphhopperurl");
+		RountingService = (parseHash(svgImageProps.hash))["graphhopperurl"];
 		console.log("Set graphhopper RountingService endpoint by hash : ", RountingService);
 	}
 	setTimeout(testLibs,10);
@@ -701,6 +701,17 @@ function switchWayPoints(event){
 		event.target.value="経由点表示"
 	}
 	svgMap.refreshScreen();
+}
+
+function parseHash(hash){
+	if ( !hash.startsWith("#")){return null}
+	const ah = hash.substring(1).split("&");
+	const ans = {};
+	ah.forEach(function(kv){
+		const kva = kv.split("=");
+		ans[kva[0].trim()]=kva[1].trim();
+	});
+	return ans;
 }
 
 </script>
