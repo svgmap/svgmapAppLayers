@@ -101,6 +101,24 @@ input[name="tab_item"] {
 }
 </style>
 
+<style>
+/* 明滅アニメーションの定義 */
+@keyframes fadeInOut {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+/* テキストに明滅アニメーションを適用 */
+.blinking-text {
+  animation: fadeInOut 0.75s infinite; /* 3秒で1サイクル、無限ループ */
+}
+</style>
 
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
@@ -138,7 +156,7 @@ onload=async function(){
 	setTimeout(addListener,10);
 	reqJsonTemplate = await ( await fetch("ghQueryTemplate.json")).json();
 	routingResultGroup = svgImage.getElementById("routingResultGroup");
-	console.log("onLoad airPortAuthringToolsFrame: template:",reqJsonTemplate);
+	// console.log("onLoad airPortAuthringToolsFrame: template:",reqJsonTemplate);
 }
 
 var reqJsonTemplate;
@@ -150,20 +168,22 @@ let wayPointShow = false;
 var RountingService = ""; // ⇒ SET YOUR GRAPHHOPPER API ENDPOINT URL
 // var RountingService3 = "{{GRAPHHOPPER API ENDPOINT}}?point=[lat1],[lon1]&point=[lat2],[lon2]&points_encoded=false&instructions=true&debug=true&profile=car"; // profile: Please note that currently only for car, small_truck, scooter, bike and foot the custom routing support is deployed.  https://www.graphhopper.com/blog/2020/05/31/examples-for-customizable-routing/  The requested profile 'bike' does not exist. Available profiles: [car]
 
+let closing=false;
 
 function addListener(){
 	window.addEventListener('openFrame',function(e) {
-		console.log("Open airportAuthoring Iframe");
+		// console.log("Open routing Iframe");
 	});
 	window.addEventListener('closeFrame',function(e) {
-		console.log("Close airportAuthoring Iframe");
+		// console.log("Close routing Iframe");
+		closing = true;
 	});
 
 	window.addEventListener('appearFrame',function(e) {
-		console.log("Appear airportAuthoring Iframe");
+		// console.log("Appear routing Iframe");
 	});
 	window.addEventListener('hideFrame',function(e) {
-		console.log("Hide airportAuthoring Iframe");
+		// console.log("Hide routing Iframe");
 	});
 }
 
@@ -182,37 +202,58 @@ function initAuthoringUI(sel){
 	try{
 		svgMapAuthoringTool.clearTools();
 	}catch(e){}
-	
+	// console.log("initAuthoringUI: sel:",sel);
 	if ( !sel || sel=="stareEndTab"){
 		authoringToolProps1 = svgMapAuthoringTool.initPOIregistTool(document.getElementById("poiTools1"),layerID,"startP","syl5","start","ttt",doRoutingUiCb,"Hello1");
 		authoringToolProps2 = svgMapAuthoringTool.initPOIregistTool(document.getElementById("poiTools2"),layerID,"endP","syl6","goal","uuu");
+		setPosUI("endP","poiTools1");
+		setPosUI("startP","poiTools2");
+		doRoutingUiCb();
 	} else if( sel=="detourTab"){
 	
 		detourPolygonTool = svgMapAuthoringTool.initGenericTool(document.getElementById("polygonTool"),layerID,polyToolsCB,"PARAM_GEN",{withBufferedTools:true,shapeStyle:{stroke:"orange",fill:"yellow",opacity:"0.5"}});
 	}
 }
 
+function setPosUI(poiId,uiId){
+	const pos = getPos(poiId);
+	//console.log(pos);
+	if ( pos ){
+		const ts=document.getElementById(uiId).children;
+		for ( const ce of ts){
+			if (ce.getAttribute("type")=="text"){
+					ce.setAttribute("value",`${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`);
+				break;
+			}
+		}
+	}
+}
+
 function polyToolsCB(stat,param){
-	console.log("called polyToolsCB:",stat,param);
+	// console.log("called polyToolsCB:",stat,param);
 }
 
 function changeMode(){
 	doRoutingUiCb("-","-");
 }
 
+function getPos(poiId){
+	var poiElem = svgImage.getElementById(poiId);
+	if ( poiElem ){
+		poiPos = svgMap.getPoiPos(poiElem);
+		poiPos = svgMap.SVG2Geo(poiPos.x, poiPos.y,svgImageProps.CRS);
+		return poiPos;
+	} else {
+		return null;
+	}
+}
+
 async function doRoutingUiCb(stat,param){
-	var endElem = svgImage.getElementById("endP");
-	var startElem = svgImage.getElementById("startP");
-	var startPos,endPos;
-	if ( endElem ){
-		endPos = svgMap.getPoiPos(endElem);
-		endPos = svgMap.SVG2Geo(endPos.x, endPos.y,svgImageProps.CRS);
-	}
-	if ( startElem ){
-		startPos = svgMap.getPoiPos(startElem);
-		startPos = svgMap.SVG2Geo(startPos.x, startPos.y,svgImageProps.CRS);
-	}
-	console.log("cbFunc,initPOIregistTool:",stat,param,startPos,endPos);
+	// console.log("doRoutingUiCb: stat:",stat,"  param:",param);
+	if ( closing || stat=="Cancel" ){return};
+	const endPos = getPos("endP");
+	const startPos = getPos("startP");
+	// console.log("cbFunc,initPOIregistTool:",stat,param,startPos,endPos);
 	
 	if ( endPos && startPos ){
 		removeAllRoutingPath();
@@ -223,8 +264,9 @@ async function doRoutingUiCb(stat,param){
 			console.log("Greate Circle Route Points:",geojsonGeom,layerID);
 			svgMapGIStool.drawGeoJson( geojsonGeom , layerID, "#FF0000", 2, null, "syl13" ,null, null, routingResultGroup); // layerIDは環境が設定したこの文書の対応するsvg文書のID
 			svgMap.refreshScreen();
-			document.getElementById("distance").innerHTML=floatFormat(length,3)+"Km";
+			document.getElementById("messageDiv").innerHTML=`Distance: ${floatFormat(length,3)} Km`;
 		} else {
+			document.getElementById("messageDiv").innerHTML=`<span class="blinking-text">ルート計算中</span>`;
 //			getGeoJsonFromXHR(RountingService3,startPos.lat, startPos.lng, endPos.lat, endPos.lng);
 			var detourFts = await getDetourFeatures();
 			doRoutingAndRenderMap([ startPos.lng,startPos.lat], [endPos.lng, endPos.lat], detourFts);
@@ -234,7 +276,7 @@ async function doRoutingUiCb(stat,param){
 
 
 async function doRoutingAndRenderMap(start,end,detourFts){
-	console.log("doRoutingAndRenderMap:",{start,end,detourFts});
+	// console.log("doRoutingAndRenderMap:",{start,end,detourFts});
 	var reqObj = structuredClone(reqJsonTemplate);
 	
 	reqObj.points = [start,end];
@@ -257,10 +299,20 @@ async function doRoutingAndRenderMap(start,end,detourFts){
 	});
 	
 	var responseText = await response.text();
-	
-	console.log(JSON.parse(responseText));
-	
-	drawRoutingResult({readyState:4,status:200,responseText}); // 昔の方式の関数への入力のために適当に作ってます・・
+	var jso = JSON.parse(responseText);
+	// console.log(jso);
+	if ( jso.paths){
+		drawRoutingResult({readyState:4,status:200,responseText}); // 昔の方式の関数への入力のために適当に作ってます・・
+	} else {
+		let msg="";
+		if ( jso.message){
+			msg= jso.message;
+		}
+		document.getElementById("messageDiv").innerHTML=`<span style="color:red">ルート計算失敗 ${msg}</span>`;
+		setTimeout(function(){
+			document.getElementById("messageDiv").innerHTML="";
+		},3000);
+	}
 }
 
 function getMultiPolygon(fts){
@@ -291,13 +343,13 @@ function getDetourFeatures(){
 				var ftSrcId = ft.src.getAttribute("id");
 				if (!ftSrcId){ftSrcId=""};
 //				console.log(ft.src.parentElement, ft.src , ftSrcId);
-				console.log( ftSrcId);
+//				console.log( ftSrcId);
 				if ( ft.src.parentElement.getAttribute("id")=="routingResultGroup" || ftSrcId=="startP" || ftSrcId=="endP" || ftSrcId.startsWith("midP")  ){
 				} else if ( ft.type == "Polygon" || ft.type == "MultiPolygon" ){
 					ans.push(ft);
 				}
 			}
-			console.log(layerFts, ans);
+//			console.log(layerFts, ans);
 			okCallback(ans);
 		})
 	});
@@ -315,7 +367,7 @@ function routingChecked() {
 
 function removeAllPath(){
 	var p = svgImage.getElementsByTagName("path");
-	console.log("removeAllPath:",p);
+	// console.log("removeAllPath:",p);
 	if ( p && p.length >0 ){
 		for ( var i = p.length-1 ; i >= 0 ; i-- ){
 //			console.log("remove i:",i);
@@ -326,7 +378,7 @@ function removeAllPath(){
 
 function removeAllRoutingPath(){
 	var p = routingResultGroup.getElementsByTagName("path");
-	console.log("removeAllRoutingPath:",p);
+	// console.log("removeAllRoutingPath:",p);
 	if ( p && p.length >0 ){
 		for ( var i = p.length-1 ; i >= 0 ; i-- ){
 //			console.log("remove i:",i);
@@ -339,10 +391,10 @@ function removeAllRoutingPath(){
 function removeAllMarkers(){
 // use要素で、idが付いていないものを全部削除することにする・・
 	var p = svgImage.getElementsByTagName("use");
-	console.log("removeAllMarkers:",p);
+//	console.log("removeAllMarkers:",p);
 	if ( p && p.length >0 ){
 		for ( var i = p.length-1 ; i >= 0 ; i-- ){
-			console.log("remove p[i]:",p[i]);
+//			console.log("remove p[i]:",p[i]);
 			if ( ! p[i].getAttribute("id") ){
 				p[i].parentNode.removeChild(p[i]);
 			}
@@ -354,11 +406,11 @@ function removeAllMarkers(){
 var panelMode = 0;
 function changePoiPanel(){
 	if ( panelMode == 0 ){
-		console.log("assign customPOIinfoUI");
+//		console.log("assign customPOIinfoUI");
 		svgMap.setShowPoiProperty( showCustomModalPoiInfo, layerID);
 		panelMode = 1;
 	} else {
-		console.log("del customPOIinfoUI");
+//		console.log("del customPOIinfoUI");
 		panelMode = 0;
 		svgMap.setShowPoiProperty( null, layerID);
 	}
@@ -366,12 +418,12 @@ function changePoiPanel(){
 
 // カスタムのPOIプロパティ表示パネル
 function showCustomModalPoiInfo(target){
-	console.log("call showCustomModalPoiInfo",target);
+//	console.log("call showCustomModalPoiInfo",target);
 	svgMap.setCustomModal("Target Info:"+target.getAttribute("content"),"CLOSE",testModalCB,"testParam");
 }
 
 function testModalCB( index ,param ){
-	console.log("index:",index,"  param:",param);
+//	console.log("index:",index,"  param:",param);
 }
 
 // 大圏コースポイント計算(地球を球体と仮定した場合の・・)
@@ -417,7 +469,7 @@ function getGreatCircleRouteDistance(Lat1d,Lng1d,Lat2d,Lng2d){
 	var Lng1 = Lng1d * Deg2Rad;
 	var Lng2 = Lng2d * Deg2Rad;
 	var R = 6371; // Earth's R in Km
-	console.log(Lat1,Lng1,Lat2,Lng2,Math.sin(Lat1) * Math.sin(Lat2) + Math.cos(Lat1)* Math.cos(Lat2)*Math.cos(Lng1-Lng2));
+//	console.log(Lat1,Lng1,Lat2,Lng2,Math.sin(Lat1) * Math.sin(Lat2) + Math.cos(Lat1)* Math.cos(Lat2)*Math.cos(Lng1-Lng2));
 	var ans = R * Math.acos( Math.sin(Lat1) * Math.sin(Lat2) + Math.cos(Lat1)* Math.cos(Lat2)*Math.cos(Lng1-Lng2) );
 	return ( ans );
 }
@@ -428,10 +480,10 @@ function getGeoJsonFromXHR( path , Lat1d,Lng1d,Lat2d,Lng2d ){
 	path = path.replace("[lat2]",Lat2d);
 	path = path.replace("[lon1]",Lng1d);
 	path = path.replace("[lon2]",Lng2d);
-	console.log("path:",path);
+//	console.log("path:",path);
 	var httpObj = new XMLHttpRequest();
 	if ( httpObj ) {
-		document.getElementById("distance").innerHTML="<b> <<<< Calculating on Server.... >>>> </b>";
+		document.getElementById("messageDiv").innerHTML="<b> <<<< Calculating on Server.... >>>> </b>";
 		httpObj.onreadystatechange = function(){ drawRoutingResult( this ) } ;
 		httpObj.open("GET", path , true );
 		httpObj.send(null);
@@ -440,7 +492,7 @@ function getGeoJsonFromXHR( path , Lat1d,Lng1d,Lat2d,Lng2d ){
 
 // GraphHopperのJsonを変換 必要はほとんどなかった^^;
 function convGhJson(ghj){
-	console.log("is graphHopper json");
+//	console.log("is graphHopper json");
 	var gj ;
 	if ( ghj.paths ){
 		gj = ghj.paths[0].points;
@@ -458,7 +510,7 @@ function getGhWaypoints(ghj){
 		type:"FeatureCollection",
 		features:[]
 	};
-	console.log(ghj);
+//	console.log(ghj);
 	if ( !ghj.paths[0] ){return}
 	var linePoints = ghj.paths[0].points.coordinates;
 	let totalDistance = 0, totalTime =0;
@@ -485,7 +537,7 @@ function getGhWaypoints(ghj){
 }
 
 function drawRoutingResult( httpRes ){
-	console.log("drawRoutingResult");
+//	console.log("drawRoutingResult");
 	if (( httpRes.readyState == 4 ) ){
 		if ( httpRes.status == 403 || httpRes.status == 404 || httpRes.status == 500 || httpRes.status == 503 ){
 			console.log( "File get failed");
@@ -495,7 +547,7 @@ function drawRoutingResult( httpRes ){
 		var jst = httpRes.responseText;
 		routingResultData = JSON.parse(jst);
 		
-		console.log("res JSON:", routingResultData);
+//		console.log("res JSON:", routingResultData);
 		let routeGeoJson;
 		// とりあえずGraphHopperのresponseを描画させてみる
 		if ( routingResultData.hints ){
@@ -517,7 +569,7 @@ function drawRoutingResult( httpRes ){
 		if ( routeGeoJson.message ){
 			dmessage += "ERROR: " + routeGeoJson.message;
 		}
-		document.getElementById("distance").innerHTML=dmessage;
+		document.getElementById("messageDiv").innerHTML=`Distance ${dmessage}`;
 	}
 }
 
@@ -545,13 +597,13 @@ function clearSearch(){
 			inputs[i].value="---,---";
 		}
 	}
-	document.getElementById("distance").innerHTML="---";
+	document.getElementById("messageDiv").innerHTML="Distance ---";
 	svgMap.refreshScreen();
 }
 
 
 window.changeTabMode = function(event){
-	console.log("changeTabMode:",event.target.id);
+//	console.log("changeTabMode:",event.target.id);
 	initAuthoringUI(event.target.id);
 }
 
@@ -674,14 +726,14 @@ function showWayPointList(wpgj){
 
 function showCenter(event){
 	const crds = event.target.value.split(",");
-	console.log("showCenter:",crds);
+//	console.log("showCenter:",crds);
 	svgMap.setGeoCenter(Number(crds[1]),Number(crds[0]));
 }
 
 function clearWaypoints(){
 	wayPointsTable.style.visibility="hidden";
 	const p = routingResultGroup.getElementsByTagName("use");
-	console.log("removeAllRoutingPoints:",p);
+//	console.log("removeAllRoutingPoints:",p);
 	if ( p && p.length >0 ){
 		for ( var i = p.length-1 ; i >= 0 ; i-- ){
 //			console.log("remove i:",i);
@@ -718,9 +770,9 @@ function parseHash(hash){
 <body>
 <h4>経路探索・大圏ルート計算レイヤー</h4>
   <form name="form1" action="" autocomplete="off" >
-    <input id="Radio4" name="RadioGroup1" type="radio" checked onchange="changeMode()"/>
+    <input id="Radio4" name="RadioGroup1" type="radio" checked onchange="changeMode(event)"/>
       <label for="Radio4">経路探索</label>　　
-    <input id="Radio1" name="RadioGroup1" type="radio"  onchange="changeMode()"/>
+    <input id="Radio1" name="RadioGroup1" type="radio"  onchange="changeMode(event)"/>
       <label for="Radio1">大圏ルート計算</label><br/>
   </form>
 
@@ -734,17 +786,18 @@ function parseHash(hash){
 			<span style="color:red">START</span><div id="poiTools1"></div>
 			<span style="color:green">GOAL</span><div id="poiTools2"></div>
 			
-			<div style="font-size:13px;color:blue">Distance<span id="distance">---</span></div>
+			<div style="font-size:13px;color:blue" id="messageDiv" ></div>
 
 			<input type="button" value="消去" onClick="clearSearch()"></input> <input type="button" value="経由点表示" onclick="switchWayPoints(event)"></input>
 			<select  id="wayPointsTable" style="font-size:10px;width:90%;height:100px;overflow-y:auto;visibility: hidden;" size="10" onchange="showCenter(event)"></select>
 		</div>
 		
 		<div class="tab_content" id="detourTab_content">
-		<span style="font-size:11px;color:red">POINT、POLYLINEは無視されます</span>
+			<span style="font-size:11px;color:red">POINT、POLYLINEは無視されます</span>
 			<div id="polygonTool"></div>
 		</div>
 	</div>
+<div style="font-size:11px">　Note: 経路探索に<a href="https://github.com/graphhopper/graphhopper" target="_blank">GraphHopper</a>を使用しています</div>
 
 
 </body>
