@@ -14,12 +14,12 @@
 
 <!-- vectorEtcData -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/moj/kuwanauchi.svg" title="登記所備付地図データ(RawData)" class="vectorEtcData clickable" visibility="hidden" opacity="0.7" />
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/eStatPopulation/adminAreaMap2.svg#complexGisLayer=Vector GIS Complex&amp;test=true" title="e-stat街区レベル境界・人口データ" class="vectorEtcData clickable" visibility="hidden" opacity="0.35"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/eStatPopulation/adminAreaMap2.svg#complexGisLayer=Vector GIS Complex&amp;test=true" title="e-stat街区レベル境界・人口データ" data-cross-origin-proxy-required="true" class="vectorEtcData clickable" visibility="hidden" opacity="0.35"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiVmExp/gsiVmExp.svg" title="Experimental GSI Vector Tile" class="vectorEtcData" visibility="hidden"/>
 
 
 <!-- ジオコーダー的なもののグループ -->
-<animation xlink:href="./geoCoders/eStatRevGeocoder/reverseGeoCoder.svg" title="e-stat data reverse-geocoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
+<animation xlink:href="./geoCoders/eStatRevGeocoder/reverseGeoCoder.svg" title="e-stat data reverse-geocoder" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation xlink:href="./geoCoders/plusCoder/plusCode.svg" title="plus coder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation xlink:href="./geoCoders/geohashCoder/geohash.svg" title="geohashCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation class="geoCoder" title="UTMGridCoder" xlink:href="./geoCoders/utmGridCoder/utmGridCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
@@ -32,8 +32,8 @@
 <animation class="GIS clickable editable" title="経路検索(graphhopper)" xlink:href="./geoProcessingLayers/routing/routingD.svg#graphhopperurl={SET YOUR GRAPHHOPPER API ENDPOINT URL}" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="標高検索" xlink:href="./geoProcessingLayers/gsiAltCoder/altCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="GeoidHeightCalculator" xlink:href="./geoProcessingLayers/gsiGeoidCoder/geoidCalc.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="GIS editable" title="bitimageTracer" xlink:href="./geoProcessingLayers/bitimage2vector/img2vector.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="GIS editable" title="Raster GIS" xlink:href="./geoProcessingLayers/rasterGisLayer/rasterGisLayer6.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable" title="bitimageTracer" xlink:href="./geoProcessingLayers/bitimage2vector/img2vector.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable" title="Raster GIS" xlink:href="./geoProcessingLayers/rasterGisLayer/rasterGisLayer6.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 <animation class="GIS editable clickable" title="Vector GIS" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGisLayer.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 <animation class="GIS clickable editable" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
 
@@ -61,14 +61,14 @@
 
 <!-- 海しる系 -->
 <animation class="MARINE" title="衛星画像(海しる)" xlink:href="./appLayers/msil/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="msil_jma.html#exec=appearOnLayerLoad&amp;requiredWidth=400" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.4"/> 
-<animation class="MARINE" title="海底ケーブル(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Infrastructure&amp;layerName1=show:3" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="漁港(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Maritime&amp;layerName1=show:32" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="等深線(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=TopographyAndGeology&amp;layerName1=show:1" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図４８時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg10&amp;time=false" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図２４時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg9&amp;time=false" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図現況(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="海底ケーブル(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Infrastructure&amp;layerName1=show:3" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="漁港(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Maritime&amp;layerName1=show:32" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="等深線(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=TopographyAndGeology&amp;layerName1=show:1" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="天気図４８時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg10&amp;time=false" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="天気図２４時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg9&amp;time=false" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE" title="天気図現況(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
 
-<animation class="インフラ情報" title="starlinkUnofficialGS" xlink:href="./appLayers/starlinkUnofficialGS/test.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" data-controller="../info.html" />
+<animation class="インフラ情報" title="starlinkUnofficialGS" xlink:href="./appLayers/starlinkUnofficialGS/test.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" data-controller="../info.html" />
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/openinframap/openinframap.svg" title="Open Infrastructure Map" class="インフラ情報 clickable" visibility="hidden"/>
 
 <!-- others gov layers -->
@@ -80,24 +80,24 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJSHIS/dynamicPCtile.svg#server=https%3A%2F%2Fwww.j-shis.bosai.go.jp%2Fmapcache%2FA%2Fwmts%3Flayer%3DA-V8-MAP-AVR-TTL_MTTL-A0500_SI2%26style%3Ddefault%26tilematrixset%3DWGS84%26Service%3DWMTS%26Request%3DGetTile%26Version%3D1.0.0%26Format%3Dimage%252Fpng%26TileMatrix%3D%5B%5Blevel%5D%5D%26TileCol%3D%5B%5Bx%5D%5D%26TileRow%3D%5B%5By%5D%5D&amp;comment=出典:防災科研J-SHIS&amp;link=https://www.j-shis.bosai.go.jp/&amp;legend=https://www.j-shis.bosai.go.jp/JSHIS2/IMAGE/etc/P-Y2020-SI.png" title="防災科研_J_SHIS_長期間平均ハザード(再現期間500年)" class="ハザードマップ" visibility="hidden" opacity="0.7"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJSHIS/dynamicPCtile.svg#server=https://www.j-shis.bosai.go.jp/mapcache/P-Y2020/wmts?layer%3DP-Y2020-MAP-AVR-TTL_MTTL-T30_I55_PD2%26style%3Ddefault%26tilematrixset%3DWGS84%26Service%3DWMTS%26Request%3DGetTile%26Version%3D1.0.0%26Format%3Dimage%252Fpng%26TileMatrix%3D%5B%5Blevel%5D%5D%26TileCol%3D%5B%5Bx%5D%5D%26TileRow%3D%5B%5By%5D%5D&amp;comment=出典:防災科研J-SHIS&amp;link=https://www.j-shis.bosai.go.jp/&amp;legend=https://www.j-shis.bosai.go.jp/JSHIS2/IMAGE/etc/P-Y2020-PD.png" title="防災科研_J_SHIS_確率論的地震動予測地図2020_主要活断層帯" class="ハザードマップ" visibility="hidden" opacity="0.7"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJSHIS/dynamic_WMS_general.svg#server=https://www.j-shis.bosai.go.jp/map/wms/landslide?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetMap&amp;FORMAT=image%2Fpng&amp;TRANSPARENT=true&amp;layers=L-V3-ALL&amp;transparent=true&amp;format=image%2Fpng&amp;TILED=true&amp;CRS=EPSG%3A900913&amp;STYLES=&amp;MAP_RESOLUTION=112.5" title="防災科研_J_SHIS_地すべり地形" class="ハザードマップ" visibility="hidden" opacity="0.7"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJSHIS/j_shis_geojson.svg" title="防災科研_J_SHIS_震源断層" class="ハザードマップ clickable" visibility="hidden" opacity="0.5"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJSHIS/j_shis_geojson.svg" title="防災科研_J_SHIS_震源断層" data-cross-origin-proxy-required="true" class="ハザードマップ clickable" visibility="hidden" opacity="0.5"/>
 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenJTHIS/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="J_THIS.html#exec=appearOnLayerLoad&amp;requiredWidth=400" title="防災科研_津波_J_THIS" class="ハザードマップ" visibility="hidden" opacity="0.7"/> 
 
 <!-- 国交省道路情報 -->
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/notoEQ2024/notoRoad.svg" title="令和６年能登半島地震　道路復旧状況" opacity="0.75" class="国交省道路情報 batch clickable" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/doroBosai/kinkyuYuso.svg" title="緊急輸送道路R" opacity="0.85" class="国交省道路情報 batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=imusho" title="国道事務所等" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=station" title="道の駅R" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=kojiyotei" title="工事予定" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=expressway" title="高速道路事前通行規制区間" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=jizenkisei" title="事前通行規制区間R" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=weather" title="時間雨量" opacity="0.75" class="国交省道路情報 clickable batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=camera" title="ライブカメラ" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/notoEQ2024/notoRoad.svg" title="令和６年能登半島地震　道路復旧状況" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch clickable" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/doroBosai/kinkyuYuso.svg" title="緊急輸送道路R" data-cross-origin-proxy-required="true" opacity="0.85" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=imusho" title="国道事務所等" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=station" title="道の駅R" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=kojiyotei" title="工事予定" data-cross-origin-proxy-required="true" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=expressway" title="高速道路事前通行規制区間" data-cross-origin-proxy-required="true" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=jizenkisei" title="事前通行規制区間R" data-cross-origin-proxy-required="true" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=weather" title="時間雨量" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 clickable batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=camera" title="ライブカメラ" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
+  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
 
 <!-- 国土地理院 -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiBosai/gsiBosai.svg" title="地理院防災・災害データ：サブレイヤーあり" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiBosai/gsiBosai.svg" title="地理院防災・災害データ：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiTiles/gsiTilesListLayer.svg" title="地理院タイル：サブレイヤーあり" class="国土地理院 clickable" visibility="hidden" opacity="0.6"/>
 
 <!-- 国交省ハザードマップレイヤー群 -->
@@ -125,30 +125,30 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./authoringLayers/local/csvLayer/csvXhr_r20.svg#csvPath=https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.csv&amp;latCol=1&amp;lngCol=2&amp;titleCol=0&amp;variableIcon=4,3,4,5,6" title="地震 ALL 過去1週間(USGS)" class="地震・火山" visibility="hidden" opacity="0.7"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/usgsEq/usgsEarthquake.svg" title="全球地震情報(USGS)" class="地震・火山 clickable" visibility="hidden" opacity="0.7"/> 
 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenKNET/K_NET.svg" title="K-NET地震情報(防災科研)" class="地震・火山 clickable" visibility="hidden" opacity="0.7"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenKNET/K_NET.svg" title="K-NET地震情報(防災科研)" data-cross-origin-proxy-required="true" class="地震・火山 clickable" visibility="hidden" opacity="0.7"/> 
 <animation class="地震・火山 clickable" title="津波情報(JMA)" xlink:href="./appLayers/jma/tsunami/tsunami.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="地震・火山 clickable" title="過去の地震データベース(JMA)" xlink:href="./appLayers/jma/eq/quakeRecord.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="地震・火山 clickable" title="地震情報(JMA)" xlink:href="./appLayers/jma/eq/quake.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 
 
 <!-- 気象レイヤー群 -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_sea_surface_temperature" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 海水温" class="気象" visibility="hidden" opacity="0.6"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#ldn_lightning_strike_density" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 雷" class="気象" visibility="hidden" opacity="0.6"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_water_vapor_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 湿度" class="気象" visibility="hidden" opacity="0.6"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_longwave_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 赤外線" class="気象" visibility="hidden" opacity="0.6"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_visible_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 可視光" class="気象" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_sea_surface_temperature" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 海水温" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#ldn_lightning_strike_density" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 雷" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_water_vapor_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 湿度" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_longwave_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 赤外線" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/noaa_nowCOAST/wmsMercator.svg#global_visible_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA 可視光" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.6"/> 
 <animation class="気象" title="GPV降雨情報(MSM)" xlink:href="./appLayers/niiDigitalArchives2011/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="gpv_msm_rain.html#exec=appearOnLayerLoad&amp;requiredWidth=400" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.4"/>
-<animation class="気象" title="GPV風情報 [Animated-α版]" xlink:href="./appLayers/windy/windy.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/niiDigitalTyphoon/wind.svg" title="GPV風情報" class="気象" visibility="hidden" opacity="0.7" /> 
-<animation title="気象警報" xlink:href="./appLayers/niiDigitalTyphoon/warning/warning.svg" class="気象 clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
-<animation title="JTWC 台風情報(Joint Typhoon Warning Center)" xlink:href="./appLayers/niiDigitalTyphoon/jtwcN.svg" class="気象" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
+<animation class="気象" title="GPV風情報 [Animated-α版]" xlink:href="./appLayers/windy/windy.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/niiDigitalTyphoon/wind.svg" title="GPV風情報" data-cross-origin-proxy-required="true" class="気象" visibility="hidden" opacity="0.7" /> 
+<animation title="気象警報" xlink:href="./appLayers/niiDigitalTyphoon/warning/warning.svg" data-cross-origin-proxy-required="true" class="気象 clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
+<animation title="JTWC 台風情報(Joint Typhoon Warning Center)" xlink:href="./appLayers/niiDigitalTyphoon/jtwcN.svg" data-cross-origin-proxy-required="true" class="気象" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
 <animation title="JTWC KML 台風情報" xlink:href="./appLayers/niiDigitalTyphoon/jtwc_KML.svg" class="気象 clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.6" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/dynamic_WMS_general.svg#server=null" title="yr.no:気圧予想" class="気象" visibility="hidden" opacity="0.7" data-controller="yrNo.html#exec=appearOnLayerLoad&amp;layer=pressure"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/dynamic_WMS_general.svg#server=null" title="yr.no:風予想" class="気象" visibility="hidden" opacity="0.7" data-controller="yrNo.html#exec=appearOnLayerLoad&amp;layer=wind"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/dynamic_WMS_general.svg#server=null" title="yr.no:気温予想" class="気象" visibility="hidden" opacity="0.7" data-controller="yrNo.html#exec=appearOnLayerLoad&amp;layer=temperature"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/dynamic_WMS_general.svg#server=null" title="yr.no:降雨予想" class="気象" visibility="hidden" opacity="0.7" data-controller="yrNo.html#exec=appearOnLayerLoad&amp;layer=precipitation"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/yrNo/yrNoWfsResp.svg" title="yr.no:ポイント予想" class="気象" visibility="hidden" opacity="0.7"/> 
-<animation class="気象" title="JAXA 衛星全球降水マップ" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=GSMaP_NOW&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="気象" title="JAXA 衛星全球降水マップ" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=GSMaP_NOW&amp;autoupdate&amp;noforecast" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="JAXA 衛星全球降水マップ(風向矢印)" xlink:href="./appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=NEXRA:ss_uv10m_img&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="今後の雨（軽量版）(JMA)" xlink:href="./appLayers/jma/jma_bm_tiny.svg#forecast=true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="雨雲の動き（軽量版）(JMA)" xlink:href="./appLayers/jma/jma_bm_tiny.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
@@ -163,13 +163,13 @@
 <animation class="気象" title="危険度分布-浸水害(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=4&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="危険度分布-土砂災害(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=3&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="危険度分布-洪水害(JMA)" xlink:href="./appLayers/jma/jma_vm.svg#cat=2&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation xlink:href="./appLayers/mlitRadar/radar.svg" title="国交省_川の防災情報_降雨レーダー" x="-30000" y="-30000" width="60000" height="60000" class="気象" opacity="0.7" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRadar/radar.svg" title="国交省_川の防災情報_降雨レーダー" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="気象" opacity="0.7" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jmaSatelliteCenter/himawari8.svg#content=12" title="ひまわり8号(気象衛星センター)" class="気象" visibility="hidden"/> 
 <animation class="気象" title="ナウキャスト(降雨)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="ナウキャスト(降雪)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=10&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="ナウキャスト(落雷)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=1&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="ナウキャスト(竜巻)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=2&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/tenkizu/tenkizu_r1.svg#noforecast" title="天気図" class="気象" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/tenkizu/tenkizu_r1.svg#noforecast" title="天気図" data-cross-origin-proxy-required="true" class="気象" visibility="hidden"/>
 <animation class="気象 clickable" title="気象庁_2021_VectorData" xlink:href="./appLayers/jma/jma_vm.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="気象庁_2021_火山" xlink:href="./appLayers/jma/jma_volcano.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="気象" title="気象庁_2021_推計震度分布" xlink:href="./appLayers/jma/jma_EQ_suikei.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
@@ -179,24 +179,24 @@
 
 
 <!-- 国交省川の防災情報(ライブカメラ以外) -->
-<animation xlink:href="./appLayers/mlitRiver/riverLineTile.svg" title="河川形状" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/mlitRiver/stg.svg" title="水位観測所" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
-<animation xlink:href="./appLayers/mlitRiver/dam.svg" title="ダム" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
-<animation xlink:href="./appLayers/mlitRiver/overObs_swstg.svg" title="警報のみ 水位計" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRiver/riverLineTile.svg" title="河川形状" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRiver/stg.svg" title="水位観測所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRiver/dam.svg" title="ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRiver/overObs_swstg.svg" title="警報のみ 水位計" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/overObs_stg.svg" title="警報のみ 水位観測所" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
-<animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
+<animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
 <!-- ライブカメラ -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
 <!-- その他政府/民間 アプリレイヤー -->
 <!--
 <animation xlink:href="./authoringLayers/local/csvLayer/multiCsvView.svg" title="保存済み複数CSVデータ表示" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.75" visibility="hidden"/>
 -->
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ2021" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 
 </svg>
