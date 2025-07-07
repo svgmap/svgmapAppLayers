@@ -20,6 +20,17 @@
 $contentDir = "contents/";
 $indexFile = 'index.txt';
 
+// 必要なディレクトリとファイルの存在チェック
+if (!is_dir($contentDir)) {
+    http_response_code(500);
+    exit("ERROR: Contents directory does not exist: " . $contentDir);
+}
+
+if (!file_exists($indexFile)) {
+    http_response_code(500);
+    exit("ERROR: Index file does not exist: " . $indexFile);
+}
+
 function lock($lock='./foo.lock'){
     if (!$fp=fopen($lock, "a")) return false;
 
@@ -71,7 +82,7 @@ function getFnames( $fpath , $contentDir ){
     }
     
     // 実際に存在するsvgファイルについて、index.txtを上書きすべきcsvを作成する
-    $validateCsv;
+    $validateCsv = "";
     foreach($currentList as $fname => $existence){
       if( isset($indexTxtFileNameArray[ $fname ] )){
         // index.txtにレコードがあるもの
