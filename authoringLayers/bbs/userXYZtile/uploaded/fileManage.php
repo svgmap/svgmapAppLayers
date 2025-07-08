@@ -1,1 +1,1 @@
-../../../../commonLib/fileManage.php
+../../commonPhp/fileManage.php
