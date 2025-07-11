@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>windy.js test</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="windy.js"></script>
+
+<script src="windySvgMap.js"></script>
+
+<script src="yrNoWindy.js"></script>
+
+<!--  <script src="GPVwindy.js"></script> -->
+
+
+<body>
+<h5><a href="https://www.yr.no/nb/kart/vind" target="_blank">YrNoのリアルタイム風マップ</a>のアニメーション表示</h5>
+
+<div >
+
+<div style="visibility:hidden">
+<select  id="timeSel" onchange="changeTime()">
+</select>
+<span style="font-size:10px">カーソルキーで時間を前後できます</span>
+</div>
+
+</div>
+
+<ul style="font-size:9px">
+<li>YrNoで公開されている風向・風速データを可視化します
+<li>流線アニメーション化のライブラリ
+  <ul>
+  <li><a href="https://github.com/Esri/wind-js" target="_blank">こちらのコード</a>をベースに、改造したものです
+  <li>更にそのオリジナルは<a href="https://github.com/cambecc/earth" target="_blank">こちら</a>だとのこと。
+  <li>また、そのコードは、Windy.comのベースになっているものとのことです。(<a href="https://ja.wikipedia.org/wiki/%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%87%E3%82%A3_(%E6%B0%97%E8%B1%A1%E3%82%B5%E3%83%BC%E3%83%93%E3%82%B9)" target="_blank">wikipediaより</a>)
+  </ul>
+<li>YrNoの風ベクトル仕様
+<ul>
+ <li><a href="https://beta.yr-maps.met.no/concepts" target="_blank">concepts</a>
+ <li><a href="https://beta.yr-maps.met.no/usage" target="_blank">usage</a>
+ <li><a href="https://github.com/nrkno/yr-map-docs" target="_blank">docs</a>
+</ul>
+</ul>
+
+<div id="statusDiv" style="font-size:11px;color:blue"></div>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="18.909293001327928,-62.231743151681286,201.32786951645718,123.18379994453834" about="root" data-controller="windyYrNo.html#exec=appearOnLayerLoad&amp;requiredHeight=265">
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)"/>
+<defs>
+ <g id="p0" >
+  <image xlink:href="../../mappin.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ </g>
+</defs>
+
+<image id="bgMask" x="135" y="-35" width="0.0001" height="0.0001" xlink:href="bg.png"/>
+<circle id="canvasMarker" cx="135" cy="-35" r="0.0001" stroke="none" fill="none"/>
+
+</svg>

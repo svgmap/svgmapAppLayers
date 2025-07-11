@@ -8,103 +8,13 @@
 <script src="windy.js">
 </script>
 
-<script>
-// NIIの世界版リアルタイム風向き情報をparticle stream animationレイヤー化
-// Programmed by Satoru Takagi
-// License: It is an MIT license in respect to the license of the original code.
-//
-// svgMap.jsのレイヤーcanvasをHackしてそこにWindyを描かせる　というのはどうだろう。
-// まずは無理やりでも、コアフレームワークを全くいじらずに実装できるかを試してみる。
-// canvasに、hasdrawing="true" 属性が無いと消されてしまう。
-// canvasのIDはsvgImagesProps[docId].rootLayer + "_canvas";
-
-// 2023/08/17 1st working release
-// 2023/08/29 Support mercator proj.
-
-var wcan;
-var windy;
-
-function getLayerCanvas(){
-	var layerCanvas = window.parent.document.getElementById(layerID+"_canvas");
-	return (layerCanvas);
-}
-
-function maintainCanvas(){
-	var gc = svgMap.getGeoViewBox();
-	var cm = svgImage.getElementById("canvasMarker");
-	cm.setAttribute("cx",gc.cx);
-	cm.setAttribute("cy",-gc.cy);
-
-	var bm = svgImage.getElementById("bgMask");
-	bm.setAttribute("x",gc.x);
-	bm.setAttribute("y",-gc.y-gc.height);
-	bm.setAttribute("width",gc.width);
-	bm.setAttribute("height",gc.height);
-}
-
-var animStarted = false;
-
-function zpmc(){
-	var lc = getLayerCanvas();
-	var cw = lc.width;
-	var ch = lc.height;
-	var gvb = svgMap.getGeoViewBox();
-//	windy.clear();
-	windy.start([[0,0],[cw,ch]],cw,ch,[[gvb.x,gvb.y],[gvb.x + gvb.width, gvb.y + gvb.height]]); // OK
-	animStarted = true;
-}
-
-function preRenderFunction(){
-	console.log("preRenderFunction : windy", typeof windy);
-	maintainCanvas();
-	if ( typeof windy !="object"){return;}
-	windy.stop();
-	animStarted = false;
-//	windy.clear();
-	setTimeout(function(){
-		if ( !animStarted){
-			zpmc()
-		}
-	},500);
-}
-
-</script>
+<script src="windySvgMap.js"></script>
 
 <script>
-// https://github.com/Esri/wind-js
-// http://esri.github.io/wind-js/
-var isMercator = false;
 onload=async function(){
 	initModel();
-	addEventListener("zoomPanMapCompleted",zpmc);
-	isMercator = svgMap.getSvgImagesProps()["root"].CRS.mercator;
 }
-
-
-function startWindy(json){
-	console.log("startWindy");
-	if ( typeof windy =="object"){
-		windy.stop();
-		windy.clear();
-	}
-	maintainCanvas();
-	svgMap.refreshScreen();
-	setTimeout(function(){
-		console.log("startWindy ph2");
-		var lc = getLayerCanvas();
-		console.log(lc, typeof lc);
-		var plateCarree = true;
-		if ( isMercator ){
-			plateCarree = false;
-		}
-		console.log("plateCarree:",plateCarree);
-		windy = new Windy({ canvas:lc , data: json , plateCarree});
-		zpmc();
-	},500);
-}
-
 </script>
-
 
 <script>
 // GPV
