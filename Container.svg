@@ -29,6 +29,7 @@
 
 
 <!-- GIS的なもののグループ -->
+<animation class="GIS" title="Street View" xlink:href="./appLayers/streetView/instantStreetView.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS clickable editable" title="経路検索(graphhopper)" xlink:href="./geoProcessingLayers/routing/routingD.svg#graphhopperurl={SET YOUR GRAPHHOPPER API ENDPOINT URL}" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="標高検索" xlink:href="./geoProcessingLayers/gsiAltCoder/altCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
 <animation class="GIS" title="GeoidHeightCalculator" xlink:href="./geoProcessingLayers/gsiGeoidCoder/geoidCalc.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />

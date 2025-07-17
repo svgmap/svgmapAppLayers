@@ -239,9 +239,9 @@ function getPermaLink(){
 		<div class="tab_content" id="tab1_content" style="height:300px">
 			<div class="tab_content_description">
 				<div style="font-size:12px">web mercator XYZタイルの省略URLを入力 ({x},{y},{z}可変)<br>
-				<span style="font-size:10px">例：https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg</span></div>
+				<span style="font-size:10px">例：https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg<br>　　minZ,maxZはXYZタイル情報提供者から一緒に提供される情報です</span></div>
 				 <input id="XYZurlInp" style="width:385px;font-size:12px" type="text" placeholder="例：https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg" value="https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"></input>
-				 minZoom:<select id="minZoomSel"></select>、maxZoom:<select id="maxZoomSel"></select>
+				 minZ:<select id="minZoomSel"></select>、maxZ:<select id="maxZoomSel"></select>
 				<input type="button" onclick="openXYZtile()" value="開く"></input>
 				<div id="TabMessageDiv" style="color:red;display:;font-size:11px">　</div>
 			</div>

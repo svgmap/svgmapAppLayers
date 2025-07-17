@@ -1,0 +1,359 @@
+<!doctype html>
+<html>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module">
+import {DynamicWebTile} from "./DynamicWebTileModule.js";
+window.DynamicWebTile = DynamicWebTile;
+</script>
+<script>
+// Description:
+// 各種Street Viewサービスを連携させるレイヤー
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// 
+// 2020/05/07 1st release
+// 2025/07/15 Google Street ViewもURL連携可能なことがわかったので追加
+
+const services=["GoogleStreetView","instantStreetView","mapillary","osci","osc"];
+
+var instantstreetviewURL="https://www.instantstreetview.com/@[latitude],[longitude],[heading]h,[pitch]p,[zoom]z";
+
+var openstreetcamURL="https://api.openstreetcam.org/2.0/photo/?lat=[latitude]&lng=[longitude]&zoomLevel=18&join=sequence";
+// JSONで画像のURLが返ってくるが・・・ほとんど画像がないのでMapの方が良いかなあ・・
+// kartaviewに名称変更　ライセンスは特に変わりなし　ただＡＰＩは拡張されているのでそれも使うと良いかも
+// Note: https://api.openstreetcam.org/2.0/sequence/tiles/{x}/{y}/{z}.png　z:lv8...16
+
+var openstreetcamMapURL="https://openstreetcam.org/map/@[latitude],[longitude],[mapzoom]z";
+
+var googlestreetviewURL="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=[latitude],[longitude]&heading=[heading]&pitch=[pitch]&fov=[fov]";
+
+var targetService=instantstreetviewURL;
+
+var oscIntegrated=false;
+var closingFrame=false;
+onload=function(){
+	console.log("onLoad airPortAuthringToolsFrame:");
+	setServices();
+	changeTargetService();
+	setTimeout(initAuthoringUI,10);
+	window.addEventListener("closeFrame",function(){
+		console.log("CLOSE WINDOW");
+		closingFrame=true;
+	});
+}
+
+function setServices(){
+	const svcList = document.getElementById("changeSvc");
+	function selectSvc(svName){
+		for( var i = svcList.options.length -1 ; i >=0 ; i-- ){
+			const svcOpt = svcList.options[i];
+			if ( svcOpt.value==svName){
+				svcOpt.selected=true;
+			}
+		}
+	}
+	function delSvc(svName){
+		for( var i = svcList.options.length -1 ; i >=0 ; i-- ){
+			const svcOpt = svcList.options[i];
+			if ( svcOpt.value==svName){
+				svcOpt.remove();
+			}
+		}
+	}
+	if (svgImageProps.hash.length<2){
+		return; // enable all services
+	}
+	let svcs = svgImageProps.hash.substring(1).split(";");
+	var usedSvcs =[];
+	for ( svc of services){
+		const idx = svcs.indexOf(svc);
+		if ( idx>=0){
+			if (idx==0){
+				selectSvc(svc);
+			}
+			usedSvcs.push(svc);
+		} else {
+			delSvc(svc);
+		}
+	}
+	
+	if ( svcList.options.length == 1){
+		svcList.disabled=true;
+	}
+	servicesNames.innerText= usedSvcs.join(",");
+}
+
+function initAuthoringUI(){
+	//function initPOIregistTool(targetDiv,poiDocId,poiId,iconId,title,metaData,cbFunc,cbFuncParam,getPointOnly){
+	authoringToolProps1 = svgMapAuthoringTool.initPOIregistTool(document.getElementById("poiTools1"),layerID,"viewP","syl5","view","viewPoint",testCb,"Hello1");
+}
+
+function testCb(stat,param){
+	if ( closingFrame ){console.log("closingFrame");return;}
+	var endElem = svgImage.getElementById("viewP");
+	var startPos,endPos;
+	if ( endElem ){
+		endPos = svgMap.getPoiPos(endElem);
+		endPos = svgMap.SVG2Geo(endPos.x, endPos.y,svgImageProps.CRS);
+	}
+	console.log("cbFunc,initPOIregistTool:",stat,param,endPos);
+	
+	if ( oscIntegrated ){
+		getStreetCamJson(endPos.lat,endPos.lng);
+	} else if ( targetService =="mapillary"){
+		var fromd=null;
+		var tod=null;
+		if ( fromDateUI.value!=""){
+			fromd =fromDateUI.value;
+		}
+		if ( toDateUI.value!=""){
+			tod =toDateUI.value;
+		}
+		link2mapillary(endPos.lat,endPos.lng,13,fromd,tod);
+	} else {
+		var url = targetService;
+		url = url.replace("[latitude]",endPos.lat);
+		url = url.replace("[longitude]",endPos.lng);
+		url = url.replace("[heading]",0);
+		url = url.replace("[pitch]",10);
+		url = url.replace("[zoom]",1);
+		url = url.replace("[mapzoom]",14);
+		url = url.replace("[fov]",100);
+		console.log("url:",url);
+		var wdw = window.open(url, "StreetviewWindow", "height=600,width=600");
+	}
+	
+}
+
+function changeTargetService(event){
+	let idx;
+	if (!event){
+		const svcList = document.getElementById("changeSvc");
+		idx = svcList.selectedIndex;
+		idx = svcList.options[idx].value;
+	} else {
+		idx = event.target.selectedIndex;
+		idx = event.target.options[idx].value;
+	}
+	console.log("changeTargetService:",idx);
+	clearMarker();
+//	var scl = svgImage.getElementById("openstreetcamTile");
+	oscIntegrated = false;
+	document.getElementById("dateFilterUI").style.visibility="hidden";
+	if ( idx == "instantStreetView"){
+		targetService = instantstreetviewURL;
+		document.getElementById("note").style.visibility="hidden";
+		initOSCT(false);
+//		scl.setAttribute("visibility","hidden");
+	} else if ( idx == "osci" ){ // よりsvgMapと統合した格好
+		oscIntegrated = true;
+		targetService = openstreetcamMapURL;
+		document.getElementById("note").style.visibility="visible";
+		initOSCT(true);
+//		scl.setAttribute("visibility","visible");
+	} else if ( idx == "osc" ){ // 別ウィンドで地図を開く
+		targetService = openstreetcamMapURL;
+		document.getElementById("note").style.visibility="visible";
+		initOSCT(false);
+//		scl.setAttribute("visibility","hidden");
+	} else if ( idx =="mapillary"){
+		document.getElementById("dateFilterUI").style.visibility="visible";
+		document.getElementById("note").style.visibility="hidden";
+		targetService = "mapillary";
+		initOSCT(false);
+	} else if ( idx =="GoogleStreetView"){
+		targetService = googlestreetviewURL;
+		document.getElementById("note").style.visibility="hidden";
+//		scl.setAttribute("visibility","hidden");
+		initOSCT(false);
+	}
+	svgMap.refreshScreen();
+}
+
+function preRenderFunction(){
+	console.log("preRenderFunction");
+	if ( dynamicSubLayer ){
+		dynamicSubLayer.preRenderFunction();
+	}
+}
+
+let dynamicSubLayer;
+function initOSCT(enabled){
+	if ( ! dynamicSubLayer ){
+		var scl = svgImage.getElementById("openstreetcamTile");
+		var slid = scl.getAttribute("iid");
+		var sl = svgMap.getSvgImages()[slid];
+		if (!sl){
+			setTimeout(function(){
+				this.initOSCT(enabled);
+			},100);
+		}
+		var slProps = svgMap.getSvgImagesProps()[slid];
+		console.log(sl,slProps);
+		dynamicSubLayer = new DynamicWebTile(sl, slProps, {baseURL:""});
+	}
+	
+	if ( enabled ){
+		dynamicSubLayer.tileInfo ={
+			baseURL:"https://api.openstreetcam.org/2.0/sequence/tiles/{x}/{y}/{z}.png",
+			minLevel:8,
+			maxLevel:16,
+			scaleFactor:5.5
+		}
+	} else {
+		dynamicSubLayer.tileInfo ={
+			baseURL:"",
+			minLevel:8,
+			maxLevel:16,
+			scaleFactor:5.5
+		}
+	}
+	console.log("initOSCT:",dynamicSubLayer);
+}
+
+
+var proxyPath="";
+
+function getStreetCamJson(lat,lng){
+	var reqURL = openstreetcamURL;
+	reqURL = reqURL.replace("[latitude]",lat);
+	reqURL = reqURL.replace("[longitude]",lng);
+	loadContent(proxyPath+reqURL, function(jsTxt){
+		var dat = JSON.parse(jsTxt);
+		console.log("StreetCamJson:",dat);
+		buildContentWindow(dat);
+		makeMarker(dat);
+	});
+}
+
+function makeMarker(dat){
+	const targetGroup = svgImage.getElementById("marks");
+	removeChildren(targetGroup);
+	if ( dat.result && dat.result.data && dat.result.data.length > 0){
+		for ( const poi of dat.result.data){
+			const mark = svgImage.createElement("use");
+			mark.setAttribute("x",0);
+			mark.setAttribute("y",0);
+			mark.setAttribute("transform",`ref(svg,${100*poi.lng},${-100*poi.lat})`);
+			mark.setAttribute("xlink:href","#syl6");
+			targetGroup.appendChild(mark);
+		}
+		svgMap.refreshScreen();
+	}
+}
+function clearMarker(){
+	const targetGroup = svgImage.getElementById("marks");
+	removeChildren(targetGroup);
+}
+
+function buildContentWindow(dat){
+	var wdw = window.open("", "OpenStreetCamWindow", "height=600,width=600");
+	wdw.document.open();
+	if ( dat.result && dat.result.data && dat.result.data.length > 0){
+		wdw.document.write("<HTML><HEAD>");
+		wdw.document.write("<TITLE>openStreetCamResult</TITLE>");
+		wdw.document.writeln("<BODY>");
+		wdw.document.write("<h2>OpenStreetCamResult</h2>");
+		for ( var i = 0 ; i <  dat.result.data.length ; i++ ){
+			var imgUrl = dat.result.data[i].fileurlProc;
+			var mlat = Math.floor(100000*dat.result.data[i].matchLat)/100000;
+			var mlng = Math.floor(100000*dat.result.data[i].matchLng)/100000;
+			var adr ="-";
+			if ( dat.result.data[i].sequence?.address){
+				adr =dat.result.data[i].sequence.address;
+			}
+//			var pd = dat.result.data[i].dateProcessed;
+			var pd = dat.result.data[i].dateAdded;
+			if ( !pd ){
+				pd = dat.result.data[i].dateProcessed;
+			}
+//			wdw.document.write(`<span style='font-size:11px'>日時:${pd}  緯度経度:${mlat},${mlng} 場所:${adr}</span>`); // 場所は意味ないな
+			wdw.document.write(`<span style='font-size:11px'>日時:${pd}  緯度経度:${mlat},${mlng}</span>`);
+			wdw.document.write("<IMG SRC='"+imgUrl+"' width='100%'>"); 
+			wdw.document.write("<hr>");
+		}
+		wdw.document.write("</BODY></HTML>");
+		wdw.document.close();
+	} else {
+		wdw.document.write("<HTML><HEAD>");
+		wdw.document.write("<TITLE>openStreetCamResult</TITLE>");
+		wdw.document.writeln("<BODY>");
+		wdw.document.write("<h2>OpenStreetCamResult</h2>");
+		wdw.document.write("NO RESULT");
+		wdw.document.write("</BODY></HTML>");
+		wdw.document.close();
+	}
+}
+
+function loadContent(cSrc,cbFunc, docType){
+//	console.log("loadJSON : SRC: ", cSrc);
+	var httpObj = new XMLHttpRequest();
+	if ( httpObj ) {
+		httpObj.onreadystatechange = function(){ 
+			if (( httpObj.readyState == 4 ) ){
+				if ( httpObj.status == 403 || httpObj.status == 404 || httpObj.status == 500 || httpObj.status == 503 ){
+					console.log( "handleResult : File get failed : stat : ", httpObj.status);
+					return;
+				}
+				if ( docType ){ // docType: "text/html" etc.
+					var doc = (new DOMParser()).parseFromString(httpObj.responseText, docType);
+					cbFunc(doc);
+				} else {
+					cbFunc(httpObj.responseText);
+				}
+			}
+		} ;
+//		httpObj.open("GET", cSrc+ "?t="+(new Date()).getTime() , true );
+		httpObj.open("GET", cSrc , true );
+		httpObj.send(null);
+	}
+}
+
+
+function link2mapillary(latitude,longitude,zoom,fromd,tod){
+	// https://www.mapillary.com/app/?lat=37.26824179293013&lng=136.8844337918639&z=17.89652516341915&menu=false&focus=map&x=0.38650203711555003&y=0.5714340344995877&zoom=1.60572253430454&dateFrom=2024-01-01
+	// focus=photoで写真を主体にするがオートで写真は出ない？写真のハッシュキーが必要？
+	var dateFrom="";
+	var dateTo="";
+	if ( fromd ){
+		dateFrom = `&dateFrom=${fromd}`;
+	}
+	if ( tod ){
+		dateTo = `&dateTo=${tod}`;
+	}
+	if (!zoom){zoom = 14;}
+	var mpurl=`https://www.mapillary.com/app/?lat=${latitude}&lng=${longitude}&z=${zoom}&menu=false&focus=map${dateFrom}${dateTo}`;
+	var wdw = window.open(mpurl, "mapillaryWindow", "height=600,width=700");
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+</script>
+<body>
+<h3>Street View Service bridge layer</h3>
+<p style="font-size:12px">下のボタンで地図から場所を指定し、<span id="servicesNames">google street view, instantStreetView, mapillary, openstreetcam.org</span>にパスします</p>
+
+<div id="poiTools1"></div>
+
+<div>
+Target Service: <select id="changeSvc" autocomplete="off" onchange="changeTargetService(event)">
+<option selected="true" value="GoogleStreetView">GoogleStreetView</option>
+<option value="instantStreetView">instantStreetView.com</option>
+<option value="mapillary">mapillary.com</option>
+<option value="osci">openstreetcam.org integrated</option>
+<option value="osc">openstreetcam.org</option>
+</select>
+<div style="font-size:10px">ボタンを押すと、対象サービスを別ウィンドで開きます</div>
+<div id="note" style="visibility:hidden;font-size:11px">Note: openstreetcam.orgは、紫色のラインがデータのある道路です。なお、まだあまりデータがないです。</div>
+<div id="dateFilterUI" style="visibility:hidden;font-size:11px">撮影日フィルタ <input type="date" id="fromDateUI" placeholder="from"></input>～<input type="date" id="toDateUI" placeholder="to"></input></div>
+</body>
+</html>

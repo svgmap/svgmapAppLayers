@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="72.57834009287292,-61.104111631170134,95.57093611365848,54.74397751536163" about="root" data-controller="instantStreetView.html#exec=appearOnLayerLoad">
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
+ <defs>
+  <g id="syl5" > 
+   <image xlink:href="mappin1.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+  </g>
+  <g id="syl6" > 
+   <image xlink:href="mapMark3.png" preserveAspectRatio="none" x="-6" y="-6" width="12" height="12"/>
+  </g>
+ </defs>
+ 
+  <animation id="openstreetcamTile" xlink:href="openStreetCamTileSubLayer.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="visible" opacity="1" />
+
+ <g id="marks"></g>
+</svg>
