@@ -17,6 +17,8 @@
 var wcan;
 var windy;
 
+var noMask=false;
+
 function getLayerCanvas(){
 	var layerCanvas = window.parent.document.getElementById(layerID+"_canvas");
 	return (layerCanvas);
@@ -28,11 +30,13 @@ function maintainCanvas(){
 	cm.setAttribute("cx",gc.cx);
 	cm.setAttribute("cy",-gc.cy);
 
-	var bm = svgImage.getElementById("bgMask");
-	bm.setAttribute("x",gc.x);
-	bm.setAttribute("y",-gc.y-gc.height);
-	bm.setAttribute("width",gc.width);
-	bm.setAttribute("height",gc.height);
+	if (!noMask){
+		var bm = svgImage.getElementById("bgMask");
+		bm.setAttribute("x",gc.x);
+		bm.setAttribute("y",-gc.y-gc.height);
+		bm.setAttribute("width",gc.width);
+		bm.setAttribute("height",gc.height);
+	}
 }
 
 var animStarted = false;

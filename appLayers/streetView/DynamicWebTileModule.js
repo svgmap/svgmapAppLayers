@@ -39,7 +39,7 @@ class DynamicWebTile{
 		}
 		this.svgImage = svgImage;
 		this.svgImageProps = svgImageProps;
-		if (tileInfo && tileInfo.baseURL && tileInfo.minLevel && tileInfo.maxLevel ){
+		if (tileInfo && tileInfo.baseURL && !isNaN(tileInfo.minLevel) && !isNaN(tileInfo.maxLevel) ){
 			this.tileInfo = tileInfo;
 			if (this.tileInfo.underRangeDisplay){
 				this.underRangeDisplay = this.tileInfo.underRangeDisplay;
@@ -220,6 +220,8 @@ class DynamicWebTile{
 		var mapServerURL = this.tileInfo.baseURL.replaceAll("{z}",lvl);
 		mapServerURL = mapServerURL.replaceAll("{x}",tx);
 		mapServerURL = mapServerURL.replaceAll("{y}",ty);
+		var rty = Math.pow(2,lvl)-ty-1;
+		mapServerURL = mapServerURL.replaceAll("{ry}",rty);  // 2022/04/27 yを南から附番してるサーバがあるね・・・ それは{ry}を使えば良いようにしてみる
 		// 複数の同様のサーバを順次切り替えながら使用することで、地図イメージ取得時の負荷分散を行う。
 		return {
 			URL : mapServerURL ,

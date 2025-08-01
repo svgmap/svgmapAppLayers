@@ -11,11 +11,14 @@
 // headerの必要な要素は、uCompのlo1,la1, dx,dy, nx,ny,( refTime, forecastTime : 多分使ってない)
 
 // 2025/07/11 initial release
+// 2025/08/01 風速ヒートマップを実装
 
 const timeIndexURL = "https://tiles.yr.no/api/wind/available.json";
 let timeIndex;
 let noforecast=false;
 addEventListener("load", async function () {
+	noMask = true;
+	showLegend("legendDiv");
 	if (svgImageProps.hash.toLowerCase().indexOf("noforecast")>0){
 		noforecast = true;
 	}
@@ -35,7 +38,7 @@ let currentArea=null;
 let currentTimeIndex=0;
 
 function checkArea() {
-	console.log("checkArea");
+	//console.log("checkArea");
 	// ズームレベルを計算(0から6:yrNoの仕様(timeIndex記載)により)
 	var level = Math.floor(Math.LOG2E * Math.log(svgImageProps.scale) - 3);
 	if (level > timeIndex.maxzoom) {
@@ -61,7 +64,7 @@ function checkArea() {
 	if ( tileAreaChanged ){
 		getImages(currentArea, currentTimeIndex);
 	} else {
-		console.log("SKIP updating");
+		//console.log("SKIP updating");
 	}
 }
 
@@ -80,6 +83,7 @@ async function getImages(tiles, tidx=0){
 	const mergedWindyJson = mergeWindyJson(tiles);
 	//console.log("mergedWindyJson:",mergedWindyJson);
 	startWindy(mergedWindyJson);
+	buildHeatMapImage(mergedWindyJson);
 }
 
 // 複数のwindyJson形式タイルを一個に統合したwindyJson形式を生成する　結構大変な作業でした・・・
@@ -400,4 +404,104 @@ function changeTime(){
 	console.log(currentTimeIndex);
 	checkArea();
 }
-	
+
+
+function radLonlat2mercator(x,y){
+	const mY = Math.log(Math.tan(y / 2 + Math.PI / 4));
+	return[x,mY];
+}
+
+
+// 2025/07/31 heatmap
+function buildHeatMapImage(mergedWindyJson){ // 図法がまずい(メルカトルで粗いので大ズレ)のでメルカトルからPlateCarreeに変換する・・
+	const outputCanvas = document.createElement('canvas');
+	const ctx = outputCanvas.getContext('2d');
+	const width = mergedWindyJson[0].header.nx;
+	const height = mergedWindyJson[0].header.ny;
+	outputCanvas.width = width;
+	outputCanvas.height = height;
+	//ctx.drawImage(img, 0, 0);
+	const imageData = ctx.getImageData(0, 0, width, height);
+	const data = imageData.data;
+	for (let y = 0; y < height; y++) {
+		
+		const lat = (mergedWindyJson[0].header.la1) - mergedWindyJson[0].header.laSpan * y / mergedWindyJson[0].header.ny;
+		const mercY = radLonlat2mercator(0,lat * Math.PI/180)[1];
+		const mercY0 = radLonlat2mercator(0,(mergedWindyJson[0].header.la1- mergedWindyJson[0].header.laSpan) * Math.PI/180)[1];
+		const mercY1 = radLonlat2mercator(0,mergedWindyJson[0].header.la1 * Math.PI/180)[1];
+		const ym = Math.floor(mergedWindyJson[0].header.ny - (mercY - mercY0) / ( mercY1 - mercY0)*mergedWindyJson[0].header.ny);
+//		console.log("merc-y:",ym," : ", mercY, mercY0,mercY1,mergedWindyJson[0].header.la1, mergedWindyJson[0].header.laSpan);
+		let idxm0 = ym * width;
+		let idx0 = y * width;
+		for (let x = 0; x < width; x++) {
+//			const lon = mergedWindyJson[0].header.lo1 + mergedWindyJson[0].header.loSpan * x / mergedWindyJson[0].header.ny; // メルカトルはxについては何もしなくて良い
+			
+			let midx = idxm0 + x;
+			const index = (idx0+x) * 4;
+			const vx = mergedWindyJson[0].data[midx];
+			const vy = mergedWindyJson[1].data[midx];
+			const windSpeed = Math.sqrt(vx * vx + vy * vy);
+			const color = getColorForSpeed(windSpeed);
+			const fixedColor = fixColor(color,0.5);
+			imageData.data [index] = fixedColor [0];     // R
+			imageData.data [index + 1] = fixedColor [1]; // G
+			imageData.data [index + 2] = fixedColor [2]; // B
+			imageData.data [index + 3] = 255;       // A (不透明)
+		}
+	}
+	ctx.putImageData(imageData, 0, 0);
+	const durl = outputCanvas.toDataURL('image/png');
+//	console.log(durl,mergedWindyJson[0]);
+//	const wi = svgImage.createElement("image");
+	const wi = svgImage.getElementById("bgMask");
+	wi.setAttribute("xlink:href",durl);
+	wi.setAttribute("x",mergedWindyJson[0].header.lo1);
+	wi.setAttribute("y",-(mergedWindyJson[0].header.la1));
+	wi.setAttribute("width",mergedWindyJson[0].header.loSpan);
+	wi.setAttribute("height",mergedWindyJson[0].header.laSpan);
+	svgMap.refreshScreen();
+}
+
+// 風速と色の対応テーブル
+const colorTable = [
+	{ speed: 32.6, color: [49, 0, 71] },
+	{ speed: 28.5, color: [77, 10, 108] },
+	{ speed: 24.5, color: [91, 39, 141] },
+	{ speed: 20.8, color: [112, 67, 168] },
+	{ speed: 17.2, color: [123, 87, 237] },
+	{ speed: 13.9, color: [75, 135, 234] },
+	{ speed: 10.8, color: [19, 168, 214] },
+	{ speed: 8.0, color: [60, 190, 190] },
+	{ speed: 5.5, color: [121, 204, 172] },
+	{ speed: 0.0, color: [167, 206, 161] }, // 5.4以下をこの色で表現
+];
+
+function getColorForSpeed(speed) {
+	for (let i = 0; i < colorTable.length - 1; i++) {
+		if (speed > colorTable.slice().sort((a, b) => b.speed - a.speed)[i + 1].speed && speed <= colorTable.slice().sort((a, b) => b.speed - a.speed)[i].speed) {
+			return colorTable.slice().sort((a, b) => b.speed - a.speed)[i].color;
+		}
+	}
+	return colorTable.slice().sort((a, b) => b.speed - a.speed).pop().color; // 最小値以下の場合は最後の色
+}
+
+function fixColor(color, gain){
+	const r = Math.floor(color[0]*gain);
+	const g = Math.floor(color[1]*gain);
+	const b = Math.floor(color[2]*gain);
+	//console.log(r,g,b,color);
+	return [r,g,b];
+}
+
+function showLegend(tgtid){
+	const tdiv = document.getElementById(tgtid);
+	const tbl = document.createElement("table");
+	const tr = document.createElement("tr");
+	tbl.appendChild(tr);
+	for ( var co of colorTable){
+		tr.insertAdjacentHTML("afterbegin",`<td width="24" style="background-color:rgb(${co.color[0]},${co.color[1]},${co.color[2]})"><span style="color:magenta">${co.speed}</span></td>`);
+	}
+	tr.insertAdjacentHTML("afterbegin","<td>凡例:[m/s]</td>");
+	tdiv.appendChild(tbl);
+}
+
