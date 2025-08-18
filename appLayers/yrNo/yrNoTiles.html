@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>Google Static WebMercator Tile Layer</title>
+</head>
+
+<script type="module">
+// yr.noのビットイメージタイルを表示するレイヤー
+// Programmed by Satoru Takagi
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+//	References:
+//	https://beta.yr-maps.met.no/concepts
+//	https://beta.yr-maps.met.no/usage
+
+
+const dataSets = {
+	// 風速は専用機能に・・
+	"気温:yr.no":{index:"https://tiles.yr.no/api/air-temperature/", transform:[ -270/80,270/80*168], physicalValueTransform:[1,-128],unit:"celsius"}, // ℃
+	"気温:beta":{index:"https://beta.yr-maps.met.no/api/air-temperature/available.json", transform:[ -270/80,270/80*168], physicalValueTransform:[1,-128], unit:"celsius"}, // ℃  transformの方はR値から直接Hを出すための値
+	"雲被覆率:beta":{index:"https://beta.yr-maps.met.no/api/cloud-area-fraction/available.json", transform:[-270/200,270], physicalValueTransform:[0.5,0], unit:"%"}, // 0..100%
+	"降水量:beta":{index:"https://beta.yr-maps.met.no/api/precipitation-amount/available.json", table:[[0,"#00000000"],[0.03,"#91E4FF"],[0.05,"#5ED7FF"],[0.2,"#00AAFF"],[1,"#0080FF"],[5,"#0055FF"],[15,"#7A0087"]],unit:"mm/h"}, // 以上の意味
+}
+
+let selectedSet;
+let selectedTileUrl;
+let noforecast = false;
+let avData;
+
+
+import {DynamicWebTile} from "./DynamicWebTileModule.js";
+
+let dynamicWebMercatorTileLayer;
+
+addEventListener("load",async function(){
+	console.log("yr.no Tile layer load");
+	initLayer();
+	buildDataSetSelect();
+	await changeDataSet();
+	mapTypeSelect.addEventListener("change",changeDataSet);
+	timeSelect.addEventListener("change",selectTime);
+});
+
+
+function selectTime(){
+	const selCat = mapTypeSelect.options[mapTypeSelect.selectedIndex].value;
+	const selTimeIndex = Number(timeSelect.options[timeSelect.selectedIndex].value);
+	const selTime = avData.times[selTimeIndex].time;
+	const selTile = avData.times[selTimeIndex].tiles.webp;
+	console.log("selectTime:",selCat,selTime, selTile);
+	selectedTileUrl = selTile;
+	/**
+	if ( dynamicWebMercatorTileLayer ){
+		dynamicWebMercatorTileLayer.clearTiles();
+		console.log("call clear tiles :", svgImage);
+	}
+	**/
+	updateAllImages = true;
+	svgMap.refreshScreen();
+}
+
+function buildDataSetSelect(){
+	let sel = "";
+	const hashCat =getInitHash();
+	if ( !hashCat){
+		sel = "selected";
+	}
+	for ( let setName in dataSets ){
+		if ( hashCat && hashCat.indexOf(setName)==0){
+			sel = "selected";
+		}
+		mapTypeSelect.insertAdjacentHTML("beforeend",`<option value="${setName}" ${sel}>${setName}</option>`);
+		if ( sel ){sel=""}
+	}
+}
+
+function getInitHash(){
+	if ( svgImageProps.hash.indexOf("noforecast")>0){
+		noforecast = true;
+	}
+	if ( svgImageProps.hash.indexOf("cat=")>0){
+		const hashCat = svgImageProps.hash.substring(svgImageProps.hash.indexOf("cat=")+4);
+		return decodeURIComponent(hashCat);
+	}
+}
+
+async function changeDataSet(){
+	const selCat = mapTypeSelect.options[mapTypeSelect.selectedIndex].value;
+	selectedSet = selCat;
+	const indexURL=dataSets[selCat].index;
+	await getAvailable(indexURL);
+	console.log("changeDataSet:",selCat, dynamicWebMercatorTileLayer	);
+	selectTime();
+	buildLegend();
+	const hash = [];
+	if ( noforecast ){
+		hash.push("noforecast");
+	}
+	if ( mapTypeSelect.selectedIndex !=0){
+		hash.push(`cat=${selCat}`);
+	}
+	if ( hash.length>0 ){
+		svgImageProps.hash = "#"+hash.join("&");
+	} else {
+		svgImageProps.hash="";
+	}
+}
+
+async function getAvailable(indexURL){
+	const avJson = await ( await fetch(indexURL)).json();
+	avData = avJson;
+	buildTimeSelect(avJson, timeSelect);
+}
+
+
+function buildTimeSelect(timeIndex, timeSelect){
+	function getTimeStr(dateStr){
+		let ans = new Date(dateStr).toLocaleString();
+		ans = ans.substring(0,ans.lastIndexOf(":"));
+		return ans;
+	}
+	removeChildren(timeSelect);
+	const timeSelParent = timeSelect.parentElement;
+	if ( noforecast ){
+		timeSelect.style.display="none";
+		timeSelectComment.innerHTML=`${getTimeStr(timeIndex.times[0].time)}の情報`;
+	} else {
+		timeSelectComment.style.display="none";
+	}
+	let idx = 0;
+	for ( const time of timeIndex.times ){
+		const tt = getTimeStr(time.time);
+		timeSelect.insertAdjacentHTML("beforeend",`<option value="${idx}" ${idx==0?"selected":""}>${tt}</option>`);
+		++idx;
+	}
+	timeSelParent.style.visibility="";
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+const downloadingImgs ={};
+
+let updateAllImages = false; // 無条件で全タイルを書き換える（時間（含カテゴリ）を変化させたとき）
+
+function captureImages(){
+	const imgs = svgImage.getElementsByTagName("image");
+	for ( let img of imgs ){
+		if ( updateAllImages || img.getAttribute("xlink:href").indexOf("null.png")>=0){
+			const tileXYZ = img.getAttribute("metadata");
+			if ( !downloadingImgs[tileXYZ]){
+				downloadingImgs[tileXYZ] = true;
+				buildImage(tileXYZ, img);
+			}
+		}
+	}
+	updateAllImages = false;
+}
+
+function getColorForData(r,g,b){
+	if ( dataSets[selectedSet].transform ){
+		let h = r * dataSets[selectedSet].transform[0] + dataSets[selectedSet].transform[1];
+		h = Math.min(270,Math.max(h,0));
+		const rgb=svgMapGIStool.hsv2rgb(h,100,100);
+		return [rgb.r, rgb.g , rgb.b,255];
+	} else {
+		if ( r==0 && g==0 && b==0){
+			return [r,g,b,0];
+		} else {
+			return [r,g,b,255];
+		}
+	}
+}
+
+async function buildImage(tileXYZ, svgImgElement){
+	
+	const xyz = tileXYZ.split("_");
+	
+	const imageUrl = selectedTileUrl.replace("{x}",xyz[0]).replace("{y}",xyz[1]).replace("{z}",xyz[2]);
+	
+	const response = await fetch(imageUrl);
+	if (!response.ok) {
+	throw new Error(`HTTPエラー！ ステータス: ${response.status}`);
+	}
+	
+	const blob = await response.blob();
+	const img = new Image();
+	const url = URL.createObjectURL(blob);
+	img.onload = () => {
+		const width = img.width;
+		const height = img.height;
+		const outputCanvas = imgCanvas;
+		outputCanvas.width = width;
+		outputCanvas.height = height;
+		const ctx = outputCanvas.getContext('2d');
+		ctx.drawImage(img, 0, 0);
+		const imageData = ctx.getImageData(0, 0, width, height);
+		const data = imageData.data;
+
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const index = (y * width + x) * 4;
+				const r = data [index];
+				const g = data [index+1];
+				const b = data [index+2];
+				
+				const color = getColorForData(r,g,b);
+				/**
+				const g = data [index + 1];
+				
+				const vx = (r - 128) / 2;
+				const vy = (g - 128) / 2;
+				const windSpeed = Math.sqrt(vx * vx + vy * vy);
+
+				const color = getColorForSpeed(windSpeed);
+				**/
+				imageData.data [index] = color [0];     // R
+				imageData.data [index + 1] = color [1]; // G
+				imageData.data [index + 2] = color [2]; // B
+				imageData.data [index + 3] = color[3];       // A (不透明)
+			}
+		}
+		ctx.putImageData(imageData, 0, 0);
+		URL.revokeObjectURL(url);
+		var href = outputCanvas.toDataURL('image/png');
+//		console.log( 'ビットマップ画像を生成しました。');
+		delete downloadingImgs[tileXYZ];
+		svgImgElement.setAttribute("xlink:href",href);
+		svgMap.refreshScreen();
+	};
+
+	img.onerror = () => {
+		URL.revokeObjectURL(url);
+		statusDiv.textContent = '画像の読み込みに失敗しました。';
+	};
+	img.src = url;
+	
+	
+}
+
+function initLayer(){
+	dynamicWebMercatorTileLayer = new DynamicWebTile(
+		svgImage,
+		svgImageProps,
+		{
+			baseURL:"null.png#x={x}&y={y}&z={z}",
+			minLevel:2,
+			maxLevel:5,
+			scaleFactor:7.5
+		}
+	);
+};
+
+function preRenderFunction(){
+	if ( dynamicWebMercatorTileLayer ){
+		dynamicWebMercatorTileLayer.preRenderFunction();
+		captureImages(); // dynamicWebMercatorTileLayerがカラのタイルを生成した後、そのタイルに実際のデータを入れるための非同期処理を動かす
+	}
+}
+window.preRenderFunction=preRenderFunction;
+
+
+function buildLegend(){
+	let legendTable=[];
+	const unit = dataSets[selectedSet].unit; // 単位
+	if ( dataSets[selectedSet].physicalValueTransform){
+		const ptf = dataSets[selectedSet].physicalValueTransform; // 物理値との関係
+		const vtf = dataSets[selectedSet].transform; // 270..0の hsvのh値との関係
+		for ( let h = 270 ; h>=0 ; h-=27){
+			let v = (h-vtf[1])/vtf[0];
+			let p = ptf[0]*v + ptf[1];
+			const rgb=svgMapGIStool.hsv2rgb(h,100,100);
+			const colorStr = svgMapGIStool.getColorString(rgb.r,rgb.g,rgb.b);
+			legendTable.push([p,colorStr]);
+		}
+		
+	} else {
+		legendTable = dataSets[selectedSet].table;
+	}
+	
+	removeChildren(legendDiv);
+	var tbl=document.createElement("table");
+	tbl.style.fontSize="11px";
+	tbl.style.width="90%";
+	tbl.insertAdjacentHTML("beforeend",`<tr><td colspan="${legendTable.length}">凡例: [${unit}]</td></tr>`);
+	var tr=document.createElement("tr");
+	for ( var itm of legendTable){
+		tr.insertAdjacentHTML("beforeend",`<td style="width:${90/legendTable.length}%">${Number(itm[0].toFixed(2))}</td>`);
+	}
+	tbl.appendChild(tr);
+	var tr=document.createElement("tr");
+	for ( var itm of legendTable){
+		tr.insertAdjacentHTML("beforeend",`<td style="background-color:${itm[1]};width:${90/legendTable.length}%">　</td>`);
+	}
+	tbl.appendChild(tr);
+	legendDiv.appendChild(tbl);
+}
+
+
+</script>
+<body>
+<h4 id="titleH">yr.noの気象情報ビットイメージタイルを表示する</h4>
+<div style="font-size:12px">
+<li>出典：<a href="https://yr.no/" target="_blank">yr.no</a> 及び、 <a href="https://beta.yr-maps.met.no/" target="_blank">yr-maps (betaコンテンツ)</a>
+<li>技術仕様：<a href="https://beta.yr-maps.met.no/concepts" target="_blank">yr-maps : Description of datasets</a>
+</div>
+<p id="commentP"></p>
+<div><select id="mapTypeSelect"></select></div>
+<div style="visibility:hidden"><span id="timeSelectComment"></span><select id="timeSelect"></select></div>
+<div id="legendDiv">-<br>-<br>-</div>
+<canvas id = "imgCanvas" style="display:none"></canvas>
+</body>
+</html>
