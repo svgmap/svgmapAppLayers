@@ -118,6 +118,6 @@ function jmaPolarStereographic(){
 
 <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="jmaPolarStereographic" />
 
-<image id="tenkiPng" x="0" y="0" width="600" height="581" xlink:href=""  opacity="0.6"/>
+<image id="tenkiPng" x="0" y="0" width="600" height="581" xlink:href="https://www.jma.go.jp/jma/jma_top/image/logo.gif"  opacity="0.6"/>
 
 </svg>
