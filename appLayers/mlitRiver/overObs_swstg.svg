@@ -8,6 +8,22 @@
 <image xlink:href="obsPin.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
 </g>
 <g id="p0" > 
+<image xlink:href="obs_swstg_flood.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p1" > 
+<image xlink:href="obs_swstg_danger.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p2" > 
+<image xlink:href="obsPin2.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p3" > 
+<image xlink:href="obs_swstg_start.png" preserveAspectRatio="none" x="-5" y="-11" width="10" height="12"/>
+</g>
+<!--
+<g id="pin" > 
+<image xlink:href="obsPin.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
+</g>
+<g id="p0" > 
 <image xlink:href="obsPin0.png" preserveAspectRatio="none" x="-10" y="-22" width="20" height="24"/>
 </g>
 <g id="p1" > 
@@ -19,6 +35,7 @@
 <g id="p3" > 
 <image xlink:href="obsPin3.png" preserveAspectRatio="none" x="-6" y="-15" width="13" height="16"/>
 </g>
+-->
 </defs>
 <g id="tileImages"></g>
 <g id="meshRects"></g>

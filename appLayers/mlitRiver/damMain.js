@@ -52,13 +52,21 @@ addEventListener("load",async function(){
 		console.log("set custom damJsonBaseURL:",damJsonBaseURL);
 	}
 	
-	var csvTxt;
+	buildLegend();
+	await renderData();
+	
+	window.setInterval(renderData,300000);
+});
+
+async function renderData(){
+	var csvTxt,csvData;
 	if ( damJsonBaseURL ){
-		csvTxt = await getDamData(damJsonBaseURL);
+		csvData = await getDamData(damJsonBaseURL);
 	} else {
-		csvTxt = await getPrefDamData();
+		csvData = await getPrefDamData();
 	}
-	console.log(csvTxt);
+	csvTxt = csvData.csv;
+	console.log(csvData.timeStamp, csvTxt);
 	var csv = csvFetcher.parseCsv(csvTxt);
 	var schemaCol = csv.shift();
 	var schema=csvFetcher.getCsvSchema(schemaCol);
@@ -67,6 +75,7 @@ addEventListener("load",async function(){
 	svgImage.documentElement.setAttribute("property",schema.metaSchema.join(","));
 	titleCol = schema.metaSchema.indexOf("obs_nm");
 	if (titleCol==-1){titleCol = schema.metaSchema.indexOf("swobs_nm");}
+	clientSideQTCT.init();
 	qtctMapData = await clientSideQTCT.doQTCT(csv, function(col){
 		var matadata = [];
 		if ( schema.latCol > schema.lngCol ){
@@ -90,7 +99,9 @@ addEventListener("load",async function(){
 	
 	window.preRenderFunction();
 	svgMap.refreshScreen();
-});
+}
+
+window.renderData = renderData;
 
 window.preRenderFunction=function(){
 	//console.log("Called window.preRenderFunction, svgMap:",svgMap,"  svgImage:",svgImage," layerID:",layerID);
@@ -135,7 +146,7 @@ function setPoiTile(tileData, tileG){
 		poi.setAttribute("xlink:title",poiDat[2][titleCol]);
 		poi.setAttribute("content",poiDat[2].join(","));
 		poi.setAttribute("transform","ref(svg,"+Number(poiDat[0])*100+","+(-Number(poiDat[1])*100)+")" );
-		console.log(poi);
+		//console.log(poi);
 		tileG.appendChild(poi);
 	}
 }
@@ -311,10 +322,10 @@ async function getPrefDamData(){ // 県単位のデータ(平時の位置を表�
 //	var timeSt="https://www.river.go.jp/kawabou/file/system/rwCrntTime.json";
 //	var timeStamp = (await fetchJson(timeSt,true)).crntRwTime;
 	var timeSt="https://www.river.go.jp/kawabou/file/system/tmCrntTime.json"; // これが正しい？
-	var timeStamp = (await fetchJson(timeSt,true)).crntObsTime;
+	let  timeStampD = (await fetchJson(timeSt,true)).crntObsTime;
 	
-	timeStamp=new Date(timeStamp);
-	timeStamp = getDateTimeStr(timeStamp);
+	timeStampD=new Date(timeStampD);
+	let timeStamp = getDateTimeStr(timeStampD);
 	var damJsonBase = damJsonPrefBaseURL.replace("[[datetime]]",timeStamp);
 	console.log(timeStamp,damJsonBase);
 	
@@ -337,17 +348,17 @@ async function getPrefDamData(){ // 県単位のデータ(平時の位置を表�
 	}
 	console.log("Finished!",tjp);
 	document.getElementById("prg").innerText="";
-	return (printCsv(damData));
+	return ({csv:printCsv(damData, timeStampD),timeStamp:timeStampD});
 }
 
 async function getDamData(damUrl){ // 全国のデータ(警戒情報の位置を表示する方)
 //	var timeSt="https://www.river.go.jp/kawabou/file/system/rwCrntTime.json";
 //	var timeStamp = (await fetchJson(timeSt,true)).crntRwTime;
 	var timeSt="https://www.river.go.jp/kawabou/file/system/tmCrntTime.json"; // これが正しい？
-	var timeStamp = (await fetchJson(timeSt,true)).crntObsTime;
+	let  timeStampD = (await fetchJson(timeSt,true)).crntObsTime;
 	
-	timeStamp=new Date(timeStamp);
-	timeStamp = getDateTimeStr(timeStamp);
+	timeStampD=new Date(timeStampD);
+	let timeStamp = getDateTimeStr(timeStampD);
 	
 	//timeStamp = "20220427/1120"; // for debug
 	
@@ -355,15 +366,15 @@ async function getDamData(damUrl){ // 全国のデータ(警戒情報の位置�
 	damData = await fetchJson(damUrl,null)
 	console.log("Finished!",damData);
 	document.getElementById("prg").innerText="";
-	return (printCsv(damData));
+	return ({csv:printCsv(damData, timeStampD),timeStamp:timeStampD});
 }
 
-function printCsv( camData ){
+function printCsv( camData, timeStampDate ){
 	// geoJsonのpropertiesは単層構造なことを前提としていて、且つ最初のfeatureレコードに全部のプロパティがあることを前提として正規化しているｗｗｗ
 	var schema = [];
 	var ansTxt = "";
 	
-	document.getElementById("prg").innerText=camData.features.length+"レコードのデータがあります";
+	document.getElementById("prg").innerHTML=`<span style="font-size:12px">${camData.features.length}レコードのデータがあります。 ${timeStampDate.toLocaleString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}更新</span>`;
 	
 	for ( var cam of camData.features ){
 		var prop = cam.properties;
@@ -384,4 +395,29 @@ function printCsv( camData ){
 		window.pixelColor.colorEvaluatorCol = colorEvaluatorCol;
 	}
 	return(ansTxt);
+}
+
+function buildLegend(){
+	const legendDiv = document.getElementById("legendDiv");
+	if ( !legendDiv){return}
+	if (!window.statDict){return}
+	const fontSize = 12;
+	legendDiv.style.fontSize=`${fontSize}px`;
+	for ( let sk in window.statDict){
+		const legendDat = window.statDict[sk];
+		const iconG =  svgImage.getElementById(legendDat[1].substring(1));
+		const iconC = iconG.getElementsByTagName("image");
+		let iconImg, iconWidth, iconHeight;
+		if ( iconC && iconC.length>0){
+			iconImg = iconC[0].getAttribute("xlink:href");
+			iconWidth = iconC[0].getAttribute("width");
+			iconHeight = iconC[0].getAttribute("height");
+		}
+		iconWidth = Math.floor(iconWidth/iconHeight*fontSize);
+		iconHeight=fontSize;
+		if ( iconImg ){
+			legendDiv.insertAdjacentHTML("afterbegin",`<li><img height="${iconHeight}px" width="${iconWidth}px" src="${iconImg}"> : ${legendDat[0]}`);
+		}
+	}
+	legendDiv.insertAdjacentHTML("afterbegin","凡例");
 }

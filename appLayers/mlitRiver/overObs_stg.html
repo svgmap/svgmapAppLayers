@@ -16,13 +16,15 @@ var pixelColor = {
 			ans = 3;
 		}else if ( meta == 60){ // 避難判断水位超過
 			ans = 2;
-		} else if (meta > 60){ //  氾濫危険水位超過
+		} else if (meta == 80){ //  氾濫危険水位超過
 			ans = 1;
+		} else if (meta == 90){ //  氾濫開始水位超過
+			ans = 0;
 		}
 		//console.log("pixelColor eval:", ans);
 		return ( ans );
 	} ,
-	table:[[80,0,0,255],[128,0,128,255],[255,0,0,255],[230,120,0,255],[140,255,180,255]], // 茶, 紫, 赤, 黄, 緑
+	table:[[0,0,0,255],[128,0,128,255],[255,0,0,255],[200,120,0,255],[140,255,180,255]], // 黒, 紫, 赤, 黄, 緑
 	colorEvaluatorKey:"stg_ovlvl",
 	colorEvaluatorCol:-1
 }
@@ -32,15 +34,16 @@ var statDict={
 	30:["氾濫注意水位超過","#p2"],
 	60:["避難判断水位超過","#p1"],
 	80:["氾濫危険水位超過","#p0"],
-	90:["氾濫危険水位超過","#p0"], // 90はないのかも・・
+	90:["氾濫開始水位超過","#pb"], // 90はないのかも・・
 }
 </script>
 
 <script type="module" src="./damMain.js"></script>
 <body>
-<h2>川の防災情報　警戒水位レイヤー</h2>
-<p><a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>の水位計情報をマッシュアップしています</p>
+<h3>川の防災情報　水位観測所(警報)レイヤー</h3>
+<p style="font-size:12px" >出典：<a target="_blank" href="https://www.river.go.jp/kawabou/ipTopGaikyo.do">国土交通省　川の防災情報</a>の水位計情報</p>
 <div id="prg"></div>
 <div id="poiInfoDiv" style="display:true;font-size:10px">--</div>
+<div id="legendDiv"></div>
 </body>
 </html>

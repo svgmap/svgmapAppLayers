@@ -167,7 +167,7 @@
 <animation class="気象" title="ナウキャスト(降雪)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=10&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="ナウキャスト(落雷)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=1&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="ナウキャスト(竜巻)(JMA)" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=2&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/tenkizu/tenkizu_r1.svg#noforecast" title="天気図" data-cross-origin-proxy-required="true" class="気象" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jma/tenkizu/tenkizu_r1.svg" title="天気図" data-cross-origin-proxy-required="true" class="気象" visibility="hidden"/>
 <animation class="気象 clickable" title="気象庁_2021_VectorData" xlink:href="./appLayers/jma/jma_vm.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象" title="気象庁_2021_火山" xlink:href="./appLayers/jma/jma_volcano.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
 <animation class="気象" title="気象庁_2021_推計震度分布" xlink:href="./appLayers/jma/jma_EQ_suikei.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.7"/> 
