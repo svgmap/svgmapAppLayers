@@ -194,6 +194,7 @@
 <animation xlink:href="./authoringLayers/local/csvLayer/multiCsvView.svg" title="保存済み複数CSVデータ表示" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.75" visibility="hidden"/>
 -->
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ2021" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/mhlw_IryouNet/IryouNetPoi.svg" title="厚労省 病院・診療所・薬局等" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/><!-- #HOSPITAL など大文字でカテゴリ名入れるとカテゴリ固定レイヤ化可能-->
 <animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 

@@ -52,21 +52,21 @@
 	        <span>
 	        Landsat (-)[30m]
 	        </span>
-	        <img src="question_mark.png" alt="ヘルプ" title="Landsatは、アメリカが運用している地球観測衛星です。高解像度な画像を提供します。">
+	        <img onclick="showTip(event)" src="info_icon.png" height="14" style="vertical-align: bottom;cursor: help;" alt="ヘルプ" title="Landsatは、アメリカが運用している地球観測衛星です。高解像度な画像を提供します。">
 	    </div>
 	    <div >
 	        <span  style="background: rgb(255, 0 , 0);">　</span>
 	        <span>
 	            VIIRS (S-NPP, NOAA-20 &amp; NOAA-21) [375m]
 	        </span>
-	        <img src="question_mark.png" alt="ヘルプ" title="VIIRSは、気象衛星に搭載されたセンサーで、火災や夜間の光を観測するのに適しています。">
+	        <img onclick="showTip(event)" src="info_icon.png" height="14" style="vertical-align: bottom;cursor: help;" alt="ヘルプ" title="VIIRSは、気象衛星に搭載されたセンサーで、火災や夜間の光を観測するのに適しています。">
 	    </div>
 	    <div >
 	        <span  style="background: rgb(255, 0, 0);">　</span>
 	        <span>
 	            MODIS (Aqua &amp; Terra) [1km]
 	        </span>
-	        <img src="question_mark.png" alt="ヘルプ" title="MODISは、地表や雲、エアロゾルなどを観測するセンサーです。広範囲を迅速に観測できます。">
+	        <img onclick="showTip(event)" src="info_icon.png" height="14" style="vertical-align: bottom;cursor: help;" alt="ヘルプ" title="MODISは、地表や雲、エアロゾルなどを観測するセンサーです。広範囲を迅速に観測できます。">
 	    </div>
 	</div>                
 	<div id="clk_legend_hourly" style="display:none"><span>HOURS</span>
@@ -88,6 +88,31 @@
 </div>
 
 <div id="msgDiv" style="font-size:11px"></div>
+
+<script>
+function showTip(event) {
+  const text = event.target.title;
+
+  const tip = document.createElement("div");
+  tip.textContent = text;
+  tip.style.cssText = `
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    max-width: 90%;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 9999;
+  `;
+
+  document.body.appendChild(tip);
+
+  setTimeout(() => tip.remove(), 2000);
+}
+</script>
 
 </body>
 

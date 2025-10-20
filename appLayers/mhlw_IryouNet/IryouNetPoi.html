@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>厚生労働省　医療情報ネットオープンデータPOI可視化</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="QTCTrenderer.js"></script>
+<script src="csvMapper.js"></script>
+
+<script type="module">
+import {extractLatestMedicalDataUrls, fetchBinaryDataWithProgress} from "./lryouNetSrcPathExtractor.js";
+import {unzip} from './unzipit.module.js';
+import {parseCsv, generateCsv, cleanseCsvCell} from './parseCsv.js';
+window.extractLatestMedicalDataUrls = extractLatestMedicalDataUrls;
+window.unzip = unzip;
+window.parseCsv = parseCsv;
+window.generateCsv = generateCsv;
+window.cleanseCsvCell = cleanseCsvCell;
+window.fetchBinaryDataWithProgress = fetchBinaryDataWithProgress;
+</script>
+
+<script>
+// Description:
+// 厚生労働省　医療情報ネットオープンデータPOIをソースサイトから直DLしClientSideQTCTしたうえで可視化する
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+const srcIndexHtmlUrl="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryou/newpage_43373.html";
+
+const catDict={
+	"hospital":["病院","21px-Hospital-14.svg.png"],
+	"clinic":["診療所","21px-Doctors-14.svg.png"],
+	"dental":["歯科医院","21px-Dentist-14.svg.png"],
+	"maternity":["産婦人科医院","21px-Doctors-14.svg.png"],
+	"pharmacy":["処方箋薬局","21px-Pharmacy-14.svg.png"],
+}
+
+const excludeCatName ="speciality_hours";
+
+addEventListener("load",  function(){
+	init();
+});
+
+
+let poiURLs;
+
+async function init(){
+	const htmlSource = await ( await fetch(svgMap.getCORSURL(srcIndexHtmlUrl))).text();
+	//console.log(htmlSource);
+	const urls = extractLatestMedicalDataUrls(htmlSource, srcIndexHtmlUrl);
+	poiURLs = urls.url;
+	dateUpdated.innerText=`データ更新:${urls.date.toLocaleDateString("ja-JP")}`;
+//	console.log(urls, urls["01-1_hospital_facility_info"]);
+	csvMapper.onload();
+	csvMapper.setMessageDiv(messageDiv);
+	initSelection();
+	processHash();
+}
+
+function processHash(){
+	const shash = svgImageProps.hash;
+	console.log("processHash : ",shash,  shash.length > 1 , catDict[shash.substring(1)]);
+	let cCat=null;
+	if ( shash.length > 1 && catDict[shash.substring(1).toLowerCase()]){
+		cCat = shash.substring(1).toLowerCase();
+		if ( shash.substring(1) != shash.substring(1).toLowerCase() ){ // 大文字で指定されているのでこれはメニュー消すタイプ
+			catSelection.style.display="none";
+			catSpan.innerText=" "+catDict[cCat][0];
+		}
+	}
+	selectCat(cCat);
+}
+
+async function viewMap(cat,icon){
+	const csv = await getCsvData(svgMap.getCORSURL(poiURLs[cat])); // とりあえず病院を可視化してみる
+	//console.log(csv);
+	drawMap(csv,icon);
+}
+
+
+function getPosCols(csvArray){
+	var schema = csvArray[0];
+	var lat,lng,title=-1;
+	for ( var i = 0 ; i < schema.length ; i++){
+		if ( schema[i].indexOf("緯度")>=0){
+			lat = i;
+		} else if ( schema[i].indexOf("経度")>=0){
+			lng = i;
+		} else if ( title<0 && (schema[i].indexOf("名称")>=0 )){
+			title = i;
+		}
+	}
+	
+	return {lat,lng,title};
+}
+
+
+async function drawMap(csv,iconPath){
+	const csvArray = parseCsv(csv);
+	const primitivSchema = getPosCols(csvArray);
+	console.log(csvArray);
+	const ccsv = generateCsv(csvArray);
+	//console.log(ccsv);
+	if ( !iconPath){
+		iconPath = svgImage.getElementById("p0").getElementsByTagName("image")[0].getAttribute("xlink:href")
+	}
+	var iconDataURL=await imageToDataURIByPath(iconPath);
+	
+	csvMapper.initCsv(ccsv, primitivSchema.lat, primitivSchema.lng, primitivSchema.title, iconDataURL, null, 1 );
+}
+
+
+function imageToDataURIByPath(filePath) { // 指定したパスの画像のdataURIを得る
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', filePath, true);
+		xhr.responseType = 'arraybuffer';
+		xhr.onload = () => {
+			if (xhr.status === 200   
+			) {
+				const arrayBuffer = xhr.response;
+				const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+				const dataURI = `data:image/png;base64,${base64}`;
+				resolve(dataURI);
+			} else {
+				reject(new Error('Failed to load file'));
+			}
+		};
+		xhr.onerror = (error) => {
+			reject(error);
+		};
+		xhr.send();
+	});
+}
+
+async function getCsvData(srcUrl){
+	const zipAB = await fetchBinaryDataWithProgress(srcUrl,function(size,total){
+		messageDiv.innerText=(`downloading : ${Math.floor(size/1024)}KB / ${Math.floor(total/1024)}KB`);
+	});
+//	var zipArchive = await unzip(srcUrl);
+	const zipArchive = await unzip(zipAB);
+	var targetKey;
+	for ( var fk in zipArchive.entries){
+		if ( fk.indexOf(".csv")>0){
+			targetKey = fk;
+		}
+//		console.log(fk);
+	}
+	if ( targetKey){
+		var csv = await zipArchive.entries[targetKey].text();
+//		console.log(csv);
+		return csv;
+	} else {
+		return null;
+	}
+}
+
+
+function initSelection(){
+	console.log("initSelection:",poiURLs);
+	catSelection.innerHTML="";
+	var ck="checked";
+	for ( var key in poiURLs){
+		if ( key.indexOf(excludeCatName)<0){
+			for ( var kk in catDict){
+				if (  key.indexOf(kk)>=0){
+					var title = catDict[kk][0];
+					var icon = catDict[kk][1];
+					catSelection.insertAdjacentHTML("beforeend",`<li><input type="radio" id="i_${key}" name="iCat" value="${key}" data-hashkey="${kk}" data-icon="${icon}" ${ck}><label for="i_${key}">${title}</label>`);
+					ck="";
+					break;
+				}
+			}
+		}
+	}
+}
+
+
+function selectCat(cCat){
+	console.log("selectCat:", cCat);
+	var lis = catSelection.getElementsByTagName("input");
+	if ( cCat ){
+		for ( var rdo of lis ){
+			if ( rdo.getAttribute("data-hashkey" ) == cCat ){
+				rdo.checked = true;;
+				break;
+			}
+		}
+	}
+	
+	for ( var rdo of lis ){
+		if ( rdo.checked ){
+			var cat = rdo.value;
+			viewMap(cat,rdo.getAttribute("data-icon"));
+			if(!cCat){
+				svgImageProps.hash ="#"+rdo.getAttribute("data-hashkey")
+			}
+			break;
+		}
+	}
+}
+window.selectCat=selectCat;
+</script>
+
+<body>
+<h4 style="margin-block-start: 0.5em;margin-block-end: 0.5em" id="frameTitle">厚生労働省　医療情報ネット<span id="catSpan">オープンデータPOI</span></h4>
+<div id="messageDiv" style="color:red;display:;font-size:11px;height:14px;">　</div>
+
+<div style="font-size:12px;" >出典：<a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryou/newpage_43373.html" target="_blank">厚生労働省 医療情報ネットのオープンデータ</a></div>
+<div style="font-size:12px" id="dateUpdated"></div>
+
+
+<div id="catSelection" onchange="selectCat()">　<br>　<br>　<br></div>
+<!--
+<table style="font-size:12px;"><tbody id="filterUI"><tr><th colspan="2">表示カテゴリ</th></tr></tbody></table>
+<input type="button" value="表示カテゴリ決定" onclick="filterCat()"></input>
+-->
+
+<span id="saveUI" style="display:none">
+<button  style="font-size:10px;" id="saveGJS-button">GeoJSON を保存</button>
+<button  style="font-size:10px;" id="saveCSV-button">CSV を保存</button>
+</span>
+</body>
+</html>

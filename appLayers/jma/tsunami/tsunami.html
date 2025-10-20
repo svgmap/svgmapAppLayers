@@ -40,8 +40,24 @@ var wcodeKeys={
 	"71":"royalblue", // 津波予報
 	"72":"royalblue", // 津波予報
 	"73":"royalblue", // 津波予報
-}
+};
+
+const wNames =[
+	["00","津波なし"],
+	["71", "津波予報"],
+	["72", "津波予報"],
+	["73", "津波予報"],
+	["60", "津波注意報解除"],
+	["62", "津波注意報"],
+	["50", "津波警報解除"],
+	["51", "津波警報"],
+	["52",  "大津波警報"],
+	["53",  "大津波警報"],
+];
+
 /**
+https://www.data.jma.go.jp/suishin/catalogue/format/SvdEpi_Sonota-Joho_Tokai-Chosa_Code_format.pdf
+https://xml.kishou.go.jp/20120615_jmaxml_info_old.pdf 【シート14】
 00 - 津波なし
 71/72/73 - 津波予報系
 60 - 津波注意報解除系
@@ -49,6 +65,18 @@ var wcodeKeys={
 50 - 津波警報解除系
 51 - 津波警報系
 52/53 - 大津波警報系
+
+===シート14抜粋===
+00　津波なし
+50　警報解除　大津波警報または津波警報の解除
+51　津波警報
+52　大津波警報
+53　大津波警報：発表　大津波警報の新規発表または切替（移行措置用電文のCodeには"52"を記載する）
+60　津波注意報解除
+62　津波注意報
+71　津波予報（若干の海面変動）
+72　津波予報（若干の海面変動）津波注意報解除、津波予報（若干の海面変動）への切替
+73　津波予報（若干の海面変動）大津波警報または津波警報の解除、津波予報（若干の海面変動）への切替
 **/
 	
 onload = async function(){
@@ -78,6 +106,7 @@ onload = async function(){
 	initTtable();
 
 	showInfo(0,'warn')
+	buildLegend(document.getElementById("legend"));
 }
 
 
@@ -315,10 +344,33 @@ function removeChildren(ele){
 	}
 }
 
+function buildLegend(targetDiv){
+	const legends =[];
+	const colors = {};
+	for ( let wName of wNames){
+		const code = wName[0];
+		if (wcodeKeys[code] && !colors[wcodeKeys[code]] ){
+			legends.push([wName[1],wcodeKeys[code]]);
+			colors[wcodeKeys[code]]=true;
+		}
+		console.log(code,wName);
+	}
+	console.log(legends);
+	var tbl = document.createElement("table");
+	tbl.setAttribute("width",100);
+	tbl.style.backgroundColor="#dde";
+	tbl.insertAdjacentHTML("beforeend",`<tr><td style="color:red">●</td><td>震央</td></tr>`);
+	for ( legend of legends){
+		tbl.insertAdjacentHTML("beforeend",`<tr><td style="color:${legend[1]}">■</td><td>${legend[0]}</td></tr>`);
+	}
+	targetDiv.appendChild(tbl);
+}
+
 </script>
 <body>
 <h4>気象庁　津波レイヤー</h4>
-<div style="font-size:12px">出典：<a href="https://www.jma.go.jp/bosai/map.html#4/28.684/138.46/&elem=warn&contents=tsunami" target="_blank">気象庁ホームページ　津波情報</a>を加工して作成</div>
+<div style="font-size:10px">出典：<a href="https://www.jma.go.jp/bosai/map.html#4/28.684/138.46/&elem=warn&contents=tsunami" target="_blank">気象庁ホームページ　津波情報</a>を加工して作成</div>
 <table id="ttable"><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr></table>
+<div id="legend" style="font-size:12px;display: flex;">凡例:</div>
 </body>
 </html>
