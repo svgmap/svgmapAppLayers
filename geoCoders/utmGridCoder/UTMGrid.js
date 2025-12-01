@@ -192,12 +192,12 @@ method.getXYZnFromGridString = function(GridString){
 	}
 	var ec = remainder.substring(0,remainder.length/2);
 	var nc = remainder.substring(remainder.length/2);
+	var accuracy = Math.pow(10, 5 - ec.length);
 	
 	// make Number
 	zoneNum = Number(zoneNum);
-	ec = Number(ec)* Math.pow(10, 5 - ec.length);
+	ec = Number(ec)* accuracy;
 	nc = Number(nc)* Math.pow(10, 5 - nc.length);
-	
 	// calc
 	var eGr = (zoneNum-1) % 3;
 	var nGr = (zoneNum-1) % 2;
@@ -230,7 +230,7 @@ method.getXYZnFromGridString = function(GridString){
 	if ( north < 0 ){ // 2020/12/16 UTMLatLng.jsと仕様を合わせる
 		unorth += 10000000;
 	}
-	return {Easting:east,Northing:unorth,ZoneNumber:zoneNum,ZoneLetter:zoneLetter,signedNorthing:north}
+	return {Easting:east,Northing:unorth,ZoneNumber:zoneNum,ZoneLetter:zoneLetter,signedNorthing:north,accuracy}
 }
 
 

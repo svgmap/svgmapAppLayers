@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="id,type,latitude,longitude,title,address,spec" data-controller="utmGridCoderUI.html#exec=appearOnLayerLoad&amp;requiredHeight=300">
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-42.8202042942663, -49.9999999999999, 513.842451531196, 600" xmlns:go="http://purl.org/svgmap/profile"  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" property="id,type,latitude,longitude,title,address,spec" data-controller="utmGridCoderUI.html#exec=appearOnLayerLoad">
 
 <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100,0,0,-100,0,0)" />
 <defs>
  <g id="p0" >
-  <image xlink:href="mappin.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>
+ <circle cx="0" cy="0" fill="none" r="5" stroke="red" stroke-width="2"/>
+<!--  <image xlink:href="mappin.png" preserveAspectRatio="none" x="-8" y="-25" width="19" height="27"/>-->
  </g>
 </defs>
+
+<g id="gridLines" fill="none" fill-rule="evenodd" stroke="orange" stroke-width="1" opacity="1" vector-effect="non-scaling-stroke" stroke-linejoin="bevel"></g>
+<g id="gridLine" fill="none" fill-rule="evenodd" stroke="peru" stroke-width="1" opacity="1" vector-effect="non-scaling-stroke" stroke-linejoin="bevel"></g>
 </svg>

@@ -7,6 +7,10 @@
 <script type="text/javascript" src="./UTMGrid.js"></script>
 <script type="text/javascript">
 // Description: UTM Grid geocoder layer for SVGMap.js
+// 
+// History:
+// 2020/12/16 : 1st release
+// 2025/11/28 : show grid lines on map function
 //
 // Programmed by Satoru Takagi
 // 
@@ -32,6 +36,7 @@ function initPOIUI(){
 	getPointOnly = false;
 	if ( typeof(svgMapAuthoringTool)=="object" ){
 		svgMapAuthoringTool.initPOIregistTool(poiUI,svgImageProps.rootLayer,"poi0","p0","title","",cbFunc,"cbFuncParam",getPointOnly);
+		poiUI.getElementsByTagName("input")[2].style.display="none";
 	}
 	setTimeout(testZoom,1000);
 }
@@ -49,53 +54,433 @@ function cbFunc(param1,param2){
 
 function button_click(){
 	try{
+		if ( isNaN(lngI.value) ||  isNaN(latI.value) ){ 
+			resultP.innerText="経緯度が数値ではありません";
+			return
+		}
 		var ugcode = utmg.getGridStringFromLngLat(lngI.value, latI.value, 1);
 		console.log("ugcode:",ugcode);
-		resultP.innerText="ugcode: "+ ugcode;
-		utmcodeI.value=ugcode;
+		resultP.innerText= ugcode;
+		svgMap.setGeoCenter( Number(latI.value) , Number(lngI.value) );
+		//utmcodeI.value=ugcode;
 	} catch ( err ){
-		resultP.innerText="マップコードはありません";
+		resultP.innerText="コードはありません";
 		utmcodeI.value="";
 	}
 }
 
 function button_click2(){
 	console.log("button_click2 :", utmcodeI.value);
-	var latlng = utmg.getLngLatFromGridString(utmcodeI.value);
+	var latlng = utmg.getLngLatFromGridString((utmcodeI.value).trim());
 	console.log("latlng :", latlng);
-	var utmgCode = utmg.getGridStringFromLngLat(latlng.lng, latlng.lat,1);
+	if ( !latlng ){ return }
+	var accuracy = latlng.utm.accuracy
+	var utmgCode = utmg.getGridStringFromLngLat(latlng.lng, latlng.lat,accuracy);
 	console.log("utmgCode:",utmgCode,  utmcodeI.value);
 //	console.log("latlng:",dutmgCoder.getLatLng(utmgCode));
 	latI.value=latlng.lat;
 	lngI.value=latlng.lng;
-	resultP.innerText="lat,lng: "+latlng.lat+","+latlng.lng;
+//	resultP.innerText="lat,lng: "+latlng.lat+","+latlng.lng;
+	resultP.innerText=utmgCode;
+	setResultRes(accuracy);
+	
 	svgMap.setGeoCenter( Number(latlng.lat) , Number(latlng.lng) );
 }
 
+function setResultRes(accuracy){
+	for ( var opt of resultRes.options){
+		if ( opt.value == accuracy){
+			opt.selected = true;
+			break;
+		}
+	}
+}
+
+
 function testZoom(){
+	var vb = svgMap.getGeoViewBox();
+	var accuracy = Number(resultRes.options[resultRes.selectedIndex].value);
+	var utmgCode = utmg.getGridStringFromLngLat(vb.cx, vb.cy,accuracy);
 	if ( putGlobalMessage ){
-		var vb = svgMap.getGeoViewBox();
-		var utmgCode = utmg.getGridStringFromLngLat(vb.cx, vb.cy,1);
 		putGlobalMessage("MGRScode: "+utmgCode);
-		document.getElementById("resultP").innerText=utmgCode;
+	}
+	document.getElementById("resultP").innerText=utmgCode;
+	let toBeRefreshScreen = removeTargetUse();
+	if ( gridShow.checked){
+		showCentralGrid(vb,utmg,accuracy);
+		showGrid(vb,utmg);
+		//showCentralGrid(vb,utmg,accuracy);
+		toBeRefreshScreen = true;
+	} else {
+		showCentralGrid(vb,utmg,accuracy);
+		toBeRefreshScreen = true;
+	}
+	if(toBeRefreshScreen){
+		svgMap.refreshScreen();
+	}
+
+	latI.value=vb.cy.toFixed(6);
+	lngI.value=vb.cx.toFixed(6);
+}
+
+function removeTargetUse(){
+	var targetUse = svgImage.getElementById("poi0");
+	if ( targetUse ){
+		targetUse.parentElement.removeChild(targetUse);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+function showGrid(vb,utmGridInstance){
+	var targetG = svgImage.getElementById("gridLines");
+	removeChildren(targetG);
+	const accuracy = getGridAccuracy(vb);  // UTMグリッドのサイズ（[m]単位だよね）
+	if ( !accuracy ){
+		showCentralGrid(vb,utmGridInstance);
+		gridMessage.innerText="拡大してください";
+		return;
+	}
+	gridMessage.innerText=`グリッドサイズ ${accuracy>100?(accuracy/1000+"K"):accuracy}m`;
+	const spr = 0.7; // 歪んでるので、少しオーバーサンプルする
+	// x,ySpacingは、accuracyをそれぞれの軸の度単位に概ね変換した値に8掛けぐらいした値とする
+	// これにより、重複はあり得るが（重複は連想配列によって除去）ビューポート内のグリッド点を確実に得られるだろう（ただしこの時点ではゾーン境界は加味してない）
+	xSpacing = spr * 360 * ( accuracy / (40000000 * Math.cos(vb.cy * Math.PI / 180))); // 地図中心の緯度における、グリッドの経度方向のサイズ[度]のspr掛け
+	ySpacing = spr * 360 * ( accuracy / (40000000 )); // グリッドの緯度方向のサイズ[度]のspr掛け
+	
+	
+	const gridPoints ={}; // ゾーンごとに入れる
+	
+	function registZone(xyz,swGridString){
+		if ( !gridPoints[xyz.ZoneNumber]){
+			gridPoints[xyz.ZoneNumber]={};
+		}
+		if ( !gridPoints[xyz.ZoneNumber][xyz.Northing]){
+			gridPoints[xyz.ZoneNumber][xyz.Northing] = {};
+		}
+		if ( ! gridPoints[xyz.ZoneNumber][xyz.Northing][xyz.Easting]){
+			const pos = utmGridInstance.utmc.convertUtmToLatLng( xyz.Easting, xyz.Northing,xyz.ZoneNumber, xyz.ZoneLetter);
+			if ( xyz.EastEdge ){
+				pos.EastEdge=true;
+			}
+			gridPoints[xyz.ZoneNumber][xyz.Northing][xyz.Easting]={code:swGridString,pos};
+		}
+	}
+	
+	for ( let y = vb.y - ySpacing ; y <= vb.y + vb.height + 2 * ySpacing ; y+= ySpacing){
+		let prevZ=null; // 1ステップ前のゾーン番号を入れる
+		for ( let x = vb.x - xSpacing ; x <= vb.x + vb.width + 2 * xSpacing ; x+= xSpacing){
+			const swGridString = utmGridInstance.getGridStringFromLngLat(x, y, accuracy);
+			const xyz = utmGridInstance.getXYZnFromGridString(swGridString);
+			if ( prevZ && xyz.ZoneNumber != prevZ){
+				// ゾーン境界を検知
+				// 後(経度が大きい側)のゾーン端
+				const nx = Math.floor(x/6)*6;
+				const nGridString = utmGridInstance.getGridStringFromLngLat(nx, y, accuracy);
+				const nxyz = utmGridInstance.getXYZnFromGridString(nGridString);
+				registZone(nxyz,nGridString);
+				// 前(経度が小さい側)のゾーン端
+				const px = nx - 0.00000001;
+				const pGridString = utmGridInstance.getGridStringFromLngLat(px, y, accuracy);
+				const pxyz = utmGridInstance.getXYZnFromGridString(pGridString);
+				registZone(pxyz,pGridString);
+				// 前のゾーンの東端をつくる
+				const pwxyz = {
+					Easting:pxyz.Easting + accuracy,
+					Northing:pxyz.Northing,
+					ZoneNumber:pxyz.ZoneNumber,
+					ZoneLetter:pxyz.ZoneLetter,
+					signedNorthing:pxyz.signedNorthing,
+					EastEdge:true
+				}
+				registZone(pwxyz,pGridString);
+				console.log("ゾーン境界です:",prevZ,xyz.ZoneNumber,nGridString,pGridString);
+			}
+			registZone(xyz,swGridString);
+			prevZ = xyz.ZoneNumber;
+		}
+	}
+	console.log(gridPoints);
+	
+	
+	let poss;
+	for ( var zn in gridPoints){
+		// 東西の線をつくる
+		for ( var north in gridPoints[zn]){
+			const easts = Object.keys(gridPoints[zn][north]).sort();
+			//console.log("zoneN:",zn,"  N:",north," Es:",easts);
+			poss=[];
+			for ( var east of easts){
+				const swGridObj = gridPoints[zn][north][east];
+				poss.push({swGridString:swGridObj.code,pos:swGridObj.pos});
+			}
+			//console.log(pos,eastest,accuracy);
+//			console.log(poss);
+			drawLines(poss,"E",targetG,true);
+		}
+		// 南北の線をつくる
+		const northD = {};
+		for ( var north in gridPoints[zn]){
+			for ( var east in gridPoints[zn][north]){
+				if ( !northD[east]){
+					northD[east] ={};
+				}
+				northD[east][north]=true;
+			}
+		}
+		for ( var east in northD){
+			const norths = Object.keys(northD[east]).sort();
+//			console.log("zoneN:",zn,"  E:",east," Ns:",norths);
+			poss=[];
+			for ( var north of norths){
+				const swGridObj = gridPoints[zn][north][east];
+				poss.push({swGridString:swGridObj.code,pos:swGridObj.pos});
+			}
+			drawLines(poss,"N",targetG);
+		}
+	}
+	
+	
+
+}
+
+function removeChildren(parent){
+	while(parent.firstChild){
+		parent.removeChild(parent.firstChild);
+	}
+}
+
+function drawLines(poss,ne,targetG,addTxt){
+	if ( poss.length < 2 ){return}
+	for ( let i = 0 ; i < poss.length -1 ; i++){
+		const posCode = poss[i].swGridString;
+		/**
+		var target = g.getElementById("UG:"+ne+"_"+posCode);
+		if ( target ){return}
+		**/
+		const pos0 = poss[i].pos;
+		const pos1 = poss[i+1].pos;
+		const path = svgImage.createElement("path");
+		path.setAttribute("d",`M${pos0.lng*100},${-pos0.lat*100} ${pos1.lng*100},${-pos1.lat*100}z`);
+		path.setAttribute("id",`UG:${ne}_${posCode}`);
+//		console.log(path);
+		targetG.appendChild(path);
+		if ( addTxt && !pos0.EastEdge){
+			drawText(pos0.lng, pos0.lat,posCode,targetG);
+		}
+	}
+}
+
+function drawText(lng,lat,code,targetGroup){
+	var txt = svgImage.createElement("text");
+	txt.setAttribute("x",5);
+	txt.setAttribute("y",0);
+	txt.setAttribute("transform",`ref(svg,${lng*100},${-lat*100})`);
+	txt.setAttribute("fill","red");
+	txt.setAttribute("font-size",10);
+	txt.textContent=code;
+	targetGroup.appendChild(txt);
+}
+
+function showCentralGrid(vb,utmg, accuracy){
+	var gridBox = getCenterGridCornersForBBox(utmg, vb, accuracy);
+	console.log(gridBox);
+	if ( gridBox){
+		drawCentralGrid(gridBox.sw,gridBox.se,gridBox.nw,gridBox.ne, gridBox.code);
+	}
+}
+
+function drawCentralGrid(sw, se, nw, ne, code, printText){
+	var target = svgImage.getElementById("UGC:"+code);
+	if ( target ){return}
+	var p =svgImage.createElement("path");
+	p.setAttribute("d",`M${sw.lng*100},${-sw.lat*100} L${nw.lng*100},${-nw.lat*100} ${ne.lng*100},${-ne.lat*100} ${se.lng*100},${-se.lat*100} ${sw.lng*100},${-sw.lat*100}z`);
+	var g = svgImage.getElementById("gridLine");
+	removeChildren(g);
+	p.setAttribute("data-code",code);
+	var gg = svgImage.createElement("g");
+	if ( printText){
+		var txt = svgImage.createElement("text");
+		txt.setAttribute("x",5);
+		txt.setAttribute("y",0);
+		txt.setAttribute("transform",`ref(svg,${sw.lng*100},${-sw.lat*100})`);
+		txt.setAttribute("fill","red");
+		txt.setAttribute("font-size",11);
+		txt.textContent=code;
+		gg.appendChild(txt);
+	}
+	gg.setAttribute("id","UGC:"+code);
+	gg.appendChild(p);
+	g.appendChild(gg);
+	
+}
+
+function getGridAccuracy(vb){
+	const latSW = vb.y;
+	const lngSW = vb.x;
+	const latNE = vb.y+vb.height;
+	const lngNE = vb.x+vb.width;
+	var STarget = (latNE - latSW)*111111 / 12;
+	// c. 最も近い標準 MGRS グリッドサイズ S に基づく精度 (accuracy) を決定
+	let accuracy 
+	
+	if (STarget < 1.0) {
+		accuracy = 1; // 1m
+	} else if (STarget < 10.0) {
+		accuracy = 10; // 10m
+	} else if (STarget < 100.0) {
+		accuracy = 100; // 100m
+	} else if (STarget < 1000.0) {
+		accuracy = 1000; // 1km
+	} else if (STarget < 10000.0) {
+		accuracy = 10000; // 10km
+	} else {
+		accuracy = null;
+	}
+
+	return accuracy;
+}
+
+/**
+ * ビューポート (BBox) の中心に最も近いMGRSグリッド区画の四隅を計算する。
+ * BBoxの対角線長の約1/8に相当するグリッドサイズ (精度) を自動選択する。
+ * * @param {UTMGrid} utmGridInstance - 既に初期化されたUTMGridのインスタンス
+ * @param {object} vb - ビューポート {x,y,width,height}
+ * @returns {object|null} {sw: {lat, lng}, se: {lat, lng}, nw: {lat, lng}, ne: {lat, lng}, accuracy: number}
+ */
+function getCenterGridCornersForBBox(utmGridInstance, vb, accuracy){
+	const latSW = vb.y;
+	const lngSW = vb.x;
+	const latNE = vb.y+vb.height;
+	const lngNE = vb.x+vb.width;
+	
+	// 1. 地図の中心点 (Center LatLng) を計算
+	const latCenter = (latSW + latNE) / 2.0;
+	const lngCenter = (lngSW + lngNE) / 2.0;
+	
+	if ( !accuracy){
+		accuracy = getGridAccuracy(vb); 
+		if ( !accuracy ){accuracy=10000};
+	}
+
+	// 3. 中心点のMGRSコードを算出し、そのグリッド区画の四隅を取得
+	
+	// a. 中心点のMGRSコードを取得 (UTMGridのメソッドを使用)
+	const centerGridString = utmGridInstance.getGridStringFromLngLat(lngCenter, latCenter, accuracy);
+	console.log(" centerGridResult:",centerGridString);
+	if (!centerGridString) {
+		console.error("Could not generate MGRS string for center point.");
+		return null;
+	}
+	
+	// b. そのMGRSコードの四隅を取得 (前項で作成した関数 (getGridCornersFromGridString) を使用)
+	const corners = getGridCornersFromGridString(utmGridInstance, centerGridString);
+	
+	if (corners) {
+		// 返すオブジェクトを整理
+		const { sw, se, nw, ne } = corners;
+		return { sw, se, nw, ne, accuracy, code:centerGridString };
+	}
+	return null;
+}
+
+
+/**
+ * MGRSグリッドコードから、そのグリッド区画の四隅の緯度・経度座標を取得する。
+ * @param {string} GridString - 解析するMGRSグリッドコード (例: "53SRA7515000000")
+ * @returns {object|null} {sw: {lat, lng}, se: {lat, lng}, nw: {lat, lng}, ne: {lat, lng}, utm: {...}} 
+ * または、エラー時は null。
+ */
+function getGridCornersFromGridString(utmGridInstance, GridString){
+	// 1. MGRSコードを解析し、南西隅のUTM座標とゾーン情報を取得
+	var utmSW = utmGridInstance.getXYZnFromGridString(GridString);
+	
+	if (utmSW === null) {
+		console.log("Error parsing GridString.");
+		return null;
+	}
+
+	// 2. グリッドサイズ S を決定
+	// getXYZnFromGridStringの内部で、ec, ncは5桁を基準に処理されている。
+	// グリッドコードの座標部分 (remainder) の長さからグリッドサイズを決定。
+	var zoneNum = (GridString.split(/[A-Z]/))[0];
+	var remainder = GridString.substring(zoneNum.length);
+	var coordString = remainder.substring(3);
+	var L = coordString.length / 2; // Easting座標部分の桁数 (1〜5)
+	
+	// S = 10^(5 - L) [m]
+	var S = Math.pow(10, 5 - L);
+	
+	var E = utmSW.Easting;
+	var N = utmSW.Northing; // UTMLatLngに合わせて符号なし (南半球は+10000000) を使用
+	var zn = utmSW.ZoneNumber;
+	var zl = utmSW.ZoneLetter;
+	
+	// 3. 4点のUTM座標を計算 (南西隅を基準)
+	var utmCoords = {
+		// 南西 (SW): (E, N) - 既存のutmWGSから取得
+		sw: {Easting: E, Northing: N},
+		// 南東 (SE): (E + S, N)
+		se: {Easting: E + S, Northing: N},
+		// 北西 (NW): (E, N + S)
+		nw: {Easting: E, Northing: N + S},
+		// 北東 (NE): (E + S, N + S)
+		ne: {Easting: E + S, Northing: N + S}
+	};
+	
+	var corners = {};
+	
+	// 4. 4つのUTM座標をLatLngに変換
+	for (var key in utmCoords) {
+		if (utmCoords.hasOwnProperty(key)) {
+			// UTMLatLng.js の convertUtmToLatLng を使用
+			corners[key] = utmGridInstance.utmc.convertUtmToLatLng(
+				utmCoords[key].Easting, 
+				utmCoords[key].Northing, 
+				zn, 
+				zl
+			);
+		}
+	}
+	
+	// utmSWには符号付きNorthingも含まれているため、元の解析結果も返す
+	corners.utm = utmSW;
+	
+	return corners;
+}
+
+function changeGridShow(){
+	if ( gridShow.checked){
+		testZoom();
+	} else {
+		var targetG = svgImage.getElementById("gridLines");
+		removeChildren(targetG);
+		svgMap.refreshScreen();
+		gridMessage.innerText="";
 	}
 }
 
 </script>
 </head>
 
-<body>
+<body">
+<h4>    <a href="https://maps.gsi.go.jp/help/pdf/grid.pdf" target="_blank">UTMグリッド</a>(<a href="https://en.wikipedia.org/wiki/Military_Grid_Reference_System" target="_blank">MGRS</a>)コード<>緯度経度変換</h4>
+緯度経度からUTMグリッドを得る<br>
     緯度<input style="width:100px" type="text" id="latI" value="35" />, 
     経度<input style="width:100px" type="text" id="lngI" value="135" />
     <button onclick="button_click();">UTMグリッド(MGRS)コード取得</button>
     <hr>
-    <a href="https://maps.gsi.go.jp/help/pdf/grid.pdf" target="_blank">UTMグリッド</a>(<a href="https://en.wikipedia.org/wiki/Military_Grid_Reference_System" target="_blank">MGRS</a>)コード: <input type="text" id="utmcodeI" value="54SUE8224140361" />
-    <button onclick="button_click2();">緯度経度取得・地図移動</button>
-    <hr>
-    <p id="resultP"></p>
-    <hr>
-    地図からUTMグリッド(MGRS)コードを得る
+    地図からUTMグリッドコードを得る
     <div id="poiUI"></div>
-</body>
+    <hr>UTMグリッドコードから緯度経度に変換する
+<input type="text" id="utmcodeI" placeholder="例:54SUE82244036" />
+    <button onclick="button_click2();">緯度経度取得・地図移動</button>
+    <hr>UTMグリッドコード：<span id="utmgridcodeMsg"></span><br>
+<span id="resultP"></span> ： 分解能<select id="resultRes" onChange="testZoom()"><option value="1" selected>1m</option><option value="10">10m</option><option value="100">100m</option><option value="1000">1Km</option><option value="10000">10Km</option></select>
+   <hr>
+    <input type="checkbox" id="gridShow" onchange="changeGridShow()"></input><label for="gridShow">グリッド・メッシュ表示</label>　<span id="gridMessage"></span>
+ </body>
 
 </html>

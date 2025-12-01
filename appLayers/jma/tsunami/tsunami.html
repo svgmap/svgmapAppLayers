@@ -22,6 +22,7 @@
 // 2023/12/03 1st release
 // 2023/12/05 平時モード(clearweb.json対応実装)
 // 2023/12/05 震源標示
+// 2025/11/09 震源情報に深度があると表示されない問題対応
 
 var selInfoURL = "https://www.jma.go.jp/bosai/const/selectorinfos/tsunami.json";
 var geojsonURL = "https://www.jma.go.jp/bosai/common/const/geojson/tsunami.json";
@@ -141,7 +142,7 @@ async function showTwarn(dat){
 	var tfItems = dataJson.Body.Tsunami?.Forecast?.Item;
 	var toItems = dataJson.Body.Tsunami?.Observation?.Item;
 	var eqInfo=getEQfeatures(dataJson.Body.Earthquake);
-	
+	//console.log("eqInfo:",eqInfo);
 	var gjs = {type:'FeatureCollection',features:[]};
 	if ( eqInfo){
 		gjs.features = gjs.features.concat(eqInfo);
@@ -240,13 +241,18 @@ function getEQfeatures(eqList){
 			eqTime= eq.OriginTime;
 			eqMag = eq.Magnitude;
 			var eqp = parse6709(eq.Hypocenter.Area.Coordinate); // iso6709　震央
-			var eqpName = `${eq.Hypocenter.Area.Name} (magnitude ${eqMag})`; // エリア名
+			var eqpName;
+			if ( eqp.depth ){
+				eqpName = `${eq.Hypocenter.Area.Name} (magnitude ${eqMag}, depth ${Math.floor(eqp.depth/1000)}Km)`; // 深度付き
+			} else {
+				eqpName = `${eq.Hypocenter.Area.Name} (magnitude ${eqMag})`; // エリア名
+			}
 			var aName = eq.Hypocenter.Area.DetailedName;
 			var ft = {
 				type:"Feature",
 				geometry:{
 					type:"Point",
-					coordinates:eqp,
+					coordinates:[eqp.longitude,eqp.latitude],
 				},
 				properties:{title:eqpName,fTime:eqTime,"marker-symbol":"eqc",aName}
 			}
@@ -275,8 +281,15 @@ function getFeature(code, type, props){
 }
 
 function parse6709(str){
-	var m = str.match(/([+-][0-9\.]+)([+-][0-9\.]+)\//);
-	return [Number(m[2]),Number(m[1])];
+	//var m = str.match(/([+-][0-9\.]+)([+-][0-9\.]+)\//);
+	const m = str.match(/([+-][0-9\.]+)([+-][0-9\.]+)([+-][0-9\.]+)?\//); // 修正 2025/11/09
+	//console.log("parse6709:",m,"  str:",str);
+	if ( m[3] !== undefined ){
+		return {longitude:Number(m[2]),latitude:Number(m[1]),depth:(-Number(m[3]))}
+	} else {
+		return {longitude:Number(m[2]),latitude:Number(m[1])}
+	}
+//	return [Number(m[2]),Number(m[1])];
 }
 
 async function showTinfo(dat){
@@ -371,6 +384,7 @@ function buildLegend(targetDiv){
 <h4>気象庁　津波レイヤー</h4>
 <div style="font-size:10px">出典：<a href="https://www.jma.go.jp/bosai/map.html#4/28.684/138.46/&elem=warn&contents=tsunami" target="_blank">気象庁ホームページ　津波情報</a>を加工して作成</div>
 <table id="ttable"><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr><tr><td>　</td></tr></table>
+<br>
 <div id="legend" style="font-size:12px;display: flex;">凡例:</div>
 </body>
 </html>
