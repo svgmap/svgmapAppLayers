@@ -5,6 +5,7 @@
 <meta charset="utf-8"></meta>
 </head>
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script type="module">
 // Description:
 // 警察庁交通事故オープンデータを表示するSVGMapレイヤー
@@ -16,34 +17,112 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
+// history:
+// 2023/02/24 最初の版
+// 2025/04/10 rev2
+// 2026/02/06 rev3 2019-2024のデータ表示に対応
+
 
 import {ZipDataDownloader} from "./ZipDataDownloader.js";
 
-import { parseAcData , buildCodesDict} from "./taDataGenerator.js";
+import { parseAcData , buildCodesDict , buildCodesDictFromXLSX , translateCol } from "./taDataGenerator.js";
 
-import { initSvgMapTile} from "./dynamicSvgMapTile.js";
+import { initSvgMapTile, getQTCTcsvSchema} from "./dynamicSvgMapTile.js";
 
-import { initTaShowPoiProperty} from "./taShowPoiProperty.js";
+import { initTaShowPoiProperty, buildMetaCodeTables} from "./taShowPoiProperty.js";
 
+window.XLSX = XLSX;
 
-addEventListener("load",async function(){
+const indexPageURL="https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html";
+const honhyoURLs={
+	2019:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2019/honhyo_2019.csv"],
+//	2019:["honhyo_2019.zip"], // ローカルにzipを置く場合
+	2020:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2020/honhyo_2020.csv"],
+//	2020:["honhyo_2020.zip"],
+	2021:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2021/honhyo_2021.csv"],
+//	2021:["honhyo_2021.zip"],
+	2022:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2022/honhyo_2022.csv","https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2022/codebook_2022.xlsx"],
+	2023:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2023/honhyo_2023.csv","https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2023/codebook_2023.xlsx"],
+	2024:["https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2024/honhyo_2024.csv","https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2024/codebook_2024.xlsx"],
+}
+
+// POIのタイトル表示用データ
+let metaCodeTables;
+let titleDataIndex=[];
+
+addEventListener("load", async function(){
 	var messageDiv = document.getElementById("messageDiv");
-	messageDiv.innerText="スキーマ情報を読み込み中";
-	await buildCodesDict();
-	messageDiv.innerText="2021年の事故情報データ(zip)を読み込み中";
-	var r = await ZipDataDownloader.download("honhyo_2021.zip",{charset:"shift-jis",progress:zipDLprogress});
-//	var r = await ZipDataDownloader.download("test.zip",{charset:"shift-jis"});
-	messageDiv.innerText="CSVデータパース中";
-	var aData = parseAcData(r[0].content);
-//	console.log(aData.schema);
-	messageDiv.innerText="タイルピラミッド構築中";
-	var schema = await initSvgMapTile(aData, progressCBF);
-	initTaShowPoiProperty(aData.codeTables, schema);
-	messageDiv.innerText="";
+	buildSelect();
+//	await loadData(honhyoURLs["2021"]);
+	processHash();
 });
 
-function zipDLprogress(p){
-	messageDiv.innerText=(`2021年の事故情報データ(zip)を読み込み中 : ${Math.floor(p*100)}%`);
+
+async function loadData(urls,y){
+	messageDiv.innerText=y+"年のスキーマ情報を読み込み中";
+	if ( urls.length == 2 ){
+		await buildCodesDictFromXLSX(svgMap.getCORSURL(urls[1]));
+	} else {
+		await buildCodesDict();
+	}
+	messageDiv.innerText="スキーマ情報を読み込み完了";
+	await initSvgMapTile();
+	svgMap.refreshScreen();
+	var srcTxt;
+	if ( urls[0].indexOf(".zip")>0){
+		messageDiv.innerText=y+"年の事故情報データ(zip)を読み込み中";
+		var r = await ZipDataDownloader.download(urls[0],{charset:"shift-jis",progress:function(p){zipDLprogress(p,y,true)}});
+		srcTxt = r[0].content;
+	} else {
+		messageDiv.innerText=y+"年の事故情報データを読み込み中";
+		srcTxt = await fetchSjisTextWithProgress(svgMap.getCORSURL(urls[0]), function(p){zipDLprogress(p,y)});
+	}
+	messageDiv.innerText="CSVデータパース中";
+	var aData = parseAcData(srcTxt);
+	console.log(aData.schema);
+	messageDiv.innerText="タイルピラミッド構築中";
+	
+	// poiのtitle表示用のデータをあらかじめ生成する
+	var schema = getQTCTcsvSchema(aData.schema);
+	metaCodeTables = buildMetaCodeTables(aData.codeTables,schema);
+	//console.log("schema:", schema);
+	titleDataIndex=[];
+	titleDataIndex.push( schema.metaSchema.indexOf("事故内容") );
+	titleDataIndex.push( schema.metaSchema.indexOf("事故類型") );
+	// val = translateCol(row,metaCodeTables, i)
+	const options={
+//		titleCol:11,
+		titleFunction:getTitle,
+		iconFunction:getIcon,
+	};
+	
+	// ここで地図タイルを生成する
+	await initSvgMapTile(aData, progressCBF,options);
+	console.log(schema, aData);
+	initTaShowPoiProperty(aData.codeTables, schema);
+	messageDiv.innerText="-";
+}
+
+function getTitle(row){
+	var val=[];
+	for ( var idx of titleDataIndex){
+		val.push(translateCol(row,metaCodeTables, idx));
+	}
+	return val.join(":");
+}
+
+function getIcon(row){
+	let val;
+	if ( row[titleDataIndex[0]] ==2){
+		val = "#p0";
+	} else {
+		val = "#p1";
+	}
+	return val;
+}
+
+function zipDLprogress(p,y,isZip){
+	messageDiv.innerText=(`${y}年の事故情報データ${isZip?"(zip)":""}を読み込み中 : ${Math.floor(p*100)}%`);
 }
 
 function progressCBF(pg){
@@ -51,11 +130,80 @@ function progressCBF(pg){
 }
 
 
+async function fetchSjisTextWithProgress(url, onProgress) {
+	const response = await fetch(url);
+	if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+	// コンテンツの総容量を取得（サーバーがContent-Lengthを返さない場合はnull）
+	const contentLength = +response.headers.get('Content-Length');
+	const reader = response.body.getReader();	
+	let receivedLength = 0;
+	let chunks = []; 
+	// ストリームを読み込む
+	while(true) {
+		const {done, value} = await reader.read();
+		if (done) break;
+		chunks.push(value);
+		receivedLength += value.length;
+		// 進捗率を計算してコールバックを実行
+		if ( onProgress ){
+			if (contentLength) {
+				onProgress(receivedLength / contentLength);
+			} else {
+				// Content-Lengthがない場合は暫定的に進捗を返さないか、読み込み量を返す
+				onProgress(null); 
+			}
+		}
+	}
+	// 全てのチャンクを一つのUint8Arrayに結合
+	let allChunks = new Uint8Array(receivedLength);
+	let position = 0;
+	for(let chunk of chunks) {
+		allChunks.set(chunk, position);
+		position += chunk.length;
+	}
+	// Shift-JISでデコード
+	const decoder = new TextDecoder('shift-jis');
+	const text = decoder.decode(allChunks);
+//	console.log("downloadedText:",text);
+	return text;
+}
+
+function buildSelect(){
+	selectDataUI.innerHTML="";
+	const yks = Object.keys(honhyoURLs).sort((a, b) => b - a);
+	for ( const year of yks){
+			selectDataUI.insertAdjacentHTML("beforeend",`<tr><td><input name="ysels" type="radio" value="${year}" id="inp_${year}"/><label for="inp_${year}">${year}年</label></td></tr>`);
+	}
+	selectDataUI.insertAdjacentHTML("beforeend",`<tr><td><input checked name="ysels" type="radio" value="" id="inp_none"/><label for="inp_none">未選択</label></td></tr>`);
+	selectDataUI.addEventListener("change",selectYear);
+}
+
+async function selectYear(event){
+	console.log(event.target.value);
+	if ( event.target.value ){
+		await loadData(honhyoURLs[event.target.value],event.target.value);
+		svgImageProps.hash = "#"+event.target.value;
+	} else {
+		await initSvgMapTile();
+		svgImageProps.hash = "";
+		svgMap.refreshScreen();
+	}
+}
+
+function processHash(){
+	var lhash = svgImageProps.hash;
+	if ( lhash && honhyoURLs[lhash.substring(1)]){
+		document.getElementById(`inp_${lhash.substring(1)}`).checked = true;
+		selectYear({target:{value:lhash.substring(1)}});
+	}
+}
+
 </script>
 <body>
 <h3>交通事故統計情報</h3>
 <ul style="font-size:10px">
 <li>警察庁 交通事故統計情報の 元データを直接可視化します。
+<!--
 <ul>
 	<li>元データの中間処理自体をWebApp内で自動化しています。
 	<li>オリジナルデータをなるべくそのまま使う機構を公開するメリット
@@ -64,8 +212,12 @@ function progressCBF(pg){
 		<li>劣化・アウトデートの可能性があるデータ複製を作らない
 	</ul>
 </ul>
+-->
 <li>出典(参照先)：警察庁 <a href="https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html" target="_blank">交通事故統計情報のオープンデータ</a>
 </ul>
 <div id="messageDiv" style="font-size:12px">-</div>
+<div style="font-size:12px; background-color:#bfb">年を選択してください
+<table style="font-size:12px"><tbody id="selectDataUI"><tr><td>初期化中</td></tr></tbody></table>
+</div>
 </body>
 </html>

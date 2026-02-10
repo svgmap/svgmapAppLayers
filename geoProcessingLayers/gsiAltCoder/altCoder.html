@@ -63,6 +63,9 @@ function initPOIUI(){
 
 function cbFunc(param1,param2){
 	console.log(param1,param2);
+	if ( param1 != true){
+		return;
+	}
 	var latlngs=(poiUI.getElementsByTagName("input")[2].value).split(",");
 	console.log(latlngs);
 	var lat=Number(latlngs[0]);

@@ -301,11 +301,16 @@ async function saveTextToFile(csvString,fileName, charsetStr){
 	if (!fileName){
 		fileName = "output.csv";
 	}
+	let bolb;
 	if ( charsetStr ){
 		csvString = convertToCharset(csvString,charsetStr);
+		blob = new Blob([csvString], { type: "text/csv" });  
+	} else {
+		const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); 
+		blob = new Blob([bom, csvString], { type: "text/csv;charset=utf-8;" }); // BOMを付けることで、ExcelでもUTF-8の文字化けを防止 2026/02/10
 	}
 	// getRootContainer()は、現在のviewPortまではまだ反映できてない。　オプション付けてでも反映できると良い。
-	var blob = new Blob([csvString],{type:"text/csv"});
+//	var blob = new Blob([csvString],{type:"text/csv"});
 	
 	var dla=document.getElementById("downloadAnchor");
 	dla.href = window.URL.createObjectURL(blob);

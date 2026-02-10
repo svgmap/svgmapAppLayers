@@ -598,8 +598,16 @@ function prepTimeSel(tData){
 	lastupdatetimespan.innerText="更新:"+lastUpdateTime.substring(0,lastUpdateTime.length-3);
 }
 
+function removeRootAnims(){ //2026/02/04 デフォルトのOSMtileが残ってしまうケースがあるので対策
+	var anims = svgImage.getElementsByTagName("image");
+	for ( var i = anims.length -1 ; i >=0 ; i--){
+		anims[i].parentElement.removeChild(anims[i]);
+	}
+}
+
 var guardMin = 30;
 async function change(){
+	removeRootAnims();
 	var targetLayer = await getTargetSubLayer();
 	targetGroup = targetLayer.doc.documentElement;
 	

@@ -433,11 +433,23 @@ csvMapperClass = function (windowObj){
 		// CSVを準備する
 		if(inputCsv){
 			csv = inputCsv;
+			csv = simplifyCsv(csv);
+			csv = csv.split(LF); // CSVデータは、1次元配列、配列の要素は、1レコード分のCSVデータ（2次元配列ではない・・）
+		}
+		// console.log(csv);
+		if (!csv ){
+			console.warn("No CSV: exit");
+			messageDivElm.innerText="";
+			svgMap.refreshScreen();
+			return;
+		}
+		if ( latC ==-1 || lngC==-1){
+			console.log("Force Clear : exit");
+			messageDivElm.innerText="";
+			svgMap.refreshScreen();
+			return;
 		}
 		
-		csv = simplifyCsv(csv);
-		
-		csv = csv.split(LF); // CSVデータは、1次元配列、配列の要素は、1レコード分のCSVデータ（2次元配列ではない・・）
 		//console.log("CSV:",csv);
 //		console.log("initCsv:length",csv.length);
 //		console.log("verIE:",verIE);
@@ -459,7 +471,7 @@ csvMapperClass = function (windowObj){
 		}
 		removeCustomIcon();
 		buildInitialCategory();
-		if(inputCsv){
+		if(csv){
 			if ( latC != undefined || latC != null ){
 				cs.latCol = latC;
 			}
@@ -467,7 +479,12 @@ csvMapperClass = function (windowObj){
 				cs.lngCol = lngC;
 			}
 			if ( titleC != undefined || titleC != null ){
-				cs.titleCol = titleC;
+				if ( Array.isArray(titleC) && titleC.length ==2){
+					cs.titleCol = titleC[0];
+					cs.titleCol2 = titleC[1];
+				} else {
+					cs.titleCol = titleC;
+				}
 			}
 			if ( varIconThParam ){
 				cs.varIconCol = iconIndex;
@@ -497,6 +514,7 @@ csvMapperClass = function (windowObj){
 		//console.log("Csv Schema:",cs);
 		if ( cs.latCol == -1 || cs.lngCol == -1 ){
 			console.warn("initCsv: Can't resolve latCol or lngCol exit");
+			messageDivElm.innerText="Can't resolve latCol or lngCol ";
 			return;
 		} else {
 		}
@@ -553,7 +571,15 @@ csvMapperClass = function (windowObj){
 					} else {
 						var title;
 						if ( cs.titleCol2 >= 0 ){
-							title = strTxt[cs.titleCol] + "/" + strTxt[cs.titleCol2]
+							let title1 = strTxt[cs.titleCol];
+							let title2 = strTxt[cs.titleCol2];
+							if ( title1=="undefined"){
+								title1="";
+							}
+							if (title2 == "undefined"){
+								title2="";
+							}
+							title = (title1 + " " + title2).trim();
 						} else {
 							title = strTxt[cs.titleCol];
 						}

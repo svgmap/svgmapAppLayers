@@ -110,7 +110,8 @@ function getCellData(row,codeDictObj,index){
 	var code = row[index];
 	var ans=null;
 	var codeDict = codeDictObj.codeDict;
-	//console.log(codeDict);
+	//console.log(code, codeDict);
+	//console.log("getCellData:",{row,code,codeDictObj,index});
 	if (codeDictObj.latitudeCell || codeDictObj.longitudeCell){
 		ans = parseDMS(code)
 	} else if (codeDictObj.useRosenCodeParser ){
@@ -142,7 +143,12 @@ function getCellData(row,codeDictObj,index){
 	} else if ( codeDict.keysIndex.length == 0 ){
 		ans = (code);
 	} else if ( codeDict.keysIndex.length == 1 ){
-		ans = codeDict.dict[code][codeDict.keysIndex[0]+1];
+		const ans0 = codeDict.dict[code];
+		if ( ans0){
+			ans = ans0[codeDict.keysIndex[0]+1];
+		} else {
+			console.warn("コード辞書に"+code+"が見つかりません");
+		}
 	}
 	//console.log(ans,codeDict,code,codeDict.keysIndex.length );
 	return ans;
@@ -165,19 +171,22 @@ function translateRow(row,codeTables){
 	}
 	var ans = [];
 	for ( var i = 0 ; i < row.length ; i++ ){
-		var codeTable = codeTables[i];
-		var val;
-		if (codeTable.codeDict){
-			val = getCellData(row,codeTable,i);
-		} else {
-			val = row[i];
-		}
-		
+		var val = translateCol(row,codeTables, i);
 		ans.push(val);
 	}
 	return ( ans );
 }
 
+function translateCol(row,codeTables, i){
+	var codeTable = codeTables[i];
+	var val;
+	if (codeTable.codeDict){
+		val = getCellData(row,codeTable,i);
+	} else {
+		val = row[i];
+	}
+	return val;
+}
 
 function prepareCodeTables(schemaRow, codesDict){
 	var codeTables=[];
@@ -328,11 +337,83 @@ async function buildCodesDict(rootPath, forAllData){
 	if ( !forAllData){
 		codesDict = codesDict["本票"];
 	}
+	console.log("codesDict:",codesDict);
 	return codesDict;
 }
 
+async function buildCodesDictFromXLSX(url, forAllData){
+	if ( typeof XLSX == "undefined")throw new Error('XLSXライブラリが見つかりません');
+	codesDict={};
+	const response = await fetch(url);
+	if (!response.ok) throw new Error('ファイルの取得に失敗しました');
+	const arrayBuffer = await response.arrayBuffer();
+	const workbook = XLSX.read(arrayBuffer);
+	var dicts=[];
+	for ( var sheetName of workbook.SheetNames){
+		console.log(sheetName);
+		const worksheet = workbook.Sheets[sheetName];
+		const csvTxt = XLSX.utils.sheet_to_csv(worksheet);
+//		console.log(XLSX.utils.sheet_to_txt(worksheet));
+		const csv = trimCsv(parseCsv(csvTxt));
+		dicts.push(buildOneCodeDictPh2(csv,sheetName));
+//		console.log(sheetName,csv,csvTxt);
+	}
+	for ( var dict of dicts){
+		//console.log(dict);
+		var appls = dict.application.split("、");
+		for ( var apl of appls){
+			if (!codesDict[apl]){
+				codesDict[apl]={};
+			}
+			if ( !codesDict[apl][dict.propName]){
+				codesDict[apl][dict.propName]=dict;
+			} else {
+				console.warn("codesDict dup",dict, codesDict[apl][dict.propName]);
+			}
+		}
+		if ( dict.hasRangeKey ){
+			console.warn ( "has RangeKey:",dict);
+		}
+	}
+	if ( !forAllData){
+		codesDict = codesDict["本票"];
+	}
+	console.log("codesDict:",codesDict);
+	return codesDict;
+}
+
+function trimCsv(csvArray){
+	console.log(csvArray);
+	var allFirstColsNull =true;
+	for ( var line of csvArray){
+		for ( var cn =0 ; cn< line.length ; cn++){
+			line[cn]=line[cn].trim();
+		}
+	}
+	for ( var line of csvArray){
+		if ( line[0].trim()!=""){
+			allFirstColsNull = false;
+			break;
+		}
+	}
+	if ( allFirstColsNull ){
+		var ans = [];
+		for ( var line of csvArray){
+			ans.push(line.slice(1));
+		}
+		console.log("trimCsv : allFirstColsNull:",ans);
+		return ans;
+	} else {
+		return csvArray;
+	}
+}
+
+
 async function buildOneCodeDict(path){
 	var csv = await loadCsv(path);
+	return buildOneCodeDictPh2(csv,path);
+}
+function buildOneCodeDictPh2(csv, path){
 	var propName, explanation, application;
 	var inBody=false;
 	var mainKeyIndex, valueIndex, keySchema;
@@ -413,4 +494,4 @@ async function loadCsv(URL){
 	return (parseCsv(txt));
 }
 
-export { parseAcData , buildCodesDict , parseDMS , prepareCodeTables, translateRow};
+export { parseAcData , buildCodesDict , parseDMS , prepareCodeTables, translateRow, buildCodesDictFromXLSX, translateCol};

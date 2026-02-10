@@ -14,9 +14,9 @@ import {translateRow} from "./taDataGenerator.js";
 function initTaShowPoiProperty(codeTables,schemaParam){
 	schema = schemaParam;
 	console.log("initTaShowPoiProperty:", schema.lngCol, schema.latCol);
-	buildMetaCodeTables(codeTables,schema);
+	metaCodeTables = buildMetaCodeTables(codeTables,schema);
 	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
-	console.log(schema)
+	console.log(schema);
 }
 
 var metaCodeTables;
@@ -24,7 +24,7 @@ var schema;
 function buildMetaCodeTables(codeTables,schema){
 	// codeTablesは緯度経度カラムを含むが、SVGMapコンテンツは子のカラムは消費済みでmetadataからは消えている。
 	// そこでこれを消したmetaCodeTablesを生成して、customShowPoiPropertyで用いる
-	metaCodeTables=[];
+	const metaCodeTables=[];
 	var idx=0;
 	for ( var ct of codeTables){
 		if ( idx == schema.lngCol || idx == schema.latCol){
@@ -35,6 +35,7 @@ function buildMetaCodeTables(codeTables,schema){
 	}
 	
 	console.log("metaCodeTables:",metaCodeTables);
+	return metaCodeTables;
 }
 
 function customShowPoiProperty(target){
@@ -86,4 +87,4 @@ function dpRound(value, base) {
 }
 
 
-export{initTaShowPoiProperty}
+export{initTaShowPoiProperty, buildMetaCodeTables}

@@ -13,7 +13,42 @@ var clientSideQTCT = new ClientSideQTCT
 
 var qtctMapData;
 
-async function initSvgMapTile(aData, progressCBF){
+let pixelColor=[146,23,173,255],titleCol=0,titleFunction,iconFunction;
+
+function clear(){
+	function removeAllPOIs(){
+		console.log("removeAllPOIs");
+		var pois=svgImage.getElementsByTagName("use");
+		if ( pois.length >0){
+			for ( var i = pois.length -1  ; i >=0 ; i-- ){
+				(pois[i].parentElement).removeChild(pois[i]);
+			}
+		}
+	}
+	removePrevTiles();
+	removeAllPOIs();
+	clientSideQTCT.init();
+	qtctMapData = null;
+	svgImage.firstChild.setAttribute("property","");
+}
+
+async function initSvgMapTile(aData, progressCBF,options){
+	clear();
+	if ( !aData ) { return }
+	if ( options?.pixelColor){
+		pixelColor = options.pixelColor;
+	}
+	if ( options?.titleCol){
+		titleCol = options.titleCol;
+	}
+	if ( options?.titleFunction){
+		titleFunction = options.titleFunction;
+	}
+	
+	if ( options?.iconFunction){
+		iconFunction = options.iconFunction;
+	}
+	
 	var schema = getQTCTcsvSchema(aData.schema);
 	svgImage.documentElement.setAttribute("property",schema.metaSchema.join(","));
 	qtctMapData = await clientSideQTCT.doQTCT(aData.data, function(col){
@@ -27,7 +62,7 @@ async function initSvgMapTile(aData, progressCBF){
 			x = col.splice(schema.lngCol,1)[0];
 		}
 		return [x,y,col];
-	},{progressCBF});
+	},{progressCBF , pixelColor});
 	
 	
 	// window.qtctMapData = qtctMapData; // for debug
@@ -39,6 +74,7 @@ async function initSvgMapTile(aData, progressCBF){
 
 
 window.preRenderFunction=function(){
+	if ( !qtctMapData){return}
 	//console.log("Called window.preRenderFunction, svgMap:",svgMap,"  svgImage:",svgImage," layerID:",layerID);
 	var level = Math.floor( Math.LOG2E * Math.log(svgImageProps.scale) + 6.5);
 	var gvb = svgMap.getGeoViewBox();
@@ -68,11 +104,25 @@ window.preRenderFunction=function(){
 function setPoiTile(tileData, tileG){
 	for ( var poiDat of tileData ){
 		var poi = svgImage.createElement("use");
-		poi.setAttribute("xlink:href","#p0");
+		
+		let iconID;
+		if ( typeof iconFunction =="function"){
+			iconID = iconFunction(poiDat[2]);
+		} else {
+			iconID = "#p0";
+		}
+		poi.setAttribute("xlink:href",iconID);
 		poi.setAttribute("x",0);
 		poi.setAttribute("y",0);
 		poi.setAttribute("content",poiDat[2].join(","));
 		poi.setAttribute("transform","ref(svg,"+Number(poiDat[0])*100+","+(-Number(poiDat[1])*100)+")" );
+		let title;
+		if ( typeof titleFunction=="function"){
+			title = titleFunction(poiDat[2]);
+		} else {
+			title = poiDat[2][titleCol];
+		}
+		poi.setAttribute("xlink:title",title);
 		tileG.appendChild(poi);
 	}
 }
@@ -91,11 +141,16 @@ function setImageTile(tileData, geoBBox, tileG){
 function removePrevTiles(tileSet){ // 前のステップで表示していた要素のうち、不要なものを削除＆今のステップでも使うものは流用する処理
 	var gs = svgImage.getElementsByTagName("g");
 	for ( var i = gs.length-1 ; i >0 ; i--){
-		var tkey = gs[i].getAttribute("id").substring(1);
-		if ( !tileSet[tkey]){ // 必要なタイルのセットの中にないものは消去
+		if ( gs[i].parentElement.nodeName == "defs"){continue}
+		if ( tileSet ){
+			var tkey = gs[i].getAttribute("id").substring(1);
+			if ( !tileSet[tkey]){ // 必要なタイルのセットの中にないものは消去
+				gs[i].remove();
+			} else { // あったものについてはタイルセットのほうを消去
+				delete tileSet[tkey];
+			}
+		} else {
 			gs[i].remove();
-		} else { // あったものについてはタイルセットのほうを消去
-			delete tileSet[tkey];
 		}
 	}
 }
@@ -122,4 +177,4 @@ function getQTCTcsvSchema(col){
 	}
 }
 
-export { initSvgMapTile }
+export { initSvgMapTile , getQTCTcsvSchema}

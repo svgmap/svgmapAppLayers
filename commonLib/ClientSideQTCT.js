@@ -76,6 +76,7 @@ class ClientSideQTCT{
 		// buildRawData : srcDataを読解する関数 ：正規化された一次元配列を返却し、0,1番目にlon(経度(x)),lat(緯度(y)), 2番目にメタデータの配列が入る必要がある
 		// options :
 		//  maxTilePoints : number タイル分割の閾値(ポイント数)
+		//  progressCBF : 進行状況(文字列)を第一引数に返却
 		//  pixelColor :
 		//    [r,g,b,a]で共通のピクセルカラー指定する
 		//    か、

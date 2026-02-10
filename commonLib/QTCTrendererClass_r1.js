@@ -120,15 +120,28 @@ class QTCTrendererClass{
 		for ( var poiDat of tileData ){
 			var iconId = this.windowObject.csvMapper.getIconId(poiDat[2] , this.csvSchema);
 			//console.log("iconId:",iconId);
+			var titleStr ="";
 			var titleCol = 0;
+			//console.log( this.csvSchema.titleCol, this.csvSchema.titleCol2);
+			//console.log(poiDat[2]);
 			if ( this.csvSchema.titleCol >= 0){
-				titleCol = this.csvSchema.titleCol;
+				titleStr = poiDat[2][this.csvSchema.titleCol];
+			}
+			if ( this.csvSchema?.titleCol2 >= 0){
+				let ts2 = poiDat[2][this.csvSchema.titleCol2];
+				if ( ts2 !="undefined"){
+					if ( titleStr != "undefined" ){
+						titleStr +=" "+ ts2;
+					} else {
+						titleStr = ts2;
+					}
+				}
 			}
 			var poi = this.windowObject.svgImage.createElement("use");
 			poi.setAttribute("xlink:href","#"+ iconId );
 			poi.setAttribute("x",0);
 			poi.setAttribute("y",0);
-			poi.setAttribute("xlink:title",poiDat[2][titleCol]);
+			poi.setAttribute("xlink:title",titleStr);
 			poi.setAttribute("content",poiDat[2].join(","));
 			poi.setAttribute("transform","ref(svg,"+Number(poiDat[0])*100+","+(-Number(poiDat[1])*100)+")" );
 			tileG.appendChild(poi);

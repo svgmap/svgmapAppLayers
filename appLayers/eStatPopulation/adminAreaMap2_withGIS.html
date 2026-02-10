@@ -57,7 +57,7 @@ var meshDB, gaikuDB;
 onload=async function(){
 	var ihash = getSvgImageHash();
 	if ( ihash.complexGisLayer){
-		vectorGISlayerName =  ihash.complexGisLayer;
+		vectorGISlayerName =  decodeURIComponent(ihash.complexGisLayer);
 	}
 	svgMap.setShowPoiProperty(customShowPoiProperty4estat, layerID);
 	estatSchema = await buildEstatSchema();

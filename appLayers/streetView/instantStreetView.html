@@ -95,6 +95,10 @@ function initAuthoringUI(){
 
 function testCb(stat,param){
 	if ( closingFrame ){console.log("closingFrame");return;}
+	if ( stat!=true){
+		// Cancelなどの場合
+		return;
+	}
 	var endElem = svgImage.getElementById("viewP");
 	var startPos,endPos;
 	if ( endElem ){

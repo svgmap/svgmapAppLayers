@@ -71,7 +71,8 @@ function downloadCsv(){ // 読み込み済みのcsvをDLする
 		var rstr = row.join(",");
 		content += row.join(",") + crlf;
 	}
-	var blob = new Blob([content],{"type" : "text/plain"});
+	const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);  
+	var blob = new Blob([bom, content], {"type": "text/csv;charset=utf-8;"});
 	if (window.navigator.msSaveBlob) { 
 		window.navigator.msSaveBlob(blob, "data.csv"); 
 	} else {
