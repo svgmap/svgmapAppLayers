@@ -1,0 +1,480 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"></meta>
+<title>KML Loader LaWA</title>
+<link rel="stylesheet" href="./tabUi.css">
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<!-- ファイルマネージャ系ライブラリ -->
+<script src="tinyFileManagerForCsv.js"></script>
+<script src="indexDBpromise.js"></script>
+<script type="module">
+import {LocalDBFileManager} from "./LocalDBFileManager.js";
+window.LocalDBFileManager = LocalDBFileManager;
+</script>
+
+<!-- クライアントサイドQTCT系ライブラリ -->
+<script type="module">
+import { geoJson2Csv } from "./geoJson2Csv.js";
+window.geoJson2Csv = geoJson2Csv;
+</script>
+<script type="module" src="QTCTrenderer.js"></script>
+<script src="csvMapper.js"></script>
+
+
+<!-- アイコン設定UIライブラリ -->
+<script type="module" >
+import {setIconSelection, initIconSelection, loadLocalImage, getSelectedIcon,selectIcon} from "./iconSelector.js";
+window.setIconSelection = setIconSelection;
+window.initIconSelection = initIconSelection;
+window.loadLocalImage = loadLocalImage;
+window.getSelectedIcon = getSelectedIcon;
+window.selectIcon = selectIcon;
+</script>
+
+<!-- KML Parser -->
+<script type="module" >
+import {KMLParser} from "./KMLParser.js";
+window.KMLParser = KMLParser;
+</script>
+
+<script>
+// Description:
+// KMLを生成する公開Webサイト(APIエンドポイント)からのデータを
+// svgMapレイヤとして表示するクライアントサイドツールです。
+//
+// 本ソフトウェアは Google LLC とは一切関係ありません。
+//
+// Programmed by Satoru Takagi
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+
+const KmlInfo = {}; // このデータがtinyFileManagerに保存・読み出しされる
+
+let currentCsvData, postDisplayUI, complexFeatureGroup;
+
+addEventListener("load",async function(){
+	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
+	frameTitle.style.visibility="visible";
+	initUI();
+	postDisplayUI = document.getElementById("postDisplayUI");
+	complexFeatureGroup = svgImage.getElementById("complexFeatures");
+});
+
+async function initUI(){
+	//console.log("OPEN subWindow : KML Loader");
+	
+	await initLoader("tab2","menutbl", getSourceFunc, showMapFunc, clearMapFunc); // tinyFileManagerForCsv.js 
+//	processPermaLink(); // based on userXYZtile.html
+	initIconSelection(
+		document.getElementById("iconSetup"),
+		document.getElementById("iconSample"),
+		document.getElementById("customIconPreview"),
+		null,
+		svgImage
+	);
+	processHash();
+}
+
+async function showMapFunc(rawData){ // 保存済みリストもしくは起動時ハッシュから呼び出されるパターン
+	var srcJson = JSON.parse(rawData);
+	console.log("showMapFunc:",srcJson);
+	if ( srcJson.iconIndexOrCustomDataURL){
+		KmlInfo.iconIndexOrCustomDataURL = srcJson.iconIndexOrCustomDataURL;
+	} else {
+		KmlInfo.iconIndexOrCustomDataURL = 0;
+	}
+	dataNote.value ="";
+	if ( srcJson.note ){
+		registMsg.innerText = `備考:${srcJson.note}`;
+	} else {
+		registMsg.innerText = `-`;
+	}
+	if ( srcJson.titleCol){
+		KmlInfo.titleCol = srcJson.titleCol;
+	} else {
+		KmlInfo.titleCol = 0;
+	}
+	selectIcon(KmlInfo.iconIndexOrCustomDataURL);
+	if ( srcJson.KmlURL ){
+		KmlInfo.KmlURL = decodeURIComponent(new URL(srcJson.KmlURL).href);
+		delete KmlInfo.convertedLocalGeoJson;
+		KmlUrlInp.value = KmlInfo.KmlURL;
+		fetchKml();
+	} else if(srcJson.convertedLocalGeoJson){
+		KmlInfo.convertedLocalGeoJson = srcJson.convertedLocalGeoJson;
+		delete KmlInfo.KmlURL;
+		KmlUrlInp.value = "";
+		showConvertedKml(KmlInfo.convertedLocalGeoJson);
+	}
+	console.log("showMapFunc: KmlInfo:",KmlInfo);
+}
+
+function openKml(){ // 手入力で呼び出されるパターン
+	KmlInfo.KmlURL=KmlUrlInp.value;
+	KmlInfo.iconIndexOrCustomDataURL = (getSelectedIcon()).iconIndex;
+	KmlInfo.titleCol = checkTitleCols();
+	fetchKml();
+}
+
+async function fetchKml(){// (KmlUrl, iconIndexOrCustomDataURL, titleCol)
+	delete KmlInfo.convertedLocalGeoJson;
+	fileLoadInputUI.value = "";
+	gjs = await fetchKMLasGeoJSON(KmlInfo.KmlURL);
+	showConvertedKml(gjs);
+}
+
+function showConvertedKml(gjs){
+	if ( gjs === null ){
+		TabMessageDiv.innerText="データを読み込めませんでした";
+		return;
+	}
+	
+//	const hasComplex = gjs.features.some(f => f.geometry.type !== "Point");
+	
+	console.log(gjs, KmlInfo);
+	csvMapper.onload();
+	csvMapper.setMessageDiv(TabMessageDiv);
+	
+	opt ={
+//		titleName:"通し番号",
+//		propertyNameDictionary:idx.propDict,
+		traceAllSchema:true,
+	}
+	const g2c = new geoJson2Csv(opt);
+	const splitedGJ = g2c.splitFeaturesByType(gjs);
+	const csvData = g2c.convert(splitedGJ.points);
+	csvData.iconIndexOrCustomDataURL = KmlInfo.iconIndexOrCustomDataURL;
+	if ( KmlInfo.titleCol != undefined ){
+		csvData.titleCol = KmlInfo.titleCol;
+	}
+	showCsvData(csvData);
+	clearComplexMap();
+	if ( splitedGJ.complex.features.length>0){
+		console.log("point以外があるので、そちらの描画も試みてみます : ", splitedGJ.complex);
+		svgMapGIStool.drawGeoJson(splitedGJ.complex, layerID, "purple", 2, "purple", "p0",undefined,undefined,complexFeatureGroup,csvData.schema);
+//		svgMapGIStool.drawGeoJson(splitedGJ.complex, layerID, "purple", 2, "purple", "p0",undefined,undefined,complexFeatureGroup,schema);
+	}
+	setHash();
+}
+
+function clearComplexMap(){
+	console.log("clearComplexMap");
+	removeChildren(complexFeatureGroup);
+}
+
+async function fetchKMLasGeoJSON(KmlURL){
+	const convKmlUrl = KMLParser.getKmlUrl(KmlURL);
+	if ( convKmlUrl.isTransformedFromMyMapsURL){
+		TabMessageDiv.innerText="MyMapsのURLを認識しました";
+	}
+	const kmlText = await (await fetch(svgMap.getCORSURL(convKmlUrl.url))).text();
+	const xmlDoc = new DOMParser().parseFromString(kmlText, "text/xml");
+	let gjs;
+	if ( typeof svgMapGIStool.kml2GeoJson == "function"){
+		gjs = svgMapGIStool.kml2GeoJson(xmlDoc);
+	} else { // フォールバック
+		console.log("Use KMLParser's kmlToGeoJson method");
+		gjs = KMLParser.kmlToGeoJson(xmlDoc);
+	}
+	return gjs;
+}
+
+function showCsvData(csvData){
+	console.log(csvData);
+	currentCsvData = csvData;
+	showPostDisplayUI();
+	KmlInfo.titleCol = csvData.titleCol;
+	csvMapper.initCsv(getCsvText(csvData), csvData.latCol, csvData.lngCol, csvData.titleCol, csvData.iconIndexOrCustomDataURL, null, 1 );
+};
+
+function getCsvText(csvData){
+	var csvText=csvData.schema.join(",")+"\n";
+	for ( var rec of csvData.data){
+		csvText+= rec.join(",")+"\n";
+	}
+	return csvText;
+}
+
+function removeChildren(parent){
+	while(parent.firstChild){
+		parent.removeChild(parent.firstChild);
+	}
+}
+
+function getSourceFunc(){ // これなんだっけ？ 保存するオブジェクトを返す関数かな？
+	var json = JSON.stringify(KmlInfo); 
+	return json;
+}
+
+function clearMapFunc(){
+	console.log("Called clearMapFunc");
+	clearComplexMap();
+//	csvMapper.initCsv(null, 0, 1, 0, 0, null, 1 );
+	csvMapper.initCsv(null, -1, -1, 0, 0, null, 1 );
+	
+	delete KmlInfo.KmlURL;
+	delete KmlInfo.titleCol;
+	delete KmlInfo.iconIndexOrCustomDataURL;
+	delete KmlInfo.convertedLocalGeoJson;
+	fileLoadInputUI.value = "";
+	KmlUrlInp.value="";
+	setHash();
+	hidePostDisplayUI();
+}
+
+function registMapS0(){
+	var dataNote = document.getElementById("dataNote").value;
+	if ( dataNote ){
+		KmlInfo.note = dataNote;
+	}
+	console.log("KmlInfo:",KmlInfo);
+	registMap('dataTitle','registMsg','json');
+}
+
+function showPostDisplayUI(){
+	postDisplayUI.style.visibility="";
+	titleSelect.innerHTML="";
+	let cidx =0;
+	if ( !currentCsvData.schema){
+		console.warn("currentCsvDataがありません");
+		return;
+	}
+	for ( var colName of currentCsvData.schema){
+		titleSelect.insertAdjacentHTML("beforeend",`<option value="${cidx}">${colName}</option>`);
+		++cidx;
+	}
+	console.log("currentCsvData.titleCol:",currentCsvData.titleCol);
+	if ( Array.isArray(currentCsvData.titleCol)){
+		titleSelect.options[currentCsvData.titleCol[0]].selected=true;
+		titleSelect.options[currentCsvData.titleCol[1]].selected=true;
+	} else {
+		titleSelect.options[currentCsvData.titleCol].selected=true;
+	}
+}
+
+function hidePostDisplayUI(){
+	postDisplayUI.style.visibility="hidden";
+}
+
+function checkTitleCols(){
+	var titleCol;
+	if ( postDisplayUI.style.visibility!="hidden"){
+		let tc = [];
+		for ( var opt of titleSelect.options){
+			if(opt.selected){
+				tc.push(Number(opt.value));
+			}
+		}
+		if (tc.length == 1 ){
+			titleCol=tc[0];
+		} else if ( tc.length >1){
+			titleCol=tc;
+		} else {
+			titleCol=0;
+		}
+	} else {
+		titleCol=undefined;
+	}
+	return titleCol;
+}
+
+function setHash(){
+	console.log("setHash: KmlInfo:",KmlInfo);
+	if ( KmlInfo.KmlURL){
+		var titleCol = "0";
+		if ( !KmlInfo.titleCol){
+			
+		} else if ( Array.isArray(KmlInfo.titleCol)){
+			titleCol =`${KmlInfo.titleCol[0]}:${KmlInfo.titleCol[1]}`;
+		} else {
+			titleCol =`${KmlInfo.titleCol}`;
+		}
+		svgImageProps.hash=`#url=${encodeURIComponent(KmlInfo.KmlURL)}&titleCol=${titleCol}&icon=${encodeURIComponent(KmlInfo.iconIndexOrCustomDataURL)}`;
+	} else {
+		svgImageProps.hash=``;
+	}
+}
+
+function processHash(){
+	var hs = svgImageProps.hash.split("&");
+	var mi = {};
+	hs.forEach(function(h){
+		h = h.split("=");
+		if ( h.length==2){
+			hk = h[0].replace("#","");
+			hv = decodeURIComponent(h[1]);
+			mi[hk]=hv;
+		}
+	});
+	//console.log(mi);
+	
+	if (!mi.url){
+		return
+	}
+	
+	const js = {
+		KmlURL:mi.url,
+		iconIndexOrCustomDataURL:0,
+	}
+	if ( mi.icon){
+		if ( isNaN(mi.icon)){
+			js.iconIndexOrCustomDataURL = mi.icon;
+		} else {
+			js.iconIndexOrCustomDataURL = Number(mi.icon);
+		}
+	}
+	let tc = 0;
+	if ( mi.titleCol){
+		tc = mi.titleCol.split(":");
+		if ( tc.length ==2){
+			tc=[Number(tc[0]),Number(tc[1])];
+		} else {
+			tc=Number(tc[0]);
+		}
+	}
+	js.titleCol = tc;
+	console.log(js);
+	showMapFunc(JSON.stringify(js));
+}
+
+function saveCSV() {
+	const sdata = [currentCsvData.schema, ...currentCsvData.data];
+	console.log(sdata);
+	csvSaveFunc(sdata);
+}
+
+function csvSaveFunc(data){
+	const csvContent = data.map(row => {
+		return row.map(cell => {
+			// 文字列に変換してから置換
+			let str = String(cell);
+			// 半角カンマを全角に、改行を半角スペースに変換
+			return str.replace(/,/g, "，").replace(/\n|\r/g, " ");
+		}).join(",");
+	}).join("\n");
+
+	// 3. Excel文字化け対策（BOM）
+	const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+	const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+	// 4. ダウンロード
+	const link = document.createElement("a");
+	link.href = URL.createObjectURL(blob);
+	link.download = "KmlData.csv";
+	link.click();
+};
+
+
+// ローカルファイル選択時のハンドラ
+async function loadKmlFromLocal(event) {
+	hidePostDisplayUI();
+	delete KmlInfo.KmlURL;
+	KmlInfo.titleCol = checkTitleCols();
+	KmlUrlInp.value="";
+	const file = event.target.files[0];
+	if (!file) return;
+	TabMessageDiv.innerText = "ローカルファイルを読み込み中...";
+	
+	try {
+		const kmlText = await file.text();
+		const parser = new DOMParser();
+		const xmlDoc = parser.parseFromString(kmlText, "text/xml");
+		
+		// XMLとして正しくパースできているか確認
+		if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+			throw new Error("KMLファイルの形式が正しくありません");
+		}
+		const gjs = KMLParser.kmlToGeoJson(xmlDoc);
+		console.log("load Kml From Local:converted geoJSON: ",gjs);
+		KmlInfo.convertedLocalGeoJson=gjs;
+		showConvertedKml(gjs);
+	} catch (e) {
+		console.error(e);
+		TabMessageDiv.innerText = "エラー: " + e.message;
+	}
+}
+
+</script>
+
+<body>
+<div class="main">
+	<h4 id="frameTitle" style="visibility:hidden">KMLのデータを表示します</h4>
+	
+	<div class="tabs" id="csvInportUI" style="width:400px" >
+		<input id="tab1" type="radio" name="tab_item" checked>
+		<label class="tab_item" for="tab1">読込・表示</label>
+
+		<input id="tab2" type="radio" name="tab_item" >
+		<label class="tab_item" for="tab2">ファイル</label>
+
+		<input id="tab3" type="radio" name="tab_item">
+		<label class="tab_item" for="tab3">管理</label>
+
+		<div class="tab_content" id="tab1_content" style="height:360px">
+			<div class="tab_content_description">
+				<div style="font-size:14px"><strong>公開KMLのURLを入力</strong></div>
+				<div>
+					 <input id="KmlUrlInp" style="width:385px;font-size:12px" type="text" placeholder="例：https://www.google.com/maps/d/u/0/viewer?mid={KmlのID}" value="" oninput="hidePostDisplayUI()"></input>
+					<input type="button" style="font-weight:bold" onclick="openKml()" value="ページデータを読み込む"></input>
+					 <div style="font-size:10px">もしくは<input type="file" onchange="loadKmlFromLocal(event)" name="selectFile" id="fileLoadInputUI"  style="font-size:10px"></input></div>
+				 </div>
+				 <div style="font-size:12px">
+				 <span style="font-size:10px">本レイヤは、Web公開もしくはローカルのKMLを表示するツールです。<br>【Google My Mapsをご利用の方へ】 マイマップの「閲覧用URL」を入力すると、自動的にKML取得用のURLを作成して読み込みます。<br>※処理はすべてブラウザ上で行われます。<br>※本ソフトウェアはGoogle LLCとは無関係です。<br>※Google My MapsはGoogle LLCの商標です。
+				</div>
+				 <div id="iconSetupUI" style="font-size:12px">
+				 	アイコン:<select id="iconSetup" onchange="setIconSelection()"></select><span style="vertical-align: top" id="iconSample"></span>
+					 <br><span id="customIconUI">
+						　　　　<span style="font-size:11px">カスタムアイコン</span>
+						<img id="customIconPreview" height="20" style="border:2px solid #ffffff;vertical-align:top" data-meanColor="195,0,255"></img>
+						<input id="loadLocalImageButton" type="file" accept="image/*" onchange="loadLocalImage(event)" onclick="this.value=null;" style="font-size:8px; width :180px; height: 20px"></input> <!-- */ -->
+						<br>
+					</span>
+				 </div>
+				<div id="postDisplayUI"  style="visibility:hidden;font-size:12px;" >
+					<table><tr>
+						<td>タイトルカラム選択:</td>
+						<td><select id="titleSelect" multiple  style="font-size:12px;" ></select></td>
+						<td><input type="button" onclick="saveCSV()" value="CSVをダウンロード"></input><br><input type="button" onclick="clearMapFunc()" value="レイヤクリア"></input></td>
+					</tr></table>
+				</div>
+				<div id="TabMessageDiv" style="color:red;display:;font-size:11px">　</div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab2_content" style="height:360px;overflow-x: hidden; overflow-y: scroll;">
+			<div class="tab_content_description" style="font-size:12px">
+				<div style="background-color:#dfd">
+					登録済みデータ
+					<table id="menutbl" style="font-size:12px">
+						<tr><th></th><th>タイトル</th><th>登録日時</th></tr>
+					</table>
+				</div>
+				<div style="background-color:#eef">
+				<br>
+					<span id="fileSystemNote" style="font-size:11px">サーバにデータを保存する</span><br>
+					<input type="text" id="dataTitle" style="width:200px;font-size:12px" placeholder="サブレイヤータイトル入力"></input><input type="button" value="save" style="font-size:12px" onclick="registMapS0()"></input><br>
+					<input type="text" id="dataNote" style="width:90%;font-size:12px" placeholder="備考を入力(option)" onchange="setDataNote()"></input><br>
+					<span id="registMsg">-</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="tab_content" id="tab3_content" style="height:360px;overflow-x: hidden; overflow-y: scroll">
+			<div class="tab_content_description" style="font-size:12px">
+				<p><a href="fileAdminPanel.html#title=userXYZtile" target="_fileAdminXYZ">Administraion</a></p>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+
+</body>
+
+</html>

@@ -175,6 +175,7 @@ class QTCTrendererClass{
 		var gs = this.windowObject.svgImage.getElementsByTagName("g");
 		for ( var i = gs.length-1 ; i >0 ; i--){
 			if ( gs[i].parentElement.nodeName == "defs"){continue}
+			if (gs[i].getAttribute("data-preserve") === "qtct-exclude") {continue}; // 2026/02/20 QTCT実装レイヤでも制御外のグループを入れられるように
 			if ( tileSet ){
 				var tkey = gs[i].getAttribute("id").substring(1);
 				if ( !tileSet[tkey]){ // 必要なタイルのセットの中にないものは消去
