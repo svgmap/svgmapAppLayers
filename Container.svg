@@ -39,7 +39,7 @@
 <animation class="GIS clickable editable" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
 
 <!-- オーサリングツール的なもののグループ -->
-<animation xlink:href="./authoringLayers/local/kmlLoader/kmlLoader.svg" title="	KML(MyMaps)データ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./authoringLayers/local/kmlLoader/kmlLoader.svg" title="KML(MyMaps)データ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/vectorFileLoader/vectorFileLoader3.svg" title="shape・GeoJSONファイル表示" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/userXYZtile/userXYZtile.svg" title="任意XYZタイル表示" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル" opacity="0.7" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/simpleRaster/simpleRaster.svg" title="free hand authoring" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable editable" opacity="0.6" visibility="hidden"/>
