@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>レイヤー検索 by Gemini (プラグイン対応版)</title>
+	<style>
+		body {
+			font-family: "Noto Sans JP", sans-serif; margin: 0; padding: 5px;
+			width: 100%; max-width: 400px; box-sizing: border-box; background: #f8f9fa; font-size: 13px;
+		}
+		.row { display: flex; gap: 3px; align-items: center; }
+		.margin-b { margin-bottom: 4px; }
+		.fake-password { -webkit-text-security: disc; }
+		input[type="text"] {
+			flex-grow: 1; padding: 6px 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 13px; min-width: 0;
+		}
+		button { padding: 6px 8px; border: none; border-radius: 4px; color: white; cursor: pointer; white-space: nowrap; font-weight: bold; font-size: 12px; }
+		.btn-primary { background: #4285f4; }
+		.btn-danger { background: #dc3545; }
+		.btn-secondary { background: #6c757d; }
+		.btn-success { background: #28a745; }
+		
+		.header-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+		.app-title { margin: 0; font-size: 14px; color: #333; }
+		.security-badge { font-size: 10px; color: #28a745; background: #e6f4ea; padding: 1px 4px; border-radius: 10px; border: 1px solid #28a745; margin-right: 30px;}
+		.desc-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 11px; color: #555; }
+		.guide-link { color: #1a73e8; text-decoration: none; white-space: nowrap; flex-shrink: 0; font-weight: bold; }
+		.guide-link:hover { text-decoration: underline; }
+		.auth-box { background: #fff; padding: 4px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 6px; }
+
+		#result-area { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 4px; height: 240px; overflow-y: auto; }
+		.layer-item { border-bottom: 1px solid #eee; padding: 3px 0; display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+		.layer-item:last-child { border-bottom: none; }
+		.layer-info { flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 5px; }
+		.layer-name { font-weight: bold; color: #333; margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+		.badge { background: #e8f0fe; color: #1a73e8; padding: 2px 4px; border-radius: 10px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; flex-shrink: 1; }
+		.status { font-size: 12px; color: #555; text-align: center; padding-top: 20px; }
+		.status-error { color: #d93025; font-weight: bold; }
+	</style>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<body>
+	<div class="header-row">
+		<h4 class="app-title">AIレイヤー検索</h4>
+		<span class="security-badge">🔒 AES-256</span>
+	</div>
+
+	<div id="byok-auth-area">
+		<div class="desc-row">
+			<span>APIキーは合言葉で暗号化・ブラウザ内保存されます。</span>
+			<a target="_blank" href="geminiApiKeyGuide.html" class="guide-link">🔑 無料APIキー取得</a>
+		</div>
+
+		<div id="setup-ui" class="auth-box">
+			<div style="font-size: 11px; margin-bottom: 2px; font-weight: bold; color: #d93025;">▼ 初回設定</div>
+			<div class="row">
+				<input type="text" id="rawApiKey" class="fake-password" autocomplete="off" spellcheck="false" placeholder="APIキー">
+				<input type="text" id="setupPassphrase" class="fake-password" autocomplete="off" spellcheck="false" placeholder="合言葉">
+				<button class="btn-success" onclick="saveAndEncrypt()">保存</button>
+			</div>
+		</div>
+
+		<div id="unlock-ui" class="auth-box" style="display: none;">
+			<div style="font-size: 11px; margin-bottom: 2px; font-weight: bold; color: #1a73e8;">▼ ロック解除</div>
+			<div class="row">
+				<input type="text" id="unlockPassphrase" class="fake-password" autocomplete="off" spellcheck="false" placeholder="合言葉">
+				<button class="btn-danger" style="flex-shrink:0;" onclick="resetKey()">リセット</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="row margin-b">
+		<input type="text" id="query" placeholder="例: 病院、雨雲、活断層">
+		<button class="btn-primary" style="flex-shrink: 0;" onclick="executeSearch()">検索</button>
+	</div>
+
+	<div id="result-area">
+		<div class="status">検索すると、ここにAIが関連レイヤーを提案します</div>
+	</div>
+
+	<script type="module">
+		// Description: Geminiを使用して、表示したいレイヤーを検索する
+		// JSモジュール(gemini-layer-search.js)を差し替えることで、BYOK方式と自前サーバー方式を切り替え可能
+		//
+		// 自前サーバ方式にする場合：
+		// * HTMLの #byok-auth-area は不要なので style="display:none;" にする
+		// * searchLayers(query, availableLayers) を自前サーバと通信するように実装し、
+		//   [{"name": "レイヤー名", "category": "カテゴリ名"}, ...] の形式で解決するPromiseを返す
+		// * saveKey, hasKey, removeKey はインポートエラーを防ぐため、空の関数としてexportしておく
+		//
+		// Programmed by Satoru Takagi
+		// 
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+		
+		
+		import { 
+			saveKey, 
+			hasKey, 
+			removeKey, 
+			searchLayers 
+		} from './gemini-layer-search.js';
+
+		window.onload = checkState;
+
+		function checkState() {
+			// BYOK用UIの表示制御
+			const authArea = document.getElementById('byok-auth-area');
+			if (authArea.style.display !== 'none') {
+				document.getElementById('setup-ui').style.display = hasKey() ? 'none' : 'block';
+				document.getElementById('unlock-ui').style.display = hasKey() ? 'block' : 'none';
+			}
+		}
+
+		window.saveAndEncrypt = async function() {
+			const rawKey = document.getElementById('rawApiKey').value.trim();
+			const pass = document.getElementById('setupPassphrase').value.trim();
+			if (!rawKey || !pass) return alert("APIキーと合言葉を入力してください。");
+			try {
+				await saveKey(rawKey, pass);
+				document.getElementById('rawApiKey').value = '';
+				document.getElementById('setupPassphrase').value = '';
+				alert("暗号化して保存しました。");
+				checkState();
+			} catch (e) { alert("暗号化に失敗: " + e.message); }
+		};
+
+		window.resetKey = function() {
+			if (confirm("保存されているキーを削除しますか？")) {
+				removeKey();
+				document.getElementById('unlockPassphrase').value = '';
+				checkState();
+			}
+		};
+
+		function setStatus(message, isError = false) {
+			const resultArea = document.getElementById('result-area');
+			resultArea.innerHTML = '';
+			const div = document.createElement('div');
+			div.className = isError ? 'status status-error' : 'status';
+			div.textContent = message;
+			resultArea.appendChild(div);
+		}
+
+		function getLayerInfo() {
+			let rootSvg;
+			try { rootSvg = svgMap.getSvgImages()["root"]; } catch (e) { return []; }
+			if (!rootSvg) return [];
+
+			const animations = rootSvg.querySelectorAll("animation");
+			const layers = [];
+			animations.forEach(anim => {
+				const title = anim.getAttribute("title");
+				const className = anim.getAttribute("class") || "";
+				if (className.includes("basemap")) return;
+				if (title) {
+					let cleanCategory = className.replace(/(clickable|editable|switch|batch|visibility|hidden)/g, '').trim().replace(/\s+/g, ' '); 
+					layers.push({ name: title, category: cleanCategory || "その他" });
+				}
+			});
+			return layers;
+		}
+
+		function renderResults(layers) {
+			const resultArea = document.getElementById('result-area');
+			resultArea.innerHTML = ''; 
+			if (!layers || layers.length === 0) return setStatus("該当するレイヤーが見つかりませんでした。");
+
+			layers.forEach(layer => {
+				const item = document.createElement('div');
+				item.className = 'layer-item';
+				
+				const info = document.createElement('div');
+				info.className = 'layer-info';
+				info.title = `${layer.name} [${layer.category}]`;
+
+				const nameDiv = document.createElement('div');
+				nameDiv.className = 'layer-name';
+				nameDiv.textContent = layer.name;
+
+				const badgeSpan = document.createElement('span');
+				badgeSpan.className = 'badge';
+				badgeSpan.textContent = layer.category;
+
+				info.appendChild(nameDiv);
+				info.appendChild(badgeSpan);
+
+				const btn = document.createElement('button');
+				btn.className = 'btn-secondary';
+				btn.style.cssText = 'font-size:11px; padding:2px 6px; flex-shrink:0;';
+				btn.textContent = '表示';
+				btn.onclick = () => window.showLayer(layer.name);
+
+				item.appendChild(info);
+				item.appendChild(btn);
+				resultArea.appendChild(item);
+			});
+		}
+
+		window.showLayer = function(layerName) {
+			if (typeof svgMap !== 'undefined' && typeof svgMap.getLayerId === 'function') {
+				const spid = svgMap.getLayerId(layerName);  
+				svgMap.setLayerVisibility(spid, true);  
+			}
+		};
+
+		window.executeSearch = async function() {
+			const query = document.getElementById('query').value.trim();
+			const pass = document.getElementById('unlockPassphrase').value.trim();
+
+			//バリデーション
+			if (!query) return alert("検索したい内容を入力してください。");
+			// BYOKモード時のみパスワードチェック
+			if (document.getElementById('byok-auth-area').style.display !== 'none') {
+				if (!hasKey()) return alert("まずは初回設定をしてください。");
+				if (!pass) return alert("「合言葉」を入力してください。");
+			}
+
+			setStatus("AIがレイヤーを探しています...");
+
+			// 地図からレイヤー一覧を取得
+			const availableLayers = getLayerInfo();
+			if (availableLayers.length === 0) return setStatus("レイヤー情報が取得できませんでした。", true);
+
+			// AI検索実行 (ロジックはJSモジュール側のsearchLayersに実装)
+			try {
+				const result = await searchLayers(query, availableLayers, pass);
+				renderResults(result);
+			} catch (error) {
+				setStatus(error.message, true);
+			}
+		};
+	</script>
+</body>
+</html>

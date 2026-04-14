@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5分で完了！Gemini APIキー取得ガイド</title>
+  <style>
+    :root {
+      --primary-color: #4285f4;
+      --text-color: #333;
+      --bg-color: #f8f9fa;
+      --card-bg: #fff;
+      --border-color: #ddd;
+    }
+    body {
+      font-family: "Noto Sans JP", sans-serif;
+      line-height: 1.6;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      color: var(--primary-color);
+      font-size: 2.5em;
+    }
+    .introduction {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 40px;
+    }
+    .section {
+      background-color: var(--card-bg);
+      padding: 30px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 30px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .section-title {
+      font-size: 1.5em;
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+    }
+    .section-title .step-number {
+      background-color: var(--primary-color);
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-right: 15px;
+      font-weight: bold;
+    }
+    .step-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .step-text p {
+      margin: 0 0 10px 0;
+    }
+    .step-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 5px;
+      border: 1px solid var(--border-color);
+      display: block;
+      margin: 10px 0 20px 0;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: var(--primary-color);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      text-align: center;
+    }
+    .btn:hover {
+      background-color: #357ae8;
+    }
+    .important {
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    .highlight {
+      font-weight: bold;
+      color: #d93025;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>5分で完了！<br>Gemini APIキー取得ガイド</h1>
+  </header>
+
+  <div class="introduction">
+    <h2>まずは、お読みください</h2>
+    <p>このレイヤーでは、AIを使ってレイヤー検索を行います。  そのためGoogleのAI「Gemini」を利用します。</p>
+    <p>Geminiを使うには、利用者ごとに「APIキー」という合言葉を設定する必要があります。</p>
+    <p>このページでは、この「APIキー」を取得する手順を解説します。</p>
+    <p>Googleアカウントがあれば、<strong>クレジットカードの登録なしで、無料枠の範囲</strong>のAPIキーが取得できます。</p>
+    <div class="important">
+      ここで取得するAPIキーは、あなたのブラウザ内（あなたのスマホやPC）にのみ保存され、このツールの作者には送信されません。
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <div class="step-number">1</div>
+      取得ページを開く
+    </div>
+    <div class="step-content">
+      <div class="step-text">
+        <p>まずは、以下のボタンをクリックして、Google AI StudioのAPIキー取得ページを開いてください。Googleアカウントのログイン画面が出た場合は、ログインしてください。</p>
+      </div>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn">APIキー取得ページを開く</a>
+      
+      <div class="step-text" style="margin-top: 20px;">
+        <p>画面が開いたら、右上にある紫の丸で囲った<strong>「APIキーを作成」</strong>ボタンをクリックします。</p>
+      </div>
+      <img src="screen1.png" alt="APIキーを作成ボタンの場所" class="step-image">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <div class="step-number">2</div>
+      キーを入れる「箱（プロジェクト）」を作る
+    </div>
+    <div class="step-content">
+      <div class="step-text">
+        <p>APIキーを作るには、それを入れておくための「箱（プロジェクト）」が必要です。</p>
+        <p>新しい画面が出たら、<strong>「インポートしたプロジェクトを選択」の下向き矢印（▼）</strong>をクリックします。</p>
+        <p>メニューが開くので、紫の丸で囲った<strong>「＋ プロジェクトを作成」</strong>をクリックしてください。<br>（名前などは変更しなくてOKです！）</p>
+      </div>
+      <img src="screen2.png" alt="プロジェクトを作成を選択" class="step-image">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <div class="step-number">3</div>
+      キーをコピーする
+    </div>
+    <div class="step-content">
+      <div class="step-text">
+        <p>しばらく待つとキーが作成され、元の画面に戻ります。</p>
+        <p>青い線で引いた部分に<strong>「無料枠」</strong>と表示されていることを確認してください。ここが無料枠になっていれば、お金はかかりません。</p>
+        <p>確認できたら、紫の丸で囲った<strong>「コピーボタン（四角が2つ重なったマーク）」</strong>をクリックして、APIキーをコピーしてください。</p>
+      </div>
+      <img src="screen3.png" alt="キーのコピーと無料枠の確認" class="step-image">
+      
+      <div class="step-text" style="margin-top: 20px; padding: 15px; background: #e8f0fe; border-radius: 8px;">
+        <p><strong>これで完了です！</strong></p>
+        <p>元のアプリ画面に戻り、コピーしたキー（AIza...から始まる長い文字列です）を貼り付けてお使いください。</p>
+      </div>
+    <div class="important">
+      ※このAPIキーはあなた専用のものです。SNSなどに公開しないようにしてください。
+    </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

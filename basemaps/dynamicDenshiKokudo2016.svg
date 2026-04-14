@@ -217,6 +217,7 @@
 		"lum4bl_kinki2001" :[13,16],
 		"lum4bl_kinki2008" :[13,16],
 		"ort" :[2,18],
+		"seamlessphoto" :[2,18],
 		"gazo1" :[10,17],
 		"gazo2" :[10,17],
 		"gazo3" :[10,17],
@@ -276,10 +277,10 @@
 	function getURL( tx , ty , lvl ){
 		var tile_ans = getKey( tx , ty , lvl );
 		var media=".png";
-		if ( mapName =="ort"){
+		if ( mapName =="ort" || mapName == "seamlessphoto"){
 			media =".jpg";
 		}
-		var mapServerURL = "http://cyberjapandata.gsi.go.jp/xyz/" + mapName + "/" + lvl + "/" + tx + "/" + ty + media;
+		var mapServerURL = "https://cyberjapandata.gsi.go.jp/xyz/" + mapName + "/" + lvl + "/" + tx + "/" + ty + media;
 		return {
 			URL : mapServerURL ,
 			Key : tile_ans
