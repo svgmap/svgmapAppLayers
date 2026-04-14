@@ -227,12 +227,35 @@
 
 			// AI検索実行 (ロジックはJSモジュール側のsearchLayersに実装)
 			try {
-				const result = await searchLayers(query, availableLayers, pass);
+				const rawResult = await searchLayers(query, availableLayers, pass);
+				const result = filterValidLayers(rawResult, availableLayers);
 				renderResults(result);
 			} catch (error) {
 				setStatus(error.message, true);
 			}
 		};
+		
+		/**
+		* AIの返した結果から、捏造されたレイヤーと重複を除外する
+		* @param {Array} rawResults - AIが出力した未処理のレイヤー配列
+		* @param {Array} availableLayers - 実際に地図上に存在するレイヤーの配列
+		* @returns {Array} - クレンジング済みの安全なレイヤー配列
+		*/
+		function filterValidLayers(rawResults, availableLayers) {
+			const validLayerNames = new Set(availableLayers.map(layer => layer.name));
+			const seenNames = new Set();
+			console.log("validLayerNames:",validLayerNames," rawResults:",rawResults);
+			// 実在チェックと重複排除を同時に実行
+			const safeResults = rawResults.filter(item => {
+				// 実在しない捏造レイヤーなら除外 (false)
+				if (!validLayerNames.has(item.name)) return false;
+				// すでに同じ名前のレイヤーを処理済み（重複）なら除外 (false)
+				if (seenNames.has(item.name)) return false;
+				seenNames.add(item.name);
+				return true;
+			});
+			return safeResults;
+		}
 	</script>
 </body>
 </html>
