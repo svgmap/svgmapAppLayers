@@ -1,1 +1,0 @@
-../../commonLib/QTCTrenderer.js

@@ -5,10 +5,9 @@
 <title>img2vector</title>
 </head>
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/satakagi/potrace@master/potrace.js"></script>
 <script type="module">
-	import {SvgCurve2Line} from "./SvgCurve2Line.js"; // オリジナルのpotrace.jsはベジェで生成するため、それをポリラインに変換するライブラリ
-	window.SvgCurve2Line = SvgCurve2Line;
+//	import {SvgCurve2Line} from "./SvgCurve2Line.js"; // ベジェで生成されたデータを、それをポリラインに変換するライブラリ (「手描きの素のSVGパス」などをGISのMultiPolygon（GeoJSON）に変換することが可能)は、Rev2では不要になったのでコメントアウト
+//	window.SvgCurve2Line = SvgCurve2Line;
 	
 	import {captureRasterData} from "./captureRasterData.js"; // ラスタデータをキャプチャするSVGMap.jsの機能のラッパ
 	window.captureRasterData = captureRasterData;
@@ -16,6 +15,9 @@
 	import { getGeoJSON , saveText} from "./getGeoJSON.js";
 	window.getGeoJSON = getGeoJSON;
 	window.saveText = saveText;
+	
+	import { extractPolygons } from "./bitmapVectorizer.js"; // 2026/04/20
+	window.extractPolygons = extractPolygons;
 	
 </script>
 
@@ -36,10 +38,11 @@
 // Version History
 // Rev1 2024/11/20 最初の稼働版
 //         2024/11/22 GeoJSON保存機能
+// Rev2 2026/04/20 独自のビットイメージ輪郭抽出ライブラリに置換して改善
 // 
 // ISSUE, ToDo:
 //   広い領域をクローリングしてトレースする
-//   タイリングされているとタイルの継ぎ目が微妙な感じになる
+//   タイリングされているとタイルの継ぎ目が微妙な感じになる⇒Rev2で少し改善
 
 const targetGroupId="tracedPath";
 
@@ -104,19 +107,6 @@ function binarizerDefault(r,g,b,a){
 	return ( 255-a ); // alpha = 255で黒とする
 }
 
-
-/**
-function convertImage(){
-	Potrace.loadImageFromUrl("11_1814_807.gif");
-	Potrace.setParameter({opttolerance:0.2,turnpolicy:"minority",alphamax:1,optcurve:true,binarizer:binarizer});
-	Potrace.process(function(){
-		displayImg();
-		displaySVG(1);
-		//convPath();
-	});
-}
-**/
-
 async function captureAndConvertData(){
 	// removeChildren(document.getElementById("svgImages"));
 	removeChildren(svgImage.getElementById(targetGroupId));
@@ -154,69 +144,35 @@ async function captureAndConvertData(){
 	savegjsbtn.disabled=false;
 }
 
-function traceImage(coverage, img2svg,binarizerFunc){
+function traceImage(coverage, img2svg, binarizerFunc){
 	return new Promise(function(okCB){
-		Potrace.setParameter({opttolerance:0.2,turnpolicy:"minority",alphamax:1,optcurve:true,binarizer:binarizerFunc});
-		Potrace.setImageData(coverage.imageData.data, coverage.imageData.width, coverage.imageData.height);
-		Potrace.process(function(){
-			var path = Potrace.getSVG(1, "pathData");
-			path.title =  coverage.href;
-			// drawSvg(path);
-			drawSvgMap(path, img2svg);
-			okCB(true);
+		const w = coverage.imageData.width;
+		const h = coverage.imageData.height;
+		const data = coverage.imageData.data;
+
+		// 1. ベクター化エンジンにすべてお任せ（行列変換も内部で行わせる）
+		const result = window.extractPolygons(data, w, h, binarizerFunc, {
+			epsilon: 1.0,
+			minArea: 4, // 削られすぎないよう少し下げました
+			transformMatrix: img2svg
 		});
-	});
-}
 
-function drawSvgMap(path, img2svg){
-	var sc = new SvgCurve2Line();
-	sc.setOptions({
-		transformMatrix:img2svg
-		/**
-		transformMatrix:{
-//			a:0.1,b:0,c:0,d:0.1,e:13500,f:-3500
-			a:0.5,b:0,c:0,d:0.5,e:0,f:0
+		const targetGroup = svgImage.getElementById(targetGroupId);
+
+		// 2. 返ってきた綺麗なSVGパス文字列(MultiPolygon対応済み)を描画するだけ
+		for (const dStr of result.paths) {
+			const pathElm = svgImage.createElement("path");
+			pathElm.setAttribute("d", dStr);
+			pathElm.setAttribute("fill", "purple");
+			pathElm.setAttribute("stroke", "none");
+			pathElm.setAttribute("fill-rule", "evenodd"); // 外枠と穴を正しく中抜き
+			pathElm.setAttribute("opacity", "0.65");
+			targetGroup.appendChild(pathElm);
 		}
-		**/
+
+		okCB(true);
 	});
-
-	/**
-	var convd = sc.convert(path.data);
-	path.data = convd;
-	var targetGroup = svgImage.getElementById(targetGroupId);
-	var path = svgImage.createElement("path");
-	path.setAttribute("d",convd);
-	path.setAttribute("fill","purple");
-	path.setAttribute("stroke","none");
-	path.setAttribute("fill-rule","evenodd");
-	path.setAttribute("opacity","0.65");
-	targetGroup.appendChild(path);
-	**/
-	
-	var convds =sc.convertNew(path.data);
-	path.data = convds;
-	var targetGroup = svgImage.getElementById(targetGroupId);
-	for ( var convd of convds){
-		var pathElm = svgImage.createElement("path");
-		pathElm.setAttribute("d",convd);
-		pathElm.setAttribute("fill","purple");
-		pathElm.setAttribute("stroke","none");
-		pathElm.setAttribute("fill-rule","evenodd");
-		pathElm.setAttribute("opacity","0.65");
-		targetGroup.appendChild(pathElm);
-	}
-	
 }
-
-/**
-function drawSvg(path){
-	var svgdiv = document.createElement("div");
-	svgdiv.style.display = 'inline-block';
-	svgdiv.innerHTML=`<p style="font-size:8px">Result:${path.title}</p><svg id="svg" version="1.1" width="${path.width}" height="${path.height}" xmlns="http://www.w3.org/2000/svg"><path d="${path.data}" stroke="none" fill="black" fill-rule="evenodd"></path></svg>`;
-	var parentElm = document.getElementById("svgImages");
-	parentElm.insertAdjacentElement("beforeend",svgdiv);
-}
-**/
 
 function removeChildren(parentElm){
 	while( parentElm.firstChild ){
@@ -235,7 +191,6 @@ async function saveAsGeoJSON(){
 </script>
 <body>
 <h5>ビットイメージレイヤをトレースしベクタ化する</h5>
-<div style="font-size:10px"><a href="https://github.com/satakagi/potrace" target="_blank">potrace.js</a>をベースに開発</div>
 <div>
 対象レイヤ
 <select name="targetCoverLayer" id="targetCoverLayer" onChange="setColorPicker()">

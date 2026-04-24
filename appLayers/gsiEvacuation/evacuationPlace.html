@@ -7,9 +7,11 @@
 </head>
 
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
-<script type="module" src="QTCTrenderer.js"></script>
-<script src="csvMapper.js"></script>
 
+<script type="module">
+import { CsvMapper } from './CsvMapper.js';
+window.CsvMapperClass = CsvMapper; // 下の既存scriptブロックからnewできるように露出させる
+</script>
 
 
 <script>
@@ -24,6 +26,7 @@
 // History
 // 2024/10/03 最初のリリース (指定緊急避難場所可視化のみ) zipから直接回答して表示する感じ
 // 2024/12/27 サーバの構成が変更になったので追従。　指定避難所の可視化機能も追加 
+// 2026/04/21 CsvMapper.jsに移行
 
 // 指定緊急避難場所CSVのエンドポイント (GeoJSONは要らんのでｗ)
 var placeURL="https://hinanmap.gsi.go.jp/hinanjocp/defaultFtpData/csv/mergeFromCity_2.csv";
@@ -41,6 +44,10 @@ var posCols;
 
 var dataCat;
 
+var myCsvMapper;
+let layerPreRenderFunc = () => {};
+window.preRenderFunction = () => layerPreRenderFunc();
+
 addEventListener("load", async function(){
 	dataCat = svgImage.documentElement.getAttribute("data-title");
 	frameTitle.innerText=dataCat;
@@ -56,8 +63,17 @@ addEventListener("load", async function(){
 	csvArray = csv2Array(srcCsv);
 	posCols = getPosCols(csvArray);
 	console.log(posCols);
-	csvMapper.onload();
-	csvMapper.setMessageDiv(messageDiv);
+	
+	myCsvMapper = new window.CsvMapperClass({
+		svgMap: window.svgMap,
+		svgImage: window.svgImage,
+		svgImageProps: window.svgImageProps,
+		layerID: window.layerID,
+		messageDivElm: document.getElementById("messageDiv") // メッセージ用Divもここで注入
+	});
+	layerPreRenderFunc = myCsvMapper.preRenderFunction;
+	myCsvMapper.onload();
+	
 	processHash();
 	filterCat();
 //	csvMapper.initCsv(arrayToCsvText(csvArray), 14, 15, 3, iconDataURL, null, 1 );
@@ -250,7 +266,7 @@ function filterCat(){
 	}
 	svgImageProps.hash=`#${hashCats.join(":")}`;
 	var fArray = filterArray(csvArray, selectedCatCols);
-	csvMapper.initCsv(arrayToCsvText(fArray), posCols.lat, posCols.lng, posCols.title, iconDataURL, null, 1 );
+	myCsvMapper.initCsv(arrayToCsvText(fArray), posCols.lat, posCols.lng, posCols.title, iconDataURL, null, 1 );
 }
 
 function processHash(){

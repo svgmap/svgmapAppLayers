@@ -7,8 +7,10 @@
 </head>
 
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
-<script type="module" src="QTCTrenderer.js"></script>
-<script src="csvMapper.js"></script>
+<script type="module">
+import { CsvMapper } from './CsvMapper.js';
+window.CsvMapperClass = CsvMapper; // 下のスクリプトブロックからnewできるように露出させる
+</script>
 
 <script type="module">
 import {extractLatestMedicalDataUrls, fetchBinaryDataWithProgress} from "./lryouNetSrcPathExtractor.js";
@@ -31,6 +33,10 @@ window.fetchBinaryDataWithProgress = fetchBinaryDataWithProgress;
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
+// History
+// 2025/10/16 rev1
+// 2026/04/21 CsvMapperの利用に変更
+
 const srcIndexHtmlUrl="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryou/newpage_43373.html";
 
 const catDict={
@@ -42,8 +48,19 @@ const catDict={
 }
 
 const excludeCatName ="speciality_hours";
+var myCsvMapper;
+let layerPreRenderFunc = () => {};
+window.preRenderFunction = () => layerPreRenderFunc();
 
 addEventListener("load",  function(){
+	myCsvMapper = new window.CsvMapperClass({
+		svgMap: window.svgMap,
+		svgImage: window.svgImage,
+		svgImageProps: window.svgImageProps,
+		layerID: window.layerID,
+		messageDivElm: document.getElementById("messageDiv") // メッセージ用Divもここで注入
+	});
+	layerPreRenderFunc = myCsvMapper.preRenderFunction;
 	init();
 });
 
@@ -57,8 +74,7 @@ async function init(){
 	poiURLs = urls.url;
 	dateUpdated.innerText=`データ更新:${urls.date.toLocaleDateString("ja-JP")}`;
 //	console.log(urls, urls["01-1_hospital_facility_info"]);
-	csvMapper.onload();
-	csvMapper.setMessageDiv(messageDiv);
+	myCsvMapper.onload();
 	initSelection();
 	processHash();
 }
@@ -112,7 +128,7 @@ async function drawMap(csv,iconPath){
 	}
 	var iconDataURL=await imageToDataURIByPath(iconPath);
 	
-	csvMapper.initCsv(ccsv, primitivSchema.lat, primitivSchema.lng, primitivSchema.title, iconDataURL, null, 1 );
+	myCsvMapper.initCsv(ccsv, primitivSchema.lat, primitivSchema.lng, primitivSchema.title, iconDataURL, null, 1 );
 }
 
 

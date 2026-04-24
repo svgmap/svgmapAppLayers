@@ -20,9 +20,10 @@ window.LocalDBFileManager = LocalDBFileManager;
 import { geoJson2Csv } from "./geoJson2Csv.js";
 window.geoJson2Csv = geoJson2Csv;
 </script>
-<script type="module" src="QTCTrenderer.js"></script>
-<script src="csvMapper.js"></script>
-
+<script type="module">
+import { CsvMapper } from './CsvMapper.js';
+window.CsvMapperClass = CsvMapper; // 古いスクリプトブロックでnewできるようにする
+</script>
 
 <!-- アイコン設定UIライブラリ -->
 <script type="module" >
@@ -54,14 +55,31 @@ window.KMLParser = KMLParser;
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
+// History:
+// 2026/02/24 rev1
+// 2026/04/21 CsvMapper.jsの利用に移行
+
 
 const KmlInfo = {}; // このデータがtinyFileManagerに保存・読み出しされる
+let kmlPreRenderFunc = () => {};
+window.preRenderFunction = () => kmlPreRenderFunc();
 
 let currentCsvData, postDisplayUI, complexFeatureGroup;
 
 addEventListener("load",async function(){
 	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
 	frameTitle.style.visibility="visible";
+	
+	// ★ ここで新しいCsvMapperをインスタンス化して依存を注入
+	window.csvMapper = new window.CsvMapperClass({
+		svgMap: window.svgMap,
+		svgImage: window.svgImage,
+		svgImageProps: window.svgImageProps,
+		layerID: window.layerID,
+		messageDivElm: document.getElementById("TabMessageDiv") // メッセージ用Divもここで注入
+	});
+	kmlPreRenderFunc = window.csvMapper.preRenderFunction;
+	
 	initUI();
 	postDisplayUI = document.getElementById("postDisplayUI");
 	complexFeatureGroup = svgImage.getElementById("complexFeatures");
@@ -140,7 +158,7 @@ function showConvertedKml(gjs){
 	
 	console.log(gjs, KmlInfo);
 	csvMapper.onload();
-	csvMapper.setMessageDiv(TabMessageDiv);
+	//csvMapper.setMessageDiv(TabMessageDiv);
 	
 	opt ={
 //		titleName:"通し番号",

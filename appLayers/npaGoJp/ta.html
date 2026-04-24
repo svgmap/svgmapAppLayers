@@ -21,13 +21,15 @@
 // 2023/02/24 最初の版
 // 2025/04/10 rev2
 // 2026/02/06 rev3 2019-2024のデータ表示に対応
-
+// 2026/04/21 Refactor QTCTLayerRendererの利用
 
 import {ZipDataDownloader} from "./ZipDataDownloader.js";
 
 import { parseAcData , buildCodesDict , buildCodesDictFromXLSX , translateCol } from "./taDataGenerator.js";
 
-import { initSvgMapTile, getQTCTcsvSchema} from "./dynamicSvgMapTile.js";
+// ★[Refactor 2026] 車輪の再発明だった dynamicSvgMapTile.js を削除し、共通の QTCTLayerRenderer を使用
+// import { initSvgMapTile, getQTCTcsvSchema} from "./dynamicSvgMapTile.js";
+import { QTCTLayerRenderer } from "./QTCTLayerRenderer.js";
 
 import { initTaShowPoiProperty, buildMetaCodeTables} from "./taShowPoiProperty.js";
 
@@ -50,12 +52,41 @@ const honhyoURLs={
 let metaCodeTables;
 let titleDataIndex=[];
 
+// ★[Refactor 2026] グローバルのレンダラーインスタンスを保持
+let qtctRenderer = null;
+
+// ★[Refactor 2026] 描画フックの事前登録
+window.preRenderFunction = () => {
+	if (qtctRenderer) qtctRenderer.preRenderFunction();
+};
+
+
 addEventListener("load", async function(){
 	var messageDiv = document.getElementById("messageDiv");
 	buildSelect();
 //	await loadData(honhyoURLs["2021"]);
 	processHash();
 });
+
+// ★[Refactor 2026] dynamicSvgMapTile.js からスキーマ抽出関数を移植
+function getQTCTcsvSchema(col){
+	var latCol=-1,lngCol=-1;
+	var metaSchema=[];
+	for ( var i = 0 ; i < col.length ; i++ ){
+		if (latCol==-1 && col[i].indexOf("緯度")>=0 ){
+			latCol = i;
+		} else if (lngCol==-1 && col[i].indexOf("経度")>=0){
+			lngCol = i;
+		} else {
+			metaSchema.push(col[i]);
+		}
+	}
+	return {
+		latCol:latCol,
+		lngCol:lngCol,
+		metaSchema:metaSchema
+	}
+}
 
 
 async function loadData(urls,y){
@@ -66,8 +97,14 @@ async function loadData(urls,y){
 		await buildCodesDict();
 	}
 	messageDiv.innerText="スキーマ情報を読み込み完了";
-	await initSvgMapTile();
+	
+	if (qtctRenderer) {
+		qtctRenderer.clearData();
+		qtctRenderer.removePrevTiles();
+	}
+	svgImage.firstChild.setAttribute("property","");
 	svgMap.refreshScreen();
+	
 	var srcTxt;
 	if ( urls[0].indexOf(".zip")>0){
 		messageDiv.innerText=y+"年の事故情報データ(zip)を読み込み中";
@@ -79,47 +116,61 @@ async function loadData(urls,y){
 	}
 	messageDiv.innerText="CSVデータパース中";
 	var aData = parseAcData(srcTxt);
-	console.log(aData.schema);
 	messageDiv.innerText="タイルピラミッド構築中";
-	
-	// poiのtitle表示用のデータをあらかじめ生成する
+
+	// ★[Refactor 2026] 元データをいじらず、辞書だけ作成する
 	var schema = getQTCTcsvSchema(aData.schema);
-	metaCodeTables = buildMetaCodeTables(aData.codeTables,schema);
-	//console.log("schema:", schema);
-	titleDataIndex=[];
-	titleDataIndex.push( schema.metaSchema.indexOf("事故内容") );
-	titleDataIndex.push( schema.metaSchema.indexOf("事故類型") );
-	// val = translateCol(row,metaCodeTables, i)
-	const options={
-//		titleCol:11,
-		titleFunction:getTitle,
-		iconFunction:getIcon,
+	metaCodeTables = buildMetaCodeTables(aData.codeTables, schema);
+	titleDataIndex = [];
+	titleDataIndex.push(schema.metaSchema.indexOf("事故内容"));
+	titleDataIndex.push(schema.metaSchema.indexOf("事故類型"));
+	
+	svgImage.documentElement.setAttribute("property", schema.metaSchema.join(","));
+	
+	// ★[Refactor 2026] titleEvaluator を渡す
+	qtctRenderer = new QTCTLayerRenderer({
+		svgMap: window.svgMap,
+		svgImage: window.svgImage,
+		svgImageProps: window.svgImageProps,
+		layerID: window.layerID,
+		iconIdEvaluator: (rawData) => {
+			if (rawData[titleDataIndex[0]] == 2) {
+				return "p0";
+			} else {
+				return "p1";
+			}
+		},
+		titleEvaluator: (rawData) => {
+			// rawDataは緯度経度が抜かれた配列
+			let val = [];
+			for (let idx of titleDataIndex) {
+				val.push(translateCol(rawData, metaCodeTables, idx));
+			}
+			return val.join(":");
+		}
+	});
+
+	// 紫色を再現
+	qtctRenderer.colors[0] = [146, 23, 173, 255];
+	qtctRenderer.colors[1] = [146, 23, 173, 255];
+
+	let qtctSchema = {
+		latCol: schema.latCol,
+		lngCol: schema.lngCol,
+		defaultIconNumber: 0
 	};
 	
-	// ここで地図タイルを生成する
-	await initSvgMapTile(aData, progressCBF,options);
-	console.log(schema, aData);
+	await qtctRenderer.buildQTCTdata(aData.data, qtctSchema, progressCBF, true);
+	
+	// ★[Refactor 2026] スキーマもデータも一切汚していないので、プロパティ表示スクリプトが正常に動く！
 	initTaShowPoiProperty(aData.codeTables, schema);
 	messageDiv.innerText="-";
+	
+	window.preRenderFunction();
+	svgMap.refreshScreen();
 }
 
-function getTitle(row){
-	var val=[];
-	for ( var idx of titleDataIndex){
-		val.push(translateCol(row,metaCodeTables, idx));
-	}
-	return val.join(":");
-}
-
-function getIcon(row){
-	let val;
-	if ( row[titleDataIndex[0]] ==2){
-		val = "#p0";
-	} else {
-		val = "#p1";
-	}
-	return val;
-}
+// ★[Refactor 2026] 不要になった getTitle, getIcon 関数は削除しました
 
 function zipDLprogress(p,y,isZip){
 	messageDiv.innerText=(`${y}年の事故情報データ${isZip?"(zip)":""}を読み込み中 : ${Math.floor(p*100)}%`);
@@ -184,7 +235,12 @@ async function selectYear(event){
 		await loadData(honhyoURLs[event.target.value],event.target.value);
 		svgImageProps.hash = "#"+event.target.value;
 	} else {
-		await initSvgMapTile();
+		// ★[Refactor 2026] initSvgMapTile() ではなく、新レンダラーをクリア
+		if (qtctRenderer) {
+			qtctRenderer.clearData();
+			qtctRenderer.removePrevTiles();
+		}
+		svgImage.firstChild.setAttribute("property","");
 		svgImageProps.hash = "";
 		svgMap.refreshScreen();
 	}
@@ -203,16 +259,6 @@ function processHash(){
 <h3>交通事故統計情報</h3>
 <ul style="font-size:10px">
 <li>警察庁 交通事故統計情報の 元データを直接可視化します。
-<!--
-<ul>
-	<li>元データの中間処理自体をWebApp内で自動化しています。
-	<li>オリジナルデータをなるべくそのまま使う機構を公開するメリット
-	<ul>
-		<li>中間加工処理のノウハウ自体のオープンソース化
-		<li>劣化・アウトデートの可能性があるデータ複製を作らない
-	</ul>
-</ul>
--->
 <li>出典(参照先)：警察庁 <a href="https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html" target="_blank">交通事故統計情報のオープンデータ</a>
 </ul>
 <div id="messageDiv" style="font-size:12px">-</div>

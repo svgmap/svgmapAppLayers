@@ -8,14 +8,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// History:
+// 2026/04/21 : ClientSideQTCT.jsをラップしたSVGMap描画ライブラリQTCTLayerRenderer.jsを使用するように変更
 
 //import { doQTCT, quadTreeCompositeTile } from './outdated/clientSideQTCT_func.js';
 //import * as csvFetcher from './outdated/csvFetcher_func.js';
-import { ClientSideQTCT } from './ClientSideQTCT.js';
+import { QTCTLayerRenderer } from './QTCTLayerRenderer.js';
 import {CsvFetcher} from './CsvFetcher.js';
 
 var csvFetcher = new CsvFetcher();
-var clientSideQTCT = new ClientSideQTCT();
+var qtctRenderer;
 
 //window.csvFetcher = csvFetcher; // for debug
 //window.clientSideQTCT = clientSideQTCT;
@@ -24,11 +26,22 @@ var svgMap,svgImage,svgImageProps,layerID;
 
 var qtctMapData
 
+let cctvPreRenderFunc;
+
 addEventListener("load",async function(){
 	svgMap = window.svgMap;
 	svgImage = window.svgImage;
 	svgImageProps = window.svgImageProps;
 	layerID = window.layerID;
+	
+	// 変更点2: QTCTLayerRendererの初期化と依存の注入
+	qtctRenderer = new QTCTLayerRenderer({
+		svgMap: svgMap,
+		svgImage: svgImage,
+		svgImageProps: svgImageProps,
+		layerID: layerID,
+		iconIdEvaluator: function(rawData) { return "p0"; },
+	});
 	
 	// OBS_Blist_20220405.csv  CCTV_Blist_20220405.csv  CCTVlist_20220405.csv
 	document.getElementById("poiInfoDiv").innerText="データ読み込み中";
@@ -36,97 +49,30 @@ addEventListener("load",async function(){
 	var schemaCol = csv.shift();
 	document.getElementById("poiInfoDiv").innerText=csv.length+"レコードのデータがあります";
 	var schema=csvFetcher.getCsvSchema(schemaCol);
+	schema.titleCol = 1;
 	//console.log("schema:",schema);
 	//console.log("csv:",csv);
 	svgImage.documentElement.setAttribute("property",schema.metaSchema.join(","));
-	qtctMapData = await clientSideQTCT.doQTCT(csv, function(col){
-		var matadata = [];
-		if ( schema.latCol > schema.lngCol ){
-			var y = col.splice(schema.latCol,1)[0];
-			var x = col.splice(schema.lngCol,1)[0];
-		} else {
-			var x = col.splice(schema.lngCol,1)[0];
-			var y = col.splice(schema.latCol,1)[0];
-		}
-		if ( col.join().indexOf("122313145")>=0){
-			console.log(x,y,col);
-		}
-		//console.log(x,y,col);
-		return [x,y,col];
-	}, {maxTilePoints:100,pixelColor:[0,0,255,255]});
-	window.qtctMapData = qtctMapData; // for debug
-	// console.log(qtctMapData);
-	// clientSideQTCT.countRecords();
+	
+	// 旧コードの splice ロジックは、第4引数を true (removeLatLngMeta) にするだけでレンダラーが吸収します
+	await qtctRenderer.buildQTCTdata(
+		csv, 
+		schema, 
+		function(msg){ console.log(msg); }, // progressCBF
+		true // removeLatLngMeta を true に！
+	);
 	
 	initUI();
+	// preRenderFunctionを明示的に登録
+	cctvPreRenderFunc = qtctRenderer.preRenderFunction;
 	
-	window.preRenderFunction();
+	cctvPreRenderFunc();
 	svgMap.refreshScreen();
 });
 
-window.preRenderFunction=function(){
-	//console.log("Called window.preRenderFunction, svgMap:",svgMap,"  svgImage:",svgImage," layerID:",layerID);
-	var level = Math.floor( Math.LOG2E * Math.log(svgImageProps.scale) + 6.5);
-	var gvb = svgMap.getGeoViewBox();
-	//console.log("geoVB:", gvb,"  level:",level);
-	var tileSet = clientSideQTCT.getTileSet(gvb,level)
-	//console.log("getTileSet:",tileSet);
-	
-	removePrevTiles(tileSet);// ひとまず全タイル削除
-	
-	for ( var tkey in tileSet){
-		var tileData = qtctMapData[tkey];
-		
-		var tileG = svgImage.createElement("g");
-		tileG.setAttribute("id","T"+tkey);
-		svgImage.documentElement.appendChild(tileG);
-		
-		if ( tileData instanceof Array){ // 実データ
-			setPoiTile(tileData, tileG);
-		} else { // String imageURI
-			var geoBBox = clientSideQTCT.getGeoBound(tkey);
-			setImageTile(tileData, geoBBox, tileG);
-		}
-	}
-	console.log(svgImage);
+window.preRenderFunction = function() {
+	cctvPreRenderFunc();
 }
-
-function setPoiTile(tileData, tileG){
-	for ( var poiDat of tileData ){
-		var poi = svgImage.createElement("use");
-		poi.setAttribute("xlink:href","#p0");
-		poi.setAttribute("x",0);
-		poi.setAttribute("y",0);
-		poi.setAttribute("xlink:title",poiDat[2][1]);
-		poi.setAttribute("content",poiDat[2].join(","));
-		poi.setAttribute("transform","ref(svg,"+Number(poiDat[0])*100+","+(-Number(poiDat[1])*100)+")" );
-		tileG.appendChild(poi);
-	}
-}
-
-function setImageTile(tileData, geoBBox, tileG){
-	var img = svgImage.createElement("image");
-	img.setAttribute("xlink:href",tileData);
-	img.setAttribute("style","image-rendering:pixelated");
-	img.setAttribute("x",geoBBox.x*100);
-	img.setAttribute("y",-(geoBBox.y+geoBBox.height)*100);
-	img.setAttribute("height",geoBBox.height*100);
-	img.setAttribute("width",geoBBox.width*100);
-	tileG.appendChild(img);
-}
-
-function removePrevTiles(tileSet){ // 前のステップで表示していた要素のうち、不要なものを削除＆今のステップでも使うものは流用する処理
-	var gs = svgImage.getElementsByTagName("g");
-	for ( var i = gs.length-1 ; i >0 ; i--){
-		var tkey = gs[i].getAttribute("id").substring(1);
-		if ( !tileSet[tkey]){ // 必要なタイルのセットの中にないものは消去
-			gs[i].remove();
-		} else { // あったものについてはタイルセットのほうを消去
-			delete tileSet[tkey];
-		}
-	}
-}
-
 
 // POIクリック時のUIのカスタマイズ
 function initUI(){
