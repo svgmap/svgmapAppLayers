@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+    <title>Yahoo!ジオコーダを利用したジオコーダレイヤ</title>
+    <meta charset="utf-8"></meta>
+    <style>
+        body { font-family: sans-serif; font-size: 13px; }
+        th { background: #eee; }
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #ccc; padding: 4px; }
+    </style>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module">
+// Description: Yahoo!ジオコーダAPIを利用したジオコーダレイヤ (LaWA)
+
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+
+import { YahooGeocoder, parseYahooCoords } from "./yahooGeocodeViaProxy.js";
+
+let cg;
+
+window.onload = function () {
+	console.log("ONLOAD");
+	// hashからプロキシURLを取得可能にする設定
+	cg = new YahooGeocoder();
+
+	document.getElementById("searchButton").addEventListener("click", searchAddress);
+	document.getElementById("addressInput").addEventListener("keydown", function(event){
+		if (event.key === 'Enter') {
+			searchAddress();
+		}
+	});
+	window.setCenter = setCenter;
+}
+
+async function searchAddress(){
+	const msg = document.getElementById("messageDiv");
+	const address = document.getElementById("addressInput").value;
+
+	if (!address) {
+		msg.innerText = "検索するアドレスを入力してください";
+		return;
+	} else {
+		removeChildren(msg);
+	}
+
+	try {
+		const ret = await cg.geocode(address);
+		console.log("Raw Response:", ret);
+
+		const ans = [];
+		if (!ret.Feature || ret.Feature.length === 0) {
+			msg.innerText = "検索できませんでした";
+			return;
+		}
+
+		// Yahoo! YDF形式を LaWA標準の ans 配列に変換
+		for (const feat of ret.Feature) {
+			const [longitude, latitude] = parseYahooCoords(feat.Geometry.Coordinates);
+			const level = feat.Property.AddressMatchingLevel || "3"; // デフォルト大字レベル
+			const parsedAddress = feat.Property.Address;
+			ans.push({ latitude, longitude, level, parsedAddress });
+		}
+
+		console.log("Parsed candidates:", ans);
+
+		// 候補が1つなら即移動
+		if (ans.length === 1 && window.svgMap) {
+			setCenter(ans[0].latitude, ans[0].longitude, cg.levelDict[ans[0].level][1]);
+		}
+
+		// 候補テーブルの作成
+		const tbl = document.createElement("table");
+		tbl.insertAdjacentHTML("beforeend", "<tr><th>アドレス候補</th><th>レベル</th><th>操作</th></tr>");
+
+		for (const dat of ans) {
+			const lvlInfo = cg.levelDict[dat.level] || ["不明", 1];
+			const elm = `<tr>
+<td>${dat.parsedAddress}</td>
+<td>${lvlInfo[0]}</td>
+<td><input value="表示" type="button" onclick="setCenter(${dat.latitude},${dat.longitude},${lvlInfo[1]})"></td>
+</tr>`;
+			tbl.insertAdjacentHTML("beforeend", elm);
+		}
+		msg.appendChild(tbl);
+
+	} catch (e) {
+		msg.innerText = "通信エラーが発生しました: " + e.message;
+	}
+}
+
+function setCenter(lat, lng, radiusKm) {
+	console.log("setCenter:", lat, lng, radiusKm);
+	if (window.svgMap) {
+		// svgMapjsの座標系(度)に半径kmを変換（111km ≒ 1度）
+		window.svgMap.setGeoCenter(lat, lng, radiusKm / 111);
+	}
+}
+
+function removeChildren(element) {
+	while (element.firstChild) element.removeChild(element.firstChild);
+}
+
+</script>
+<body>
+	<h3 id="pageTitle">Yahoo! ジオコーダ</h3>
+	<div id="referInfo" style="font-size:12px">
+		<a href="https://developer.yahoo.co.jp/sitemap/" target="_blank">Web Services by Yahoo! JAPAN</a>　(YOLP)
+	</div>
+	<div>
+		<input type="text" style="width:300px" id="addressInput" placeholder="住所、施設名など"></input>
+		<input type="button" value="住所検索" id="searchButton"></input>
+	</div>
+	<div id="messageDiv"></div>
+</body>
+</html>

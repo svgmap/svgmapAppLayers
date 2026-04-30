@@ -23,6 +23,7 @@
 <animation xlink:href="./geoCoders/plusCoder/plusCode.svg" title="plus coder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation xlink:href="./geoCoders/geohashCoder/geohash.svg" title="geohashCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation class="geoCoder" title="UTMGridCoder" xlink:href="./geoCoders/utmGridCoder/utmGridCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
+<animation xlink:href="./geoCoders/yahooGeocoder/yahooGeocoder.svg" title="Yahoo!_GeoCoder" data-special-server-required="true" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation xlink:href="./geoCoders/geoloniaGeocoder/geoloniaGeocoder.svg" title="geolonia_GeoCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
 <animation xlink:href="./geoCoders/csisGeocoder/csisGeocode.svg" title="CSIS_GeoCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/> <!-- csisGeocode.svg#jageocoderEndpoint=[JageocoderEndpointURLwithQueryPart] とすることでJageocoderを使用します-->
 <animation xlink:href="./geoCoders/gsiGeocoder/gsiGeoCoder.svg" title="GSI_GeoCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
