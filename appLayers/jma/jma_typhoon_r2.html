@@ -439,51 +439,51 @@ function createForecastEnvelopeFeatures(forecastCircles) {
 }
 
 /**
- * 正距円筒図法上で軸回転していない2つの楕円（予報円）の共通外接線を
- * 幾何相似から代数的に計算する
+ * 局所的な投影変換を用いて、2つの円の共通外接線を計算する
  */
 function calculateEllipseTangents(x1, y1, a1, b1, x2, y2, a2, b2) {
-	var dx = x2 - x1;
-	var dy = y2 - y1;
-	// 2つの楕円の半径の差
-	var da = a2 - a1;
-	var db = b2 - b1;
-	// ゼロ除算（NaN）を防ぐための微小値パッチ
-	if (Math.abs(da) < 1e-9) da = (da < 0 ? -1e-9 : 1e-9);
-	if (Math.abs(db) < 1e-9) db = (db < 0 ? -1e-9 : 1e-9);
+	// b1, b2 は緯度方向の真の半径（度数）
+	var r1 = b1;
+	var r2 = b2;
 	
-	// 楕円空間（円に正規化する空間）での中心間距離に相当する係数
-	// 楕円の外共通接線が存在するための幾何学公式
-	var term1 = (dx * dx) / (da * da) + (dy * dy) / (db * db);
-	// 円がほぼ同心、または内包されている場合は計算をスキップ
-	if (term1 <= 1.0) {
-		return null; 
+	// 2点の平均緯度を使って、経度方向のスケール（縮尺）を決定する
+	var lat_mean = (y1 + y2) / 2.0;
+	var S = Math.cos(lat_mean * Math.PI / 180.0);
+	
+	// 歪みのないフラットな真円の空間（ローカル座標系）に変換
+	var X1 = x1 * S;
+	var Y1 = y1;
+	var X2 = x2 * S;
+	var Y2 = y2;
+	
+	var dX = X2 - X1;
+	var dY = Y2 - Y1;
+	var D = Math.sqrt(dX * dX + dY * dY);
+	
+	// 中心同士が近すぎる、または完全に内包されている場合はスキップ
+	if (D <= Math.abs(r1 - r2) || D === 0) {
+		return null; 
 	}
-	// 共通接線が成立する厳密な接点パラメータ theta を算出するための補助変数
-	var l = dx / da;
-	var h = dy / db;
-	var d2 = l * l + h * h;
-	// 決定方程式から得られる一対の解 (外接線用)
-	var r = Math.sqrt(d2 - 1.0);
-	// 上側（進行方向右側）と下側（進行方向左側）の共通接点パラメータ theta
-	var sin_t_top    = (-h + l * r) / d2;
-	var cos_t_top    = (-l - h * r) / d2;
-	var sin_t_bottom = (-h - l * r) / d2;
-	var cos_t_bottom = (-l + h * r) / d2;
-	// パラメータの正負を正しい象限に補正するため、atan2から再マッピング
-	var t_top = Math.atan2(sin_t_top, cos_t_top);
-	var t_bottom = Math.atan2(sin_t_bottom, cos_t_bottom);
-	// 2つの楕円上の厳密な接点座標を計算
-	var pt1_top = [x1 + a1 * Math.cos(t_top), y1 + b1 * Math.sin(t_top)];
-	var pt2_top = [x2 + a2 * Math.cos(t_top), y2 + b2 * Math.sin(t_top)];
-	var pt1_bottom = [x1 + a1 * Math.cos(t_bottom), y1 + b1 * Math.sin(t_bottom)];
-	var pt2_bottom = [x2 + a2 * Math.cos(t_bottom), y2 + b2 * Math.sin(t_bottom)];
+	
+	// 真円空間における2円の共通外接線の角度を計算
+	var alpha = Math.atan2(dY, dX);
+	var theta = Math.acos((r1 - r2) / D);
+	
+	var t_top = alpha + theta;
+	var t_bot = alpha - theta;
+	
+	// 接点の座標を計算し、X座標を元のスケール（正距円筒図法の楕円）に引き伸ばして戻す
+	var pt1_top = [(X1 + r1 * Math.cos(t_top)) / S, Y1 + r1 * Math.sin(t_top)];
+	var pt2_top = [(X2 + r2 * Math.cos(t_top)) / S, Y2 + r2 * Math.sin(t_top)];
+	
+	var pt1_bottom = [(X1 + r1 * Math.cos(t_bot)) / S, Y1 + r1 * Math.sin(t_bot)];
+	var pt2_bottom = [(X2 + r2 * Math.cos(t_bot)) / S, Y2 + r2 * Math.sin(t_bot)];
+	
 	return [
-		[pt1_top, pt2_top],       // tangents[0] (上側の接線)
-		[pt1_bottom, pt2_bottom]  // tangents[1] (下側の接線)
+		[pt1_top, pt2_top],       // 上側の接線
+		[pt1_bottom, pt2_bottom]  // 下側の接線
 	];
 }
-
 
 var captionInfo=[];
 // テキストキャプションを生成する関数
