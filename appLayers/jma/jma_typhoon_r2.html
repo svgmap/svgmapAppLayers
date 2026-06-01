@@ -173,53 +173,55 @@ function drawTyphoon(tcource,tinfo){
 		
 		// 強風域（黄色の円）の描画：オフセットされた中心座標に対応
 		if ( tc.galeWarningArea || ti.galeWarning ){
-			// 初期値は台風の中心
 			var gw_lng = tc.center[1];
 			var gw_lat = tc.center[0];
 			var gw_radius_km = 0;
 			
 			if (tc.galeWarningArea && tc.galeWarningArea.center) {
-				// tcource側に描画専用のデータがある場合（中心がズレている場合）はこちらを優先
 				gw_lat = tc.galeWarningArea.center[0];
 				gw_lng = tc.galeWarningArea.center[1];
-				gw_radius_km = tc.galeWarningArea.radius / 1000; // メートルをキロメートルに変換
+				gw_radius_km = tc.galeWarningArea.radius / 1000;
 			} else if (ti.galeWarning) {
-				// 描画データがない場合のフォールバック（tinfoから取得）
-				gw_radius_km = ti.galeWarning[0].range.km;
+				// 【修正】予報の強風域でも非対称データから偏心中心を算出
+				var asymGw = getAsymmetricWarning(tc.center[1], tc.center[0], ti.galeWarning);
+				gw_lng = asymGw.lng;
+				gw_lat = asymGw.lat;
+				gw_radius_km = asymGw.radius;
 			}
 
 			if (gw_radius_km > 0) {
-				// ポップアップのプロパティ用テキスト
 				var galeArea = (ti.galeWarning && ti.galeWarning[0] && (ti.galeWarning[0].area.jp || ti.galeWarning[0].area)) || "";
 				tp.properties.galeWarning = Math.round(gw_radius_km) + "km " + galeArea;
 				
-				// ズレた中心（gw_lng, gw_lat）を使って円を描画
 				var cr_gale = getCircle(gw_lng, gw_lat, gw_radius_km);
 				var tgwrc = { type: "Feature" };
 				tgwrc.geometry = { type: "LineString", coordinates: cr_gale };
-				tgwrc.properties = {
-					stroke: "yellow",
-					"stroke-width": 2
-				};
+				// 実況なら少し太く
+				tgwrc.properties = { stroke: "yellow", "stroke-width": (i === 1) ? 3 : 1.5 };
 				tps.push(tgwrc);
 			}
 		}
 
 		// 暴風域・暴風警戒域（赤色の円）の描画
 		if ( tc.stormWarningArea || ti.stormWarning ){
-			// 基本は台風の中心座標
 			var sw_lng = tc.center[1];
 			var sw_lat = tc.center[0];
 			var sw_radius_km = 0;
 
 			if (tc.stormWarningArea && tc.stormWarningArea.center) {
-				// 実況などで「ズレた中心」が定義されている場合はそちらを優先
 				sw_lat = tc.stormWarningArea.center[0];
 				sw_lng = tc.stormWarningArea.center[1];
 				sw_radius_km = tc.stormWarningArea.radius / 1000;
+			} else if (tc.stormWarningArea && tc.stormWarningArea.arc && tc.stormWarningArea.arc.length === 1) {
+				sw_lat = tc.stormWarningArea.arc[0][0][0];
+				sw_lng = tc.stormWarningArea.arc[0][0][1];
+				sw_radius_km = tc.stormWarningArea.arc[0][1] / 1000;
 			} else if (ti.stormWarning) {
-				// 予報などの場合は従来通り、台風中心とtinfoの半径を使用
-				sw_radius_km = ti.stormWarning[0].range.km;
+				// 【修正】予報の暴風域でも非対称データから偏心中心を算出
+				var asymSw = getAsymmetricWarning(tc.center[1], tc.center[0], ti.stormWarning);
+				sw_lng = asymSw.lng;
+				sw_lat = asymSw.lat;
+				sw_radius_km = asymSw.radius;
 			}
 
 			if (sw_radius_km > 0) {
@@ -229,7 +231,6 @@ function drawTyphoon(tcource,tinfo){
 				var cr = getCircle(sw_lng, sw_lat, sw_radius_km);
 				var twrc = { type: "Feature" };
 				twrc.geometry = { type: "LineString", coordinates: cr };
-				// 実況（i===1）なら太線(3)、予報なら細線(1)にする
 				twrc.properties = { stroke: "red", "stroke-width": (i === 1) ? 3 : 1 };
 				tps.push(twrc);
 				
@@ -307,6 +308,40 @@ function drawTyphoon(tcource,tinfo){
 	
 	console.log(tps);
 	drawGeoJson(tps,"areas");
+}
+
+// 方角文字列から角度（北を0度とする）へのマッピング
+var dirMap = {
+	"北": 0, "北北東": 22.5, "北東": 45, "東北東": 67.5,
+	"東": 90, "東南東": 112.5, "南東": 135, "南南東": 157.5,
+	"南": 180, "南南西": 202.5, "南西": 225, "西南西": 247.5,
+	"西": 270, "西北西": 292.5, "北西": 315, "北北西": 337.5
+};
+
+// 非対称な警告エリア（2方向）から、偏心した中心座標と平均半径を割り出す関数
+function getAsymmetricWarning(centerLng, centerLat, warningData) {
+	if (!warningData || warningData.length === 0) return { lng: centerLng, lat: centerLat, radius: 0 };
+	// 全域（対称）の場合はそのまま
+	if (warningData.length === 1) return { lng: centerLng, lat: centerLat, radius: warningData[0].range.km };
+
+	// 非対称（2方向）の場合の処理
+	var r1 = warningData[0].range.km;
+	var dir1_str = warningData[0].area.jp || warningData[0].area;
+	var r2 = warningData[1].range.km;
+
+	var radius = (r1 + r2) / 2.0;
+	var offset = (r1 - r2) / 2.0;
+
+	if (dirMap[dir1_str] !== undefined) {
+		var angle = dirMap[dir1_str] * Math.PI / 180.0;
+		// 1度あたりの距離(約111.319km)を使って、オフセット距離を緯度経度に変換
+		var dLat = (offset * Math.cos(angle)) / 111.319;
+		var dLng = (offset * Math.sin(angle)) / (111.319 * Math.cos(centerLat * Math.PI / 180.0));
+		return { lng: centerLng + dLng, lat: centerLat + dLat, radius: radius };
+	}
+	
+	// 方角が判別できない場合のフォールバック
+	return { lng: centerLng, lat: centerLat, radius: r1 };
 }
 
 var cpart = 40;
