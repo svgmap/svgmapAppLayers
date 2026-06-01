@@ -156,8 +156,10 @@ export class CsvMapper {
 	}
 	
 	#getHtmlDirHref() {
-		// [Refactor 2026]: window.parent はブラウザ標準APIとして使用を継続
-		let ans = new URL(this.svgImageProps.script.src, window.parent.location.href).href;
+		// ヘルパー関数から安全な docHref を取得
+		const envCtx = this.#resolveEnvContext();
+		let ans = envCtx.docHref;
+		
 		if (ans.lastIndexOf("#") > 0) {
 			ans = ans.substring(0, ans.lastIndexOf("#"));
 		}
@@ -185,9 +187,11 @@ export class CsvMapper {
 			this.messageDivElm = options.messageDiv;
 		}
 		
-		let docHref = new URL(this.svgImageProps.script.src, window.parent.location.href).href;
-		let hParams = this.#getHashParams(this.svgImageProps.script.location.hash);
-		this._docPath = this.svgImageProps.script.location.pathname;
+		// 環境に応じたパスとハッシュの解決
+		const envCtx = this.#resolveEnvContext();
+		let docHref = envCtx.docHref;
+		let hParams = this.#getHashParams(envCtx.hashStr);
+		this._docPath = envCtx.docPath;
 		
 		console.log("hParams:", hParams, " docPath:", this._docPath, " docHref:", docHref);
 		
@@ -854,4 +858,40 @@ export class CsvMapper {
 	
 	get csvPath() { return this._csvPath; }
 	get csvIndex() { return this._csvIndex; }
+	
+	// S-LaWAとLegacy LaWAの実行環境を自動判定し、適切なパス情報を返すヘルパー関数 2026/04/28
+	#resolveEnvContext() {
+		let isSLaWA = false;
+		let parentHref = "";
+		try {
+			// Legacy LaWA (同一オリジン) の場合はアクセス可能
+			parentHref = window.parent.location.href;
+		} catch (e) {
+			// S-LaWA (クロスオリジン) の場合は SecurityError が発生する
+			isSLaWA = true;
+		}
+
+		let docHref, hashStr, docPath;
+
+		if (isSLaWA) {
+			// S-LaWA環境: 自身のlocationと同期されたプロパティを信頼する
+			docHref = location.href;
+			hashStr = this.svgImageProps.hash || location.hash || "";
+			docPath = this.svgImageProps.Path || location.pathname;
+		} else {
+			// Legacy LaWA環境: 従来のプロパティ解決ロジックを維持
+			if (this.svgImageProps.script && this.svgImageProps.script.src) {
+				docHref = new URL(this.svgImageProps.script.src, parentHref).href;
+				hashStr = this.svgImageProps.script.location ? this.svgImageProps.script.location.hash : (this.svgImageProps.hash || "");
+				docPath = this.svgImageProps.script.location ? this.svgImageProps.script.location.pathname : (this.svgImageProps.Path || "");
+			} else {
+				// scriptオブジェクトがない場合のフォールバック
+				docHref = location.href;
+				hashStr = this.svgImageProps.hash || location.hash || "";
+				docPath = this.svgImageProps.Path || location.pathname;
+			}
+		}
+
+		return { docHref, hashStr, docPath };
+	}
 }

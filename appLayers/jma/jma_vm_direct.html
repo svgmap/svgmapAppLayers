@@ -6,6 +6,7 @@
 <script src="./mbvt.js"></script>
 <script type="text/javascript" src="./svgMapGeoJson_r2.js"></script>
 <script type="text/javascript" src="./jma_pbf.js"></script>
+<script src="./jma_time_player.js"></script>
 <script>
 
 // Description:
@@ -22,16 +23,17 @@
 // 2020/11/16 rev2 data-controllerの　#オプションで、 cat=数字:その数字のカテゴリでデフォルト起動 , autoupdate:自動更新モードで起動
 // 2021/03/02- 海しるナウキャストレイヤーを更に拡張して、2021年2月更新の気象庁サイトのビットイメージタイルに全部対応するWebAppsを構築する
 // 2025/05/09 過去のデータを表示する機能を拡張
+// 2026/06/01 参照先の更改に対応
 
-var baseURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy,pdesc;
+var apiDomain = "https://www.jma.go.jp/";
 
-
+var baseURL,basePbfURL,cats0,cats1,cats2,zoomLimits,catsExp,subps,legends,targetTimePxy,pdesc;
 
 var jmaHpSv = {
 	pdesc: '出典:<a id="catDependOriginLink" href="https://www.jma.go.jp/bosai/map.html" target="_blank">気象庁ホームページ</a>を加工して作成',
-	baseURL :"https://www.jma.go.jp/bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/surf/[[category2]]/data.geojson",
-	basePbfURL : "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf",
-	targetTimePxy : "https://www.jma.go.jp/bosai/jmatile/data/",
+	baseURL : apiDomain + "bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/surf/[[category2]]/data.geojson",
+	basePbfURL : apiDomain + "bosai/jmatile/data/risk/[[baseTime]]/[[category1]]/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf",
+	targetTimePxy : apiDomain + "bosai/jmatile/data/",
 	pastDataArchive:{ // 2025/05/09 過去のデータを表示する機能用
 		currentBase:"https://www.jma.go.jp/",
 		pastBase:"",
@@ -41,15 +43,16 @@ var jmaHpSv = {
 		"nowc","nowc","risk",
 	],
 	cats1 : [
-		"none","none","none",
+		"none","none","immed0", // 3つ目を変更
 	],
 	cats2 : [
-		"amds_rain10m","liden","designated_river",
+		"amds_rain10m","liden",["designated_river", "designated_river_nation"],
 	],
 	zoomLimits : [
 		10,10,10,
 	],
-	timeInitial : [1,1,1],
+//	timeInitial : [1,1,1],
+	timeInitial : [0,0,0],
 	metaName:["code,id,obstimeJST,rain10m","a,b,c,d","a,b,c,d"],
 	catsExp : [
 		"アメダス-降雨",
@@ -62,9 +65,9 @@ var jmaHpSv = {
 		"risk/targetTimes.json",
 	],
 	legends :[
-		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_amds_rain10m.svg",
-		"https://www.jma.go.jp/bosai/nowc/images/legend_jp_liden.svg",
-		"https://www.jma.go.jp/bosai/risk/images/legend_jp_flood_risk.svg",
+		apiDomain + "bosai/nowc/images/legend_jp_amds_rain10m.svg",
+		apiDomain + "bosai/nowc/images/legend_jp_liden.svg",
+		apiDomain + "bosai/risk/images/legend_jp_flood_risk.svg",
 	],
 	catsOriginalPage:[
 		"https://www.jma.go.jp/bosai/nowc/#lat:35.191767/lon:134.011230/zoom:5/colordepth:normal/elements:hrpns&amds_rain10m",
@@ -147,15 +150,18 @@ function styling_liden(json){
 	}
 	drawGeoJson(json)
 }
+
 function styling_designated_river(json){
 	console.log("styling_designated_river:",json);
 	for ( var i = 0 ; i < json.features.length ; i++ ){
 		var ft = json.features[i];
-		ft.properties["stroke-width"] = "8";
-		var rf = Number(ft.properties.level)
-		if ( rf == 2 ){
-//			ft.properties.stroke = "#f2e700";
-			ft.properties.stroke = "#f5b300";
+		ft.properties["stroke-width"] = "8"; // 凡例にある「太い線」を維持
+		var rf = Number(ft.properties.level);
+		
+		if ( rf == 1 ){
+			ft.properties.stroke = "#80ffff";
+		} else if ( rf == 2 ){
+			ft.properties.stroke = "#f2e700";
 		} else if ( rf == 3 ){
 			ft.properties.stroke = "#ff2800";
 		} else if ( rf == 4 ){
@@ -163,14 +169,12 @@ function styling_designated_river(json){
 		} else if ( rf == 5 ){
 			ft.properties.stroke = "#0c000c";
 		} else {
-			ft.properties.stroke = "#80ffff";
+			// -1 や -2 などの無効値・グレー表現用
+			ft.properties.stroke = "#dddddd"; 
 		}
-		console.log(ft.properties.fcstAreaNameJP," level:",rf," color:",ft.properties.stroke);
 	}
-
 	drawGeoJson(json)
 }
-
 
 
 var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回チェックに行く
@@ -305,11 +309,19 @@ function changeMapPh2(tData){
 	});
 	
 	var catstr = cats2[catSel.selectedIndex];
+	var checkStrs = Array.isArray(catstr) ? catstr : [catstr];
 	//console.log("catstr:",catstr);
 	var timeData2 = [];
 	for ( var i = 0 ; i < timeData.length ; i++ ){
 		if ( timeData[i].elements){
-			if( timeData[i].elements.indexOf(catstr)>=0){
+			var match = false;
+			for (var j = 0; j < checkStrs.length; j++) {
+				if ( timeData[i].elements.indexOf(checkStrs[j]) >= 0 ) {
+					match = true;
+					break;
+				}
+			}
+			if (match) {
 				timeData2.push(timeData[i]);
 			}
 		} else {
@@ -374,7 +386,55 @@ function prepTimeSel(tData){
 }
 
 var guardMin = 30;
+
 function change(){
+	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
+	var trIndex = timeData.length - timeIndex -1;
+	var timeObj = timeData[trIndex];
+
+	var cat0 = cats0[catSel.selectedIndex];
+	var defaultCat1 = cats1[catSel.selectedIndex];
+	var cat2 = cats2[catSel.selectedIndex];
+	var zoomLimit = zoomLimits[catSel.selectedIndex];
+	
+	// ==========================================
+	// PBFタイルのURL設定（"flood" の member を取得）
+	// ==========================================
+	var pbfMember = getMemberForElement(timeObj, "flood", defaultCat1);
+	var pbfPath = basePbfURL.replace("[[category1]]", pbfMember); 
+	setPbfURL(timeObj.basetime, timeObj.validtime, pbfPath);
+	
+	var stylingFunction = stylingFunctions[catSel.selectedIndex];
+
+	// ==========================================
+	// GeoJSONのURL設定（cat2 が配列でも単一でも対応）
+	// ==========================================
+	var cat2Array = Array.isArray(cat2) ? cat2 : [cat2];
+	var urls = [];
+	for (var i = 0; i < cat2Array.length; i++) {
+		var elementName = cat2Array[i];
+		// 要素ごとに正しいmember（immed0やnone等）を取得！
+		var elementMember = getMemberForElement(timeObj, elementName, defaultCat1);
+		
+		var newPath = baseURL.replace("[[category0]]", cat0);
+		newPath = newPath.replace("[[category1]]", elementMember);
+		newPath = newPath.replace("[[category2]]", elementName);
+		newPath = newPath.replace("[[basetime]]", timeObj.basetime);
+		newPath = newPath.replace("[[validtime]]", timeObj.validtime);
+		urls.push(newPath);
+	}
+
+	// URLが1つなら従来通り、複数ならマージして取得
+	if (urls.length === 1) {
+		console.log("Fetch GeoJSON:", urls[0]);
+		loadJson(urls[0], stylingFunction);
+	} else {
+		console.log("Fetch GeoJsons (Merge):", urls);
+		loadAndMergeGeoJsons(urls, stylingFunction);
+	}
+}
+
+function change_obsoluted(){
 	var timeIndex = timeSel.selectedIndex; // timeIndex: 0:最新 1..古い
 	var trIndex = timeData.length - timeIndex -1;
 	var cat0 = cats0[catSel.selectedIndex];
@@ -421,7 +481,7 @@ function drawGeoJson(json){
 
 
 function draw_map_designated_river(){
-	var jsurl= "https://www.jma.go.jp/bosai/jmatile/data/map/none/none/none/surf/designated_river/data.geojson";
+	var jsurl= apiDomain + "bosai/jmatile/data/map/none/none/none/surf/designated_river/data.geojson";
 	loadJson(jsurl, draw_map_designated_river_ph2);
 }
 function draw_map_designated_river_ph2(json){
@@ -445,10 +505,15 @@ function loadJson(url,callback){
 	}
 	xhr.open("GET",url + tq + "t="+(new Date()).getTime(),true);
 	xhr.onreadystatechange = function(){
-		if( xhr.readyState === 4 && xhr.status === 200 ){
-//			console.log(url,xhr.responseText);
-			json = JSON.parse(xhr.responseText);
-			callback(json);
+		if( xhr.readyState === 4 ){
+			if ( xhr.status === 200 ){
+				var json = JSON.parse(xhr.responseText);
+				callback(json);
+			} else {
+				// 404などのエラー時は処理を止めず、nullを返してスキップさせる
+				console.warn("データ取得スキップ (HTTP " + xhr.status + "): " + url);
+				callback(null);
+			}
 		}
 	}
 	xhr.send();
@@ -480,15 +545,48 @@ function removeChildren(element){
 	while (element.firstChild) element.removeChild(element.firstChild);
 }
 
+// 複数のGeoJSONを取得し、featuresをマージしてコールバックを呼ぶ汎用関数
+function loadAndMergeGeoJsons(urls, callback, stp, mergedJson){
+	if(!stp) stp = 0;
+	if(!mergedJson) mergedJson = { type: "FeatureCollection", features: [] };
+	
+	if ( stp < urls.length ){
+		loadJson(urls[stp], function(json){
+			if (json && json.features) {
+				mergedJson.features = mergedJson.features.concat(json.features);
+			}
+			loadAndMergeGeoJsons(urls, callback, stp+1, mergedJson);
+		});
+	} else {
+		callback(mergedJson);
+	}
+}
+
+// 要素名からその時間の正しいパス（member）を取得する
+function getMemberForElement(timeObj, elementName, defaultMember) {
+	if (timeObj.elmlist) {
+		for (var i = 0; i < timeObj.elmlist.length; i++) {
+			if (timeObj.elmlist[i].name === elementName) {
+				return timeObj.elmlist[i].member;
+			}
+		}
+	}
+	// elmlistが無い（旧仕様）場合はトップレベルのmember等を使う
+	return timeObj.member || defaultMember;
+}
+
 </script>
 <body>
 <h3>気象庁ベクトルデータレイヤー</h3>
 <p id="pageDesc"></p>
-<select id="catSel" onchange="changeMap()"></select> 
-<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
-<label for="realtime_checked">自動更新</label>
+<span style="display: inline-flex; align-items: center;">
+	<select id="catSel" onchange="changeMap()"></select> 
+	<input type="checkbox" id="realtime_checked" onchange="changeRealTimeUpdate()" autocomplete="off"/>
+	<label for="realtime_checked" style="font-size:12px">自動更新</label>　
+	<span id="lastupdatetimespan" style="font-size:10px"></span>
+</span>
 <br>
-<select id="timeSel" onchange="change()"></select>(JST) <span id="lastupdatetimespan" style="font-size:11px"></span><br>
+<select id="timeSel" onchange="change()"></select>(JST)　<span id="jma_time_player_container"></span><br>
 <img id="hanrei" style="display:true">
 </body>
 </html>

@@ -13,6 +13,7 @@
 //  2021/03/01 mapboxのバイナリデータ形式の読み込み方法が判明
 //  2021/04/01 スタイリングは全くやっていませんが、基本的なレンダリングを実装(ビューボックス(ズームレベル・表示領域)に応じた等分割タイルピラミッドの差分取得と描画)
 //  2021/07/01 JMAの危険度分布表示に利用
+//  2026/06/01 参照先の更改に対応
 
 // TBD: 注記を含むスタイリング～　たいへんそうなのでやるかどうかは必要に応じてになりますが・・
 
@@ -22,20 +23,21 @@ var pbfEnabled = true;
 //var basePbfURL :"https://www.jma.go.jp/bosai/jmatile/data/[[category0]]/[[basetime]]/[[category1]]/[[validtime]]/[[category2]]/[[category3]]/[[zoom]]/[[tx]]/[[ty]].pbf" でcat*,*time設定したものを与える
 //var basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210701002000/none/20210701002000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
 //var basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf"; // このグローバル変数はjmaHpSvから設定される
-let basePbfURL;
 function setPbfURL(baseT,validT, basePbfURLparam){
-	basePbfURL = basePbfURLparam;
-	if (!basePbfURL){
-		basePbfURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/[[baseTime]]/none/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
+	var pburl = basePbfURLparam;
+	if (!pburl){
+		// 親（html）で定義した apiDomain があれば使い、なければwww.jma.go.jpデフォルトに
+		var domain = typeof apiDomain !== 'undefined' ? apiDomain : "https://www.jma.go.jp/";
+		pburl = domain + "bosai/jmatile/data/risk/[[baseTime]]/immed0/[[validTime]]/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
 	}
-	var pburl=basePbfURL.replace("[[baseTime]]",baseT);
+	pburl=pburl.replace("[[baseTime]]",baseT);
 	pburl=pburl.replace("[[validTime]]",validT);
 	basePbfTileURL = pburl;
 	console.log("setPbfURL basePbfTileURL:",basePbfTileURL);
 	clearAllTiles();
 	zoomPanMapFunction();
 }
-var basePbfTileURL = "https://www.jma.go.jp/bosai/jmatile/data/risk/20210630222000/none/20210630222000/surf/flood/[[zoom]]/[[tx]]/[[ty]].pbf";
+var basePbfTileURL = "";
 // ここまで
 
 
@@ -67,7 +69,7 @@ addEventListener("zoomPanMapCompleted",function(){ // for test
 });
 
 async function zoomPanMapFunction(){
-	if ( !pbfEnabled ){
+	if ( !pbfEnabled || !basePbfTileURL ){
 		//console.log("pbf disabled exit.");
 		return;
 	} else {
@@ -75,12 +77,25 @@ async function zoomPanMapFunction(){
 	}
 //	console.log("called gsivm zoomPanMapFunction:",window,pbfImage,pbfImageProps,svgMap.getGeoViewBox());
 	var level = Math.floor( Math.LOG2E * Math.log(pbfImageProps.scale) + 6);
+
+	var maxLevel = 16; // 存在する最大の偶数ズームレベル（仮）
+	var zoomStep = 2;  // 2飛び（偶数ズーム）
+	
+	if ( typeof zoomStep == "number" && zoomStep > 0 ){ 
+		for ( let dlvl = maxLevel ; dlvl > 0 ; dlvl -= zoomStep ){
+			if ( dlvl <= level ){
+				level = dlvl;
+				break;
+			}
+		}
+	}
+	
+	// 最低レベルのガード（LaWAの仕様）
 	if ( level < 4 ){
 		level = 4;
-	} else if ( level > 17 ){
-		level = 17;
 	}
-//	console.log("called gsivm zoomPanMapFunction: level:",level);
+	
+	//	console.log("called gsivm zoomPanMapFunction: level:",level);
 	var tileSet = getTileSet( svgMap.getGeoViewBox() , level );
 	//console.log("called gsivm zoomPanMapFunction: tileSet:",tileSet);
 	
@@ -160,25 +175,26 @@ async function getPbf(tx,ty,tz){
 };
 
 var colorTable={
-	1:"#faf500",
-	2:"#fa4600",
-	3:"#da4fed",
-	4:"#7e2d97"
-}
+	0:"#80ffff", // 水色 (今後の情報等に留意)
+	1:"#f2e700", // 黄色 (警戒レベル2相当)
+	2:"#ff2800", // 赤色 (警戒レベル3相当)
+	3:"#aa00aa", // 紫色 (警戒レベル4相当)
+	4:"#0c000c"  // 黒色 (警戒レベル5相当)
+};
+
 function drawGeoData(geoData,xyz, tileContElement){
 	for ( var key in geoData.layers ){
 		var layer = geoData.layers[key];
 		var fc = layer.length
-		//console.log("layer:",layer," key:",key,"  length:",fc);
 		for ( var i = 0 ; i < fc ; i++ ){
-			var geojson = layer.feature(i).toGeoJSON(xyz.x,xyz.y,xyz.z); // geoGeojson(x,y,z)の数値はタイルのxyzのことです
-			//console.log(key," geojson:",i," level:",geojson.properties.level);
+			var geojson = layer.feature(i).toGeoJSON(xyz.x,xyz.y,xyz.z);
 			
-			var color=colorTable[geojson.properties.level];
+			// レベルが未定義、またはテーブルにない場合は水色をフォールバックとして使う
+			var color = colorTable[geojson.properties.level] || "#80ffff"; 
+			
 			svgMapGIStool.drawGeoJson(geojson,pbfLayerID,color,3,color, "p0", "poi", "", tileContElement);
 		}
 	}
-	//console.log("load Completed:",xyz);
 	svgMap.refreshScreen();
 }
 

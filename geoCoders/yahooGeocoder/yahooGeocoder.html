@@ -27,7 +27,11 @@ let cg;
 window.onload = function () {
 	console.log("ONLOAD");
 	// hashからプロキシURLを取得可能にする設定
-	cg = new YahooGeocoder();
+	var proxyUrl="./yahooGeocoderProxy.php";
+	if ( svgImageProps.hash.indexOf("proxy=")>0){
+		proxyUrl = svgImageProps.hash.substring(svgImageProps.hash.indexOf("proxy=")+6);
+	}
+	cg = new YahooGeocoder(proxyUrl);
 
 	document.getElementById("searchButton").addEventListener("click", searchAddress);
 	document.getElementById("addressInput").addEventListener("keydown", function(event){

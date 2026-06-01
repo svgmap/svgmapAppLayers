@@ -18,6 +18,8 @@
 //  2021/07/19 the first rev
 //  2021/07/28 track drawing
 //  2025/05/02 過去の情報に対応
+//  2026/05/27 予報円の楕円共通接線・強風域描画に対応
+
 const currentBaseURL = "https://www.jma.go.jp/";
 let baseURL = currentBaseURL;
 var tBase="bosai/typhoon/data/";
@@ -42,8 +44,13 @@ async function drawTyphoonMap(){
 		console.log(" == cource:",tcource);
 		console.log(" == tinfo:",tinfo);
 		drawTyphoon(tcource,tinfo);
+		prepareTyphoonCaptions(tcource,  tinfo);
 	}
 	svgMap.refreshScreen();
+	if ( svgImageProps.hash.indexOf("caption")>=0){
+		toggleTextBtn.checked = true;
+		toggleTyphoonText();
+	}
 }
 
 function changeBaseURL(url){
@@ -55,7 +62,7 @@ function changeBaseURL(url){
 	drawTyphoonMap();
 }
 
-function drawTrack(track,lineWidth){
+function drawTrack(track,lineWidth,isPast){
 	function getCrds(icrds){
 		var crds = [];
 		for ( var j = 0 ; j < icrds.length ; j++ ){
@@ -73,33 +80,45 @@ function drawTrack(track,lineWidth){
 		return ( tt );
 	}
 	var pts =[];
+	var preTyphoonColor = "dodgerblue";
+	var typhoonColor = "blue";
+	if ( isPast ){
+		preTyphoonColor = "yellow";
+		typhoonColor = "orange";
+	}
 	if ( track.preTyphoon){
-		pts.push(getFeature(track.preTyphoon,"yellow"));
+		pts.push(getFeature(track.preTyphoon,preTyphoonColor));
 	}
 	if ( track.typhoon){
-		pts.push(getFeature(track.typhoon,"orange"));
+		pts.push(getFeature(track.typhoon,typhoonColor));
 	}
 	drawGeoJson(pts,"pastTracks");
+	
+	
 }
 
 async function drawPastTrack(){
 	var pastTrack = await getJson(baseURL+tBase+"pastTracks.json");
 	for ( var i = 0 ; i < pastTrack.length ; i++ ){
-		drawTrack(pastTrack[i].track1,0.5);
+		drawTrack(pastTrack[i].track1,0.5,true);
 	}
 	svgMap.refreshScreen();
 }
 
-var metaDict=["title","typhoonNumber","category","intensity","maximumWind","stormWarning","name","pressure","issue","part","location","course","speed"];
+var metaDict=["title","typhoonNumber","category","intensity","maximumWind","stormWarning","galeWarning","name","pressure","issue","part","targetTime","location","course","speed"];
 
 function drawTyphoon(tcource,tinfo){
 	var meta = tinfo[0];
 	console.log(meta,meta.category);
 	var ttc=[];
 	var tps =[];
+	var tpps =[];
 	if ( tcource.length >1 && tcource[1].track ){
 		drawTrack(tcource[1].track,2);
 	}
+	var forecastCircles = [];
+	var warningCircles = [];
+	
 	for ( var i = 1 ; i < tcource.length ; i++ ){
 		var tc = tcource[i];
 		var ti = tinfo[i];
@@ -109,11 +128,22 @@ function drawTyphoon(tcource,tinfo){
 			coordinates:[tc.center[1],tc.center[0]]
 		}
 		ttc.push([tc.center[1],tc.center[0]]);
+		var icon = "pN";
+		if (i==1 ) icon = "p0";
+		
+		var targetTimeStr = "";
+		if (tc.validtime && tc.validtime.JST) {
+			var d = new Date(tc.validtime.JST);
+			// 〇日〇時のフォーマット（必要なら月も足せます）
+			targetTimeStr = pad(d.getMonth()+1) + "月" + pad(d.getDate()) + "日" + pad(d.getHours()) + "時";
+		}
+		
 		tp.properties={
 			title: meta.category.jp + meta.typhoonNumber+" "+ti.pressure+"hPa" +" "+ti.part.jp,
 			category:meta.category.jp,
 			name:meta.name?.jp,
 			issue:meta.issue.JST,
+			targetTime: targetTimeStr,
 			intensity:ti.intensity,
 //			maximumWind:"gust:"+ti.maximumWind.gust["m/s"]+"m/s  sustained:"+ti.maximumWind.sustained["m/s"]+"m/s",
 			typhoonNumber:meta.typhoonNumber,
@@ -121,6 +151,7 @@ function drawTyphoon(tcource,tinfo){
 			course:ti.course,
 			part:ti.part.jp,
 			pressure:ti.pressure+" hPa",
+			"marker-symbol":icon,
 		}
 		var mw="-";
 		if ( ti.maximumWind ){
@@ -139,20 +170,81 @@ function drawTyphoon(tcource,tinfo){
 				tp.properties.speed=ti.speed.note.jp;
 			}
 		}
-		if ( ti.stormWarning){
-			console.log(ti.stormWarning);
-			tp.properties.stormWarning=ti.stormWarning[0].range.km + "km "+ ti.stormWarning[0].area.jp;
-			var cr = getCircle(tc.center[1],tc.center[0],ti.stormWarning[0].range.km);
-			var twrc = {type:"Feature"};
-			twrc.geometry={
-				type:"LineString",
-				coordinates:cr
+		
+		// 強風域（黄色の円）の描画：オフセットされた中心座標に対応
+		if ( tc.galeWarningArea || ti.galeWarning ){
+			// 初期値は台風の中心
+			var gw_lng = tc.center[1];
+			var gw_lat = tc.center[0];
+			var gw_radius_km = 0;
+			
+			if (tc.galeWarningArea && tc.galeWarningArea.center) {
+				// tcource側に描画専用のデータがある場合（中心がズレている場合）はこちらを優先
+				gw_lat = tc.galeWarningArea.center[0];
+				gw_lng = tc.galeWarningArea.center[1];
+				gw_radius_km = tc.galeWarningArea.radius / 1000; // メートルをキロメートルに変換
+			} else if (ti.galeWarning) {
+				// 描画データがない場合のフォールバック（tinfoから取得）
+				gw_radius_km = ti.galeWarning[0].range.km;
 			}
-			twrc.properties={
-				stroke:"red"
+
+			if (gw_radius_km > 0) {
+				// ポップアップのプロパティ用テキスト
+				var galeArea = (ti.galeWarning && ti.galeWarning[0] && (ti.galeWarning[0].area.jp || ti.galeWarning[0].area)) || "";
+				tp.properties.galeWarning = Math.round(gw_radius_km) + "km " + galeArea;
+				
+				// ズレた中心（gw_lng, gw_lat）を使って円を描画
+				var cr_gale = getCircle(gw_lng, gw_lat, gw_radius_km);
+				var tgwrc = { type: "Feature" };
+				tgwrc.geometry = { type: "LineString", coordinates: cr_gale };
+				tgwrc.properties = {
+					stroke: "yellow",
+					"stroke-width": 2
+				};
+				tps.push(tgwrc);
 			}
-			tps.push(twrc);
 		}
+
+		// 暴風域・暴風警戒域（赤色の円）の描画
+		if ( tc.stormWarningArea || ti.stormWarning ){
+			// 基本は台風の中心座標
+			var sw_lng = tc.center[1];
+			var sw_lat = tc.center[0];
+			var sw_radius_km = 0;
+
+			if (tc.stormWarningArea && tc.stormWarningArea.center) {
+				// 実況などで「ズレた中心」が定義されている場合はそちらを優先
+				sw_lat = tc.stormWarningArea.center[0];
+				sw_lng = tc.stormWarningArea.center[1];
+				sw_radius_km = tc.stormWarningArea.radius / 1000;
+			} else if (ti.stormWarning) {
+				// 予報などの場合は従来通り、台風中心とtinfoの半径を使用
+				sw_radius_km = ti.stormWarning[0].range.km;
+			}
+
+			if (sw_radius_km > 0) {
+				var stormArea = (ti.stormWarning && ti.stormWarning[0] && (ti.stormWarning[0].area.jp || ti.stormWarning[0].area)) || "";
+				tp.properties.stormWarning = Math.round(sw_radius_km) + "km " + stormArea;
+				
+				var cr = getCircle(sw_lng, sw_lat, sw_radius_km);
+				var twrc = { type: "Feature" };
+				twrc.geometry = { type: "LineString", coordinates: cr };
+				// 実況（i===1）なら太線(3)、予報なら細線(1)にする
+				twrc.properties = { stroke: "red", "stroke-width": (i === 1) ? 3 : 1 };
+				tps.push(twrc);
+				
+				// 赤いエンベロープ（接線）計算用のパラメータ抽出
+				var w_lat_rad = (sw_radius_km / 6378) * (180 / Math.PI);
+				var w_lng_rad = w_lat_rad / Math.cos(sw_lat * Math.PI / 180);
+				warningCircles.push({
+					cx: sw_lng,
+					cy: sw_lat,
+					a: w_lng_rad,
+					b: w_lat_rad
+				});
+			}
+		}
+		
 		if ( ti.probabilityCircleRadius){
 			tp.properties.probabilityCircleRadius=ti.probabilityCircleRadius.km
 			var tcr = {type:"Feature"};
@@ -163,13 +255,43 @@ function drawTyphoon(tcource,tinfo){
 			}
 			tcr.properties={
 				stroke:"white",
-				"stroke-width":3,
+				"stroke-width":2,
 			}
 			tps.push(tcr);
+			
+			// --- 接線計算用のパラメータ抽出 ---
+			var r_lat = (ti.probabilityCircleRadius.km / 6378) * (180 / Math.PI);
+			var r_lng = r_lat / Math.cos(tc.center[0] * Math.PI / 180);
+			forecastCircles.push({
+				cx: tc.center[1], // 経度(X)
+				cy: tc.center[0], // 緯度(Y)
+				a: r_lng,         // 横半径
+				b: r_lat          // 縦半径
+			});
+		} else if (i === 1) {
+			// 【追加】現在位置（i=1）には予報円データがないため、極小の円を始点として追加
+			forecastCircles.push({
+				cx: tc.center[1],
+				cy: tc.center[0],
+				a: 0.0001,
+				b: 0.0001
+			});
 		}
-		tps.push(tp);
+		tpps.push(tp);
 	}
 	
+	var envelopeFeatures = createForecastEnvelopeFeatures(forecastCircles);
+	tps = tps.concat(envelopeFeatures);
+
+	// --- 強風域同士（赤）の共通接線の計算と描画 ---
+	var warningEnvelopeFeatures = createForecastEnvelopeFeatures(warningCircles);
+	for(var j=0; j<warningEnvelopeFeatures.length; j++){
+		warningEnvelopeFeatures[j].properties.stroke = "red";
+		warningEnvelopeFeatures[j].properties["stroke-width"] = 1.5; // 赤線は白より少し細く
+		warningEnvelopeFeatures[j].properties["stroke-opacity"] = 0.8;
+	}
+	tps = tps.concat(warningEnvelopeFeatures);
+
 	var tt={type:"Feature"};
 	tt.geometry={
 		type:"LineString",
@@ -180,6 +302,8 @@ function drawTyphoon(tcource,tinfo){
 		"stroke-width":3,
 	}
 	tps.push(tt);
+	
+	tps = tps.concat(tpps);
 	
 	console.log(tps);
 	drawGeoJson(tps,"areas");
@@ -270,15 +394,175 @@ function removeChildren(elementOrElementId){
 		ele.removeChild( ele.firstChild );
 	}
 }
+
+/**
+ * 予報円の配列から、それぞれの間を結ぶ共通接線のGeoJSON（Feature配列）を生成する
+ */
+function createForecastEnvelopeFeatures(forecastCircles) {
+	var tangentFeatures = [];
+	
+	for ( var k = 0; k < forecastCircles.length - 1; k++ ) {
+		var c1 = forecastCircles[k];
+		var c2 = forecastCircles[k+1];
+		var tangents = calculateEllipseTangents(c1.cx, c1.cy, c1.a, c1.b, c2.cx, c2.cy, c2.a, c2.b);
+		
+		if (tangents) {
+			// 上側の接線
+			tangentFeatures.push({
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: tangents[0] // [pt1, pt2] の配列を受け取る
+				},
+				properties: {
+					stroke: "white",
+					"stroke-width": 2,
+					"stroke-opacity": 0.85 // 本家風に少し馴染ませる透過度
+				}
+			});
+			// 下側の接線
+			tangentFeatures.push({
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: tangents[1] // [pt1, pt2] の配列を受け取る
+				},
+				properties: {
+					stroke: "white",
+					"stroke-width": 2,
+					"stroke-opacity": 0.85
+				}
+			});
+		}
+	}
+	return tangentFeatures;
+}
+
+/**
+ * 正距円筒図法上で軸回転していない2つの楕円（予報円）の共通外接線を
+ * 幾何相似から代数的に計算する
+ */
+function calculateEllipseTangents(x1, y1, a1, b1, x2, y2, a2, b2) {
+	var dx = x2 - x1;
+	var dy = y2 - y1;
+	// 2つの楕円の半径の差
+	var da = a2 - a1;
+	var db = b2 - b1;
+	// ゼロ除算（NaN）を防ぐための微小値パッチ
+	if (Math.abs(da) < 1e-9) da = (da < 0 ? -1e-9 : 1e-9);
+	if (Math.abs(db) < 1e-9) db = (db < 0 ? -1e-9 : 1e-9);
+	
+	// 楕円空間（円に正規化する空間）での中心間距離に相当する係数
+	// 楕円の外共通接線が存在するための幾何学公式
+	var term1 = (dx * dx) / (da * da) + (dy * dy) / (db * db);
+	// 円がほぼ同心、または内包されている場合は計算をスキップ
+	if (term1 <= 1.0) {
+		return null; 
+	}
+	// 共通接線が成立する厳密な接点パラメータ theta を算出するための補助変数
+	var l = dx / da;
+	var h = dy / db;
+	var d2 = l * l + h * h;
+	// 決定方程式から得られる一対の解 (外接線用)
+	var r = Math.sqrt(d2 - 1.0);
+	// 上側（進行方向右側）と下側（進行方向左側）の共通接点パラメータ theta
+	var sin_t_top    = (-h + l * r) / d2;
+	var cos_t_top    = (-l - h * r) / d2;
+	var sin_t_bottom = (-h - l * r) / d2;
+	var cos_t_bottom = (-l + h * r) / d2;
+	// パラメータの正負を正しい象限に補正するため、atan2から再マッピング
+	var t_top = Math.atan2(sin_t_top, cos_t_top);
+	var t_bottom = Math.atan2(sin_t_bottom, cos_t_bottom);
+	// 2つの楕円上の厳密な接点座標を計算
+	var pt1_top = [x1 + a1 * Math.cos(t_top), y1 + b1 * Math.sin(t_top)];
+	var pt2_top = [x2 + a2 * Math.cos(t_top), y2 + b2 * Math.sin(t_top)];
+	var pt1_bottom = [x1 + a1 * Math.cos(t_bottom), y1 + b1 * Math.sin(t_bottom)];
+	var pt2_bottom = [x2 + a2 * Math.cos(t_bottom), y2 + b2 * Math.sin(t_bottom)];
+	return [
+		[pt1_top, pt2_top],       // tangents[0] (上側の接線)
+		[pt1_bottom, pt2_bottom]  // tangents[1] (下側の接線)
+	];
+}
+
+
+var captionInfo=[];
+// テキストキャプションを生成する関数
+function prepareTyphoonCaptions(tcource, meta) {
+	captionInfo=[]
+	console.log(tcource,meta);
+	captionSubG = svgImage.createElement("g");
+	
+	for ( var i = 1 ; i < tcource.length ; i++ ) {
+		var tc = tcource[i];
+		var lon = tc.center[1];
+		var lat = tc.center[0];
+		
+		var textStr = "";
+		var yOffset = "12"; // 中心点から下にズラす量(px)
+		var fillCol = "#333"; // デフォルト白文字
+		if (i === 1) {
+			// 現在地：号数だけを切り出す（例: "2606" -> "6"）
+			textStr = parseInt(meta[0].typhoonNumber.slice(-2), 10).toString();
+			fillCol = "blue";
+		} else {
+			// 予報円：日と時を0パディングで（例: "29日12時"）
+			if (tc.validtime && tc.validtime.JST) {
+				var d = new Date(tc.validtime.JST);
+				textStr = pad(d.getDate()) + "日" + pad(d.getHours()) + "時";
+			}
+		}
+		console.log("textStr:",textStr);
+		
+
+		if (textStr !== "") {
+			captionInfo.push({
+				lon,lat,textStr,fillCol,yOffset,
+			});
+		}
+	}
+}
+
+function toggleTyphoonText(){
+	var captionEnable = toggleTextBtn.checked;
+	var targetG = svgImage.getElementById( "captions");
+	if ( captionEnable){
+		for ( var cap of captionInfo){
+			var textNode = svgImage.createElement("text");
+			textNode.setAttribute("transform", "ref(svg, " + (cap.lon * 100) + "," + (-cap.lat * 100) + ")");
+			textNode.setAttribute("x", -cap.textStr.length*2);
+			textNode.setAttribute("y", cap.yOffset);
+			textNode.setAttribute("font-size", "11");
+			textNode.setAttribute("font-weight", "bold");
+			textNode.setAttribute("fill", cap.fillCol);
+			textNode.textContent  = cap.textStr;
+			targetG.appendChild(textNode);
+		}
+		svgImageProps.hash ="#caption";
+	} else {
+		removeChildren(targetG);
+		svgImageProps.hash ="";
+	}
+	svgMap.refreshScreen();
+}
+
 </script>
 <body>
 <h4>気象庁　台風情報レイヤー</h4>
 <p style="font-size:12px">出典：<a href="https://www.jma.go.jp/bosai/map.html#4/34.561/147.524/&elem=root&typhoon=all&contents=typhoon" target="_blank">気象庁ホームページ　台風情報</a>を加工して作成</p>
 
+<div style="margin-top: 5px; margin-bottom: 10px;">
+	<label style="cursor: pointer; font-size: 12px; color: #666;">
+		<input type="checkbox" id="toggleTextBtn" onchange="toggleTyphoonText()">
+		テキストキャプションを表示する
+	</label>
+</div>
+
 <p style="font-size:12px">
 ここに表示される台風の経路は全て速報値です。過去の台風の経路(<span style="color:orange">オレンジ線</span>)は気象庁ホームページでは非表示のものです。<br>
 事後解析によって確定した過去の台風の経路は、気象庁ホームページ<a href="https://www.data.jma.go.jp/typhoon/route_map/index.html" target="_blank">過去の台風資料 台風経路図</a>を参照ください。
 </p>
-
+<p style="font-size:12px">
+凡例:<img src="https://www.jma.go.jp/bosai/typhoon/image/legend.png" height="200" style="vertical-align: top;">
+</p>
 </body>
 </html>

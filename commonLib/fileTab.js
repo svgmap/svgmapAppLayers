@@ -12,7 +12,9 @@
 var contentDir = "./contents/";
 var fm;
 var removeMode=false;
-addEventListener("load", init);
+let isInitialized = false;
+addEventListener("layerWebAppReady", init);
+addEventListener("load", init); // 後方互換用
 const customizerObject={
 	setContent:null,
 	getContent:null,
@@ -55,16 +57,19 @@ function setFileTabCustomizer(obj){
 
 
 async function init(){
+	if(!window.svgMap || isInitialized){ return; }
+	isInitialized = true;
 	var indexData;
 	if ( window.localFileMode=="undefined" || window.localFileMode != true ){
 		var module = await import('./FileManager.js');
 		fm = new module.FileManager();
 		indexData = await fm.init();
 	}
-	console.log("indexData:",indexData);
+	console.log("FileTab init  indexData:",indexData);
 	if ( !indexData){
 		var module = await import('./LocalDBFileManager.js');
-		fm = new module.LocalDBFileManager(svgMap.getLayer(layerID).getAttribute("title"));
+		const dbName = resolveDBname();
+		fm = new module.LocalDBFileManager(dbName);
 		await fm.init();
 		localFSnote();
 	}
@@ -293,6 +298,30 @@ function localFSnote(){
 		}
 		fsNoteSpan.innerText = fsNote;
 	}
+}
+
+function resolveDBname() {
+	let dbName;
+	// 1. 従来型LaWA (同一オリジン) の場合: 親のDOMからレイヤータイトル取得を試みる
+	try {
+		if (typeof svgMap.getLayer === "function") {
+			dbName = svgMap.getLayer(layerID).getAttribute("title");
+		}
+	} catch (e) {
+		// S-LaWA環境等でアクセス拒否された場合は無視
+	}
+
+	// 2. S-LaWA環境、またはタイトルが取得できなかった場合のフォールバック
+	if (!dbName) {
+		// svgImageProps.Path または location.pathname をベースにする
+		// どちらもハッシュ部（#...）が含まれる可能性があるため、split('#')[0] で除去する
+		let fullPath = window.svgImageProps?.Path || location.pathname || layerID;
+		dbName = fullPath.split('#')[0]; 
+	}
+	
+	// デバッグ用: 確定したDB名を確認
+	console.log("Resolved IndexedDB Name (Stable):", dbName);
+	return dbName;
 }
 
 export {setFileTabCustomizer};

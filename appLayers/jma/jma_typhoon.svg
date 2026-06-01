@@ -3,11 +3,13 @@
 
 <defs>
 <g id="pN">
-	<circle cx="0" cy="0" r="2" fill="#ffffff"/>
+	<!-- <circle cx="0" cy="0" r="3" fill="#ffffff"/> -->
+	<image xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAPAgMAAABGuH3ZAAAACVBMVEVhAB1qZWP///8f4ivXAAAAAXRSTlMAQObYZgAAABdJREFUCNdjYMAGtBYAiVUrcBBgWUwAADKmCC/O/eqvAAAAAElFTkSuQmCC" preserveAspectRatio="none" x="-7" y="-7" width="15" height="15"/>
 </g>
 <g id="p0">
 	<!--<circle cx="0" cy="0" r="4" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>-->
-	<image xlink:href="Typhoon_icon.png" preserveAspectRatio="none" x="-8" y="-16" width="16" height="32"/>
+	<image xlink:href="Typhoon_icon.png" preserveAspectRatio="none" x="-7" y="-7" width="14" height="14"/>
+	<!--<path d="M-5,-5 5,5z M-5,5 5,-5z" stroke-width="3" stroke="#202020" vector-effect="non-scaling-stroke"/>-->
 </g>
 <g id="p1">
 <!--<circle cx="0" cy="0" r="6" fill="pink" stroke="none"/>-->
@@ -34,4 +36,5 @@
 <g id="pastTracks"></g>
 <g id="areas"></g>
 <g id="icons"></g>
+<g id="captions"></g>
 </svg>

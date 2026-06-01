@@ -1,6 +1,6 @@
 // Description:
 // parseCsv module
-// Geminiに開発を依頼したRFC4180 CSVパーサをもとに、ChatGPTで改良したらしい
+// 概ねRFC4180に対応した CSVパーサ
 //
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public

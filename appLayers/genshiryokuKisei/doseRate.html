@@ -14,22 +14,16 @@
 	// This Source Code Form is subject to the terms of the Mozilla Public
 	// License, v. 2.0. If a copy of the MPL was not distributed with this
 	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+	//
+	// History
+	// 2024/03/06 : First release.
+	// 2026/05/13 : システム公開に伴う改修
 
-var pxy ="https://service.svgmap.org/corsaw/";
-
-var indexAPI = "https://www.erms.nsr.go.jp/nra-ramis-webg/general/tab/initialize";
-var dataAPI = "https://www.erms.nsr.go.jp/nra-ramis-webg/general/mapdisplaydoserate/search";
-
+var dataAPI = "https://www.ramis.nra.go.jp/api/v1/map/map-means-data-public";
 var radData;
 var radRawData={};
 var reqLen;
 
-const searchSiteAreaCodes={ // このデータはindexAPIを呼び出すと取り出せるが、固定値と思われるのでconstとしてハードコードする
-	"01":"A","02":"B","03":"Z","04":"C","05":"Z","06":"Z","07":"D","08":"E","09":"Z","10":"Z",
-	"11":"Z","12":"Z","13":"Z","14":"F,Q","15":"G","16":"H","17":"H","18":"I","19":"Z","20":"Z",
-	"21":"I","22":"J","23":"Z","24":"Z","25":"I","26":"I","27":"K","28":"Z","29":"Z","30":"Z",
-	"31":"M","32":"M","33":"L","34":"Z","35":"N","36":"Z","37":"Z","38":"N","39":"Z","40":"O,R,T",
-	"41":"O,R,T","42":"O,R,T","43":"Z","44":"Z","45":"Z","46":"P","47":"S,U,V"};
 
 onload=async function(){
 	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
@@ -42,79 +36,75 @@ onload=async function(){
 	svgMap.refreshScreen();
 }
 
-async function getAllRadData(){
-	var ps=[];
-	for ( var i = 1 ; i <= 47 ; i++){
-		var pcode = String(i).padStart(2,"0");
-		if ( i== 7 ){
-			// 福島だけ特別・・
-			var reg=["A","B","C","D","E","F","G"];
-			for ( var rc of reg ){
-				ps.push(getPrefRadData(pcode, rc));
-			}
-		} else {
-			ps.push(getPrefRadData(pcode));
-		}
+async function getAllRadData(){ // 2026/05 update
+	var ps = [];
+	let targetTime = null; // ひとまず無し・自動更新をなしにして一回きりの取得のレイヤーとする
+	
+	for ( var type = 0 ; type <= 12 ; type++){
+		ps.push(getTypeRadData(type, targetTime));
 	}
 	reqLen = ps.length;
 	await Promise.all(ps);
 	msgDiv.innerText= "Completed";
 	generateRadData();
-	console.log(radData);
 }
 
+// 2026/05 update
 function generateRadData(){
-	radData ={
-		type:"FeatureCollection",
-		features:[],
-	}
-	var minRate=9999;
-	var maxRate=-9999;
-	var regProps={};
-	for ( var pc in radRawData){
-		let prefCode = pc.split("_")[0];
-		const searchSiteAreaCode = searchSiteAreaCodes[prefCode];
-		if ( radRawData[pc] && radRawData[pc].status == 'success'){
-			var rd = radRawData[pc].result;
-			//console.log(rd);
-			for ( pkey in rd ){
-				if ( pkey.indexOf("GeoJson")>0){
-					var gj = rd[pkey];
-					//console.log(pkey, gj);
-					for ( var ft of gj.features ){
-						if ( pkey.indexOf("Missing")>0){
-							// たぶん欠測データ
-						} else {
-							// 多分測定できたデータ
-							radData.features.push(ft);
-							for ( var pn in ft.properties){
-								if ( ft.properties[pn] && !regProps[pn]){
-									regProps[pn]=true;
-								}
-							}
-							if ( ft.properties?.airDoseRate){
-								minRate= Math.min(minRate, ft.properties.airDoseRate);
-								maxRate= Math.max(maxRate, ft.properties.airDoseRate);
-							}
-							ft.properties.prefCode = prefCode;
-							ft.properties.searchSiteAreaCode = searchSiteAreaCode;
+	radData = {
+		type: "FeatureCollection",
+		features: [],
+	};
+	var minRate = 0;
+	var maxRate = 1;
+	var regProps = {};
+	
+	for (var k in radRawData) {
+		var rd = radRawData[k];
+		if (rd && rd.data && Array.isArray(rd.data)) {
+			for (var item of rd.data) {
+				// 緯度経度があるものは全部地図の対象にする
+				if (item.longitude && item.latitude) {
+					var ft = {
+						type: "Feature",
+						geometry: {
+							type: "Point",
+							coordinates: [item.longitude, item.latitude]
+						},
+						properties: Object.assign({}, item)
+					};
+					
+					// エイリアスの追加
+					ft.properties.airDoseRate = item.air_dose_rate;
+					ft.properties.obsStationName = item.display_name;
+					ft.properties.obsStationId = item.obs_station_unique_code;
+					ft.properties.searchSiteAreaCode = item.site_area_code;
+					ft.properties.prefCode = item.pref_code;
+					
+					// 欠測フラグを自前で立てておく（値がnull、またはステータスが0以外）
+					ft.properties.isMissing = (item.air_dose_rate === null || item.missing_status !== "0");
+					radData.features.push(ft);
+					
+					for (var pn in ft.properties) {
+						if (ft.properties[pn] !== null && !regProps[pn]) {
+							regProps[pn] = true;
 						}
 					}
 				}
 			}
-			
-			
 		}
 	}
-	regProps.prefCode=true;
-	regProps.searchSiteAreaCode=true;
 	
-//	radData.minRate = minRate;
-	radData.minRate = 0;
-//	radData.maxRate = maxRate;
-	radData.maxRate = 1;
-	radData.regProps=Object.keys(regProps);
+	//旧コード互換
+	regProps.prefCode = true;
+	regProps.searchSiteAreaCode = true;
+	regProps.obsStationId = true;
+	
+	radData.minRate = minRate;
+	radData.maxRate = maxRate;
+	radData.regProps = Object.keys(regProps);
 }
+
 
 function generateIcons(){
 	var tdefs=svgImage.getElementsByTagName("defs")[0];
@@ -141,6 +131,19 @@ function generateIcons(){
 	}
 	radData.levels=levels;
 	buildLegend(levels,colors);
+	
+	// 欠測アイコン 2026/05
+	var grp = svgImage.createElement("g");
+	grp.setAttribute("id", `c_null`);
+	var circ = svgImage.createElement("circle");
+	circ.setAttribute("cx", "0");
+	circ.setAttribute("cy", "0");
+	circ.setAttribute("r", "5");
+	circ.setAttribute("fill", "#303030");
+	grp.appendChild(circ);
+	tdefs.appendChild(grp);
+	// 欠測凡例追加
+	document.getElementById("legend").insertAdjacentHTML("beforeend", `<span style="background-color:#303030; color:white; padding: 0 2px; margin-left: 5px;">欠測</span>`);
 }
 
 function removeChildren(element){
@@ -150,23 +153,28 @@ function removeChildren(element){
 function setIcons(){
 	for ( var ft of radData.features){
 		var dr = ft.properties.airDoseRate;
-		var idx = 0;
-		for ( var dk of radData.levels){
-			if ( dr < dk ){
-				ft.properties["marker-symbol"]=`c_${idx-1}`;
-				break;
+		if ( ft.properties.isMissing ){
+			ft.properties["marker-symbol"]=`c_null`;
+			ft.properties.title=` ${ft.properties.obsStationName} : 欠測`;
+		} else {
+			var idx = 0;
+			for ( var dk of radData.levels){
+				if ( dr < dk ){
+					ft.properties["marker-symbol"]=`c_${idx-1}`;
+					break;
+				}
+				++idx;
 			}
-			++idx;
+			if (idx==radData.levels.length){
+				ft.properties["marker-symbol"]=`c_${radData.levels.length-1}`;
+			}
+			ft.properties.title=` ${ft.properties.obsStationName} : ${dr}μSv/hr`;
 		}
-		if (idx==radData.levels.length){
-			ft.properties["marker-symbol"]=`c_${radData.levels.length-1}`;
-		}
-		ft.properties.title=` ${ft.properties.obsStationName} : ${dr}μSv/hr`;
 	}
 	
 	radData.features.sort((a, b) => {
-		const drA = a.properties.airDoseRate;
-		const drB = b.properties.airDoseRate;
+		const drA = a.properties.airDoseRate !== null ? a.properties.airDoseRate : -1;
+		const drB = b.properties.airDoseRate !== null ? b.properties.airDoseRate : -1;
 		if ( drA == drB ){
 			return 0;
 		} else if (drA < drB) {
@@ -178,45 +186,21 @@ function setIcons(){
 	
 }
 
-async function getPrefInitData(prefCode, regionCode){
-	var rcStr="";
-	if ( regionCode){
-		rcStr =`&clickableRegionCode=${regionCode}`;
-	}
-	const request = new Request(pxy+indexAPI, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-		},
-		body: `clickablePrefCode=${prefCode}${rcStr}`,
-	});
-	const response =await fetch(request);
-	const txt = await response.text();
-	console.log(txt);
-}
 
-async function getPrefRadData(prefCode, regionCode){
-	var rcStr="";
-	if ( regionCode){
-		rcStr =`&regionCode=${regionCode}`;
+async function getTypeRadData(dataType, targetTime){
+	let latest_get_datetime="";
+	if ( targetTime ){
+		latest_get_datetime = `latest_get_datetime=${targetTime}&`;
 	}
-	const request = new Request(pxy+dataAPI, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-		},
-		body: `prefCode=${prefCode}&spObsStationSearchFlgBind=0${rcStr}`,
+	const url = svgMap.getCORSURL(`${dataAPI}?${latest_get_datetime}data_type=${dataType}`);
+	const request = new Request(url, {
+		method: 'GET'
 	});
-	//console.log(prefCode, regionCode);
 	
-	const response =await fetch(request);
+	const response = await fetch(request);
 	const json = await response.json();
-	//console.log(json);
-	if ( regionCode ){
-		radRawData[prefCode+"_"+regionCode]=json;
-	} else {
-		radRawData[prefCode]=json;
-	}
+	
+	radRawData["type_" + dataType] = json;
 	msgDiv.innerText= "Loading Data : " + Object.keys(radRawData).length + " / " + reqLen ;
 }
 
@@ -231,12 +215,14 @@ function buildLegend(levels,colors){
 	}
 }
 
+
+
 </script>
 <body>
 <h4>放射線モニタリング情報(原子力規制委員会)</h4>
 
 <div style="font-size:11px" ><a href="https://www.erms.nsr.go.jp/nra-ramis-webg/" target="_blank">出典：放射線モニタリング情報共有・公表システム</a></div>
-<div style="font-size:11px" id="legend">凡例[μSv/hr]</div>
+<div style="font-size:10px" id="legend">凡例[μSv/hr]</div>
 <div style="font-size:11px" id="msgDiv">ー</div>
 </body>
 </html>
