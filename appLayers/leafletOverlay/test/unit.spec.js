@@ -11,8 +11,6 @@ describe('Leaflet Overlay LaWA Unit Tests', () => {
     // DOMのモック設定
     document.body.innerHTML = `
       <iframe id="leaflet-iframe"></iframe>
-      <div id="mode-verification"></div>
-      <div id="mode-production"></div>
       <div id="message-box"></div>
       <div id="marks"></div>
     `;
@@ -178,6 +176,65 @@ describe('Leaflet Overlay LaWA Unit Tests', () => {
         expect(geojson.features).toHaveLength(2);
         expect(geojson.features[0].geometry.type).toBe("Point");
         expect(geojson.features[1].geometry.type).toBe("LineString");
+      });
+
+      it('レイヤーにスタイルオプション（color, weight, fillColor, fillOpacity）が指定されている場合、Mapbox simplestyle仕様に正しくマッピングされること', () => {
+        const mockLayer = {
+          toGeoJSON: () => ({
+            type: "Feature",
+            geometry: { type: "Polygon", coordinates: [[[139.7, 35.6], [139.8, 35.6], [139.8, 35.7], [139.7, 35.7], [139.7, 35.6]]] },
+            properties: {}
+          }),
+          options: {
+            color: "#ff0000",
+            weight: 3,
+            opacity: 0.8,
+            fillColor: "#0000ff",
+            fillOpacity: 0.5
+          }
+        };
+
+        const mockMap = new DummyMap([mockLayer]);
+        const mockWindow = {
+          L: { Map: DummyMap },
+          map: mockMap
+        };
+
+        const geojson = LeafletGeoJsonExtractor.extractGeoJSON(mockWindow);
+        const props = geojson.features[0].properties;
+        expect(props.stroke).toBe("#ff0000");
+        expect(props["stroke-width"]).toBe(3);
+        expect(props["stroke-opacity"]).toBe(0.8);
+        expect(props.fill).toBe("#0000ff");
+        expect(props["fill-opacity"]).toBe(0.5);
+        expect(props.opacity).toBe(0.8);
+      });
+
+      it('options.fill が false の場合、properties.fill が "none" になり、透過関連プロパティが 0 に設定されること', () => {
+        const mockLayer = {
+          toGeoJSON: () => ({
+            type: "Feature",
+            geometry: { type: "Polygon", coordinates: [[[139.7, 35.6], [139.8, 35.6], [139.8, 35.7], [139.7, 35.7], [139.7, 35.6]]] },
+            properties: {}
+          }),
+          options: {
+            fill: false,
+            color: "#ff0000"
+          }
+        };
+
+        const mockMap = new DummyMap([mockLayer]);
+        const mockWindow = {
+          L: { Map: DummyMap },
+          map: mockMap
+        };
+
+        const geojson = LeafletGeoJsonExtractor.extractGeoJSON(mockWindow);
+        const props = geojson.features[0].properties;
+        expect(props.fill).toBe("none");
+        expect(props["fill-opacity"]).toBe(0);
+        expect(props.opacity).toBe(0);
+        expect(props.stroke).toBe("#ff0000");
       });
 
       it('ポップアップ情報がバインドされている場合、properties.popupContent に格納できること', () => {

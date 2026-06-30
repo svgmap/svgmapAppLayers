@@ -5,7 +5,6 @@
   let currentMap = null;
   let isEnabled = true;
   let opacity = 1.0;
-  let securityMode = 'verification'; // 'verification' | 'production'
   let currentBlobUrl = null;
 
   // コンテンツの文字列化ユーティリティ（DOM要素やオブジェクトの文字列化）
@@ -70,6 +69,38 @@
                 geojsonFeature.properties = geojsonFeature.properties || {};
                 const content = typeof tooltip.getContent === 'function' ? tooltip.getContent() : null;
                 geojsonFeature.properties.tooltipContent = stringifyContent(content);
+              }
+
+              // スタイル情報のマッピング（Mapbox simplestyle-specに準拠）
+              if (layer.options) {
+                geojsonFeature.properties = geojsonFeature.properties || {};
+                const opts = layer.options;
+                if (opts.color !== undefined) {
+                  geojsonFeature.properties['stroke'] = opts.color;
+                }
+                if (opts.weight !== undefined) {
+                  geojsonFeature.properties['stroke-width'] = opts.weight;
+                }
+                if (opts.opacity !== undefined) {
+                  geojsonFeature.properties['stroke-opacity'] = opts.opacity;
+                }
+                if (opts.fillColor !== undefined) {
+                  geojsonFeature.properties['fill'] = opts.fillColor;
+                }
+                if (opts.fillOpacity !== undefined) {
+                  geojsonFeature.properties['fill-opacity'] = opts.fillOpacity;
+                }
+                if (opts.fillOpacity !== undefined || opts.opacity !== undefined) {
+                  const op = opts.fillOpacity !== undefined && opts.opacity !== undefined
+                    ? Math.max(opts.fillOpacity, opts.opacity)
+                    : (opts.fillOpacity !== undefined ? opts.fillOpacity : opts.opacity);
+                  geojsonFeature.properties['opacity'] = op;
+                }
+                if (opts.fill === false) {
+                  geojsonFeature.properties['fill'] = 'none';
+                  geojsonFeature.properties['fill-opacity'] = 0;
+                  geojsonFeature.properties['opacity'] = 0;
+                }
               }
 
               featureCollection.features.push(geojsonFeature);
@@ -216,8 +247,6 @@
       const uploadZone = document.getElementById("upload-zone");
       const opacitySlider = document.getElementById("opacity-slider");
       const opacityVal = document.getElementById("opacity-val");
-      const modeVerify = document.getElementById("mode-verify");
-      const modeProd = document.getElementById("mode-production");
       const visibilityCheckbox = document.getElementById("visibility-checkbox");
       const iframe = document.getElementById("leaflet-iframe");
 
@@ -248,10 +277,6 @@
         this.setOpacity(val / 100);
       });
 
-      // セキュリティモード
-      modeVerify.addEventListener("click", () => this.switchSecurityMode("verification"));
-      modeProd.addEventListener("click", () => this.switchSecurityMode("production"));
-
       // 表示非表示
       visibilityCheckbox.addEventListener("change", (e) => {
         LeafletSyncManager.setEnabled(e.target.checked);
@@ -268,9 +293,7 @@
             const iframeWindow = iframe.contentWindow;
             
             // pointer-events CSSインジェクション（アプローチB）
-            if (securityMode === 'verification') {
-              this.injectPointerEvents(iframeWindow);
-            }
+            this.injectPointerEvents(iframeWindow);
 
             const map = LeafletSyncManager.findLeafletMap(iframeWindow);
             if (map) {
@@ -340,35 +363,6 @@
       opacity = value;
       const iframe = document.getElementById("leaflet-iframe");
       iframe.style.opacity = opacity;
-    },
-
-    switchSecurityMode(mode) {
-      if (securityMode === mode) return;
-
-      securityMode = mode;
-      const modeVerify = document.getElementById("mode-verify");
-      const modeProd = document.getElementById("mode-production");
-      const iframe = document.getElementById("leaflet-iframe");
-
-      modeVerify.classList.toggle("active", securityMode === "verification");
-      modeProd.classList.toggle("active", securityMode === "production");
-
-      if (securityMode === "production") {
-        // 本番モード: サンドボックス制限（Same-Origin遮断）
-        iframe.setAttribute("sandbox", "allow-scripts");
-        this.showMessage("本番セキュリティモードが有効化されました。親への直接アクセスが制限されます。", "info");
-        // サンドボックス適用のため再ロード
-        if (iframe.src) {
-          iframe.src = iframe.src;
-        }
-      } else {
-        // 検証モード: サンドボックス制限解除
-        iframe.removeAttribute("sandbox");
-        this.showMessage("検証モードが有効化されました。直接同期が再有効化されます。", "info");
-        if (iframe.src) {
-          iframe.src = iframe.src;
-        }
-      }
     },
 
     injectPointerEvents(iframeWindow) {
