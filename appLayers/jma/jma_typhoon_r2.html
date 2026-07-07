@@ -36,6 +36,7 @@ async function drawTyphoonMap(){
 	removeChildren("icons");
 	var tindex = await getJson(baseURL+tBase+"targetTc.json");
 	drawPastTrack();
+	captionInfo=[];
 	for (var tp of tindex){ // categoryがTDは熱帯低気圧？ STSが台風？ typhoonNumberがnnnnというのが台風 "a,b,"などが熱帯低気圧
 		var tpId = tp.tropicalCyclone; // 
 		var tcource = await getJson(baseURL+tBase+tpId+"/forecast.json"); // 予報円・経路
@@ -523,7 +524,6 @@ function calculateEllipseTangents(x1, y1, a1, b1, x2, y2, a2, b2) {
 var captionInfo=[];
 // テキストキャプションを生成する関数
 function prepareTyphoonCaptions(tcource, meta) {
-	captionInfo=[]
 	console.log(tcource,meta);
 	captionSubG = svgImage.createElement("g");
 	
