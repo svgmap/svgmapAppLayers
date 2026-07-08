@@ -1,3 +1,9 @@
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 (function() {
   // グローバルおよび親コンテキストオブジェクトの取得
   // svgMap や svgImageProps は親 (svgMapViewer) から自動的に提供される
@@ -166,7 +172,7 @@
     }
   };
 
-  // 3. LeafletSyncManager
+  // 3. LeafletSyncManager (マップオブジェクト検出ユーティリティ)
   const LeafletSyncManager = {
     findLeafletMap(iframeWindow) {
       const L = iframeWindow.L;
@@ -199,39 +205,6 @@
       } catch (e) {}
 
       return null;
-    },
-
-    onZoomPan() {
-      if (!isEnabled || !currentMap) return;
-
-      try {
-        // 親（SVGMap）の現在状態を取得
-        const vb = svgMap.getGeoViewBox();
-        const centerLng = vb.x + vb.width / 2;
-        const centerLat = vb.y + vb.height / 2;
-
-        // SVGMap scale から Leaflet zoom への変換式
-        let zoom = Math.floor(Math.LOG2E * Math.log(svgImageProps.scale) + 7.5);
-        if (zoom < 0) zoom = 0;
-        if (zoom > 18) zoom = 18;
-
-        // Leaflet 側に反映
-        currentMap.setView([centerLat, centerLng], zoom, { animate: false });
-      } catch (e) {
-        console.error("Map synchronization error:", e);
-      }
-    },
-
-    onPreRender() {
-      // 画面描画更新時の処理（onZoomPan と同様に位置同期を行う）
-      this.onZoomPan();
-    },
-
-    setEnabled(enabled) {
-      isEnabled = enabled;
-      if (isEnabled) {
-        this.onZoomPan();
-      }
     }
   };
 
@@ -239,7 +212,6 @@
   const LeafletOverlayLaWA = {
     init() {
       this.bindUIEvents();
-      this.setupSVGMapListeners();
     },
 
     bindUIEvents() {
@@ -279,7 +251,6 @@
 
       // 表示非表示
       visibilityCheckbox.addEventListener("change", (e) => {
-        LeafletSyncManager.setEnabled(e.target.checked);
         iframe.style.display = e.target.checked ? "block" : "none";
       });
 
@@ -300,9 +271,6 @@
               currentMap = map;
               this.showMessage("Leafletマップへの接続に成功しました", "success");
               
-              // 同期の初期化
-              LeafletSyncManager.onZoomPan();
-
               // GeoJSONデータの抽出と親地図への描画連携
               const geoJSON = LeafletGeoJsonExtractor.extractGeoJSON(iframeWindow);
               if (geoJSON) {
@@ -321,18 +289,6 @@
           }
         }, 300);
       });
-    },
-
-    setupSVGMapListeners() {
-      // 親（SVGMap Viewer）のイベントをリッスン
-      window.addEventListener("zoomPanMap", () => {
-        LeafletSyncManager.onZoomPan();
-      });
-
-      // preRenderFunction の登録（親から呼ばれるフック）
-      window.preRenderFunction = function() {
-        LeafletSyncManager.onPreRender();
-      };
     },
 
     handleFileSelect(file) {

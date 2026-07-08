@@ -2,6 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <!-- 
+    License: (MPL v2)
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  -->
+
   <title>Leaflet Overlay LaWA</title>
   <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
@@ -141,33 +148,6 @@
       transform: scale(1.2);
     }
 
-    /* セキュリティトグルボタン */
-    .mode-selector {
-      display: flex;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      padding: 3px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .mode-btn {
-      flex: 1;
-      border: none;
-      background: transparent;
-      color: #a0a0ab;
-      font-size: 11px;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-weight: 600;
-    }
-
-    .mode-btn.active {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
 
     /* アラート・メッセージ表示 */
     .message-box {
@@ -228,22 +208,12 @@
       <input type="range" id="opacity-slider" min="0" max="100" value="100">
     </div>
 
-    <!-- セキュリティモード切替 -->
-    <div class="control-group">
-      <div class="control-label">
-        <span>セキュリティモード (Security Mode)</span>
-      </div>
-      <div class="mode-selector">
-        <button class="mode-btn active" id="mode-verify">検証モード</button>
-        <button class="mode-btn" id="mode-production">本番モード</button>
-      </div>
-    </div>
 
     <!-- 表示非表示切り替え (Layer Visibility) -->
     <div class="control-group">
       <label style="display: flex; align-items: center; cursor: pointer; font-size: 12px; color: #a0a0ab;">
         <input type="checkbox" id="visibility-checkbox" checked style="margin-right: 8px; accent-color: #78ffd6;">
-        レイヤーを同期表示する
+        レイヤーを重ね合わせて表示する
       </label>
     </div>
 
