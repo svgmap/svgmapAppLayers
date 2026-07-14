@@ -356,7 +356,7 @@ function filterAndNormalizeToLawa(csvText, datasetTitle) {
 
   const cleanCell = (cell) => {
     if (cell === undefined || cell === null) return '';
-    return String(cell).replace(/,/g, ';').replace(/[\r\n]+/g, ' ').trim();
+    return String(cell).replace(/"/g, '”').replace(/,/g, ';').replace(/[\r\n]+/g, ' ').trim();
   };
 
   const cleanRows = []; 
