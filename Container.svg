@@ -188,6 +188,11 @@
 <animation xlink:href="./appLayers/mlitRiver/overObs_stg.svg" title="警報のみ 水位観測所" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
+
+<!-- 自治体レイヤ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
+
+
 <!-- ライブカメラ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
@@ -201,6 +206,8 @@
 <animation xlink:href="./appLayers/mhlw_IryouNet/IryouNetPoi.svg" title="厚労省 病院・診療所・薬局等" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/><!-- #HOSPITAL など大文字でカテゴリ名入れるとカテゴリ固定レイヤ化可能-->
 <animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/geminiSearchLayers/geminiBYOKlayerSearch.svg" title="レイヤー検索 by Gemini" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="" opacity="0.6" visibility="hidden"/>
+
+<animation xlink:href="./appLayers/geminiSearchLayers/geminiBYOKlayerSearch.svg" title="AIレイヤー検索 by Gemini" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="レイヤー検索" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/layer-recommender/recommender.svg" title="ローカルAIレイヤー検索" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="レイヤー検索" opacity="0.6" visibility="hidden"/>
 
 </svg>

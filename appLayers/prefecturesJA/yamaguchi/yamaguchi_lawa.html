@@ -1,0 +1,480 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+  <meta charset="UTF-8">  
+  <title>山口県オープンデータ レイヤ</title>  
+  
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>  
+  
+  <style>  
+    /* 文字色を「はっきりとした濃い色」に。余白も最適化 */
+    body { font-family: sans-serif; font-size: 11px; margin: 3px; line-height: 1.3; color: #111; background-color: #fff; }  
+    h2 { font-size: 13px; margin: 0 0 1px 0; color: #000; padding: 0; font-weight: bold; }  
+    .source { font-size: 10px; color: #333; margin: 0 0 4px 0; }  
+    .source a { color: #004085; text-decoration: none; font-weight: bold; }  
+    .source a:hover { text-decoration: underline; }  
+    
+    .search-box { margin-bottom: 4px; background: #f8f9fa; padding: 5px; border-radius: 4px; border: 1px solid #ced4da; }  
+    label { font-weight: bold; display: block; margin-bottom: 2px; color: #212529; font-size: 10px; }  
+    input[type="text"], select { width: 100%; box-sizing: border-box; padding: 4px; font-size: 11px; margin-bottom: 4px; border: 1px solid #adb5bd; border-radius: 3px; color: #000; }  
+    input[type="text"]:focus, select:focus { border-color: #0056b3; outline: none; }
+    
+    /* ステータスバーとDLボタンを同一行(一列)に詰め込むコンテナ */
+    .status-action-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; width: 100%; box-sizing: border-box; }
+    
+    /* 状態連動型ステータスバー (ボタンと高さを揃えて横幅いっぱいに広げる) */
+    #status { flex: 1; font-weight: bold; padding: 4px; border-radius: 3px; font-size: 10px; border: 1px solid #ced4da; box-sizing: border-box; text-align: center; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }  
+    #status.loading { color: #212529; background: #e9ecef; border-color: #ced4da; }  
+    #status.success { color: #1e7e34; background: #d4edda; border-color: #c3e6cb; }  
+    #status.filtered { color: #004085; background: #cce5ff; border-color: #b8daff; }  
+    #status.warning  { color: #d9480f; background: #fff4e6; border-color: #fde8cd; }  
+    #status.error    { color: #721c24; background: #f8d7da; border-color: #f5c6cb; }  
+    
+    /* DLボタン (ステータスバーと1列に並ぶよう調整) */
+    #downloadBtn { padding: 4px 10px; font-size: 10px; font-weight: bold; cursor: pointer; background-color: #495057; color: white; border: none; border-radius: 3px; box-shadow: 0 1px 1px rgba(0,0,0,0.15); white-space: nowrap; height: 22px; box-sizing: border-box; }  
+    #downloadBtn:hover:not(:disabled) { background-color: #212529; }  
+    #downloadBtn:disabled { background-color: #dee2e6; cursor: not-allowed; box-shadow: none; color: #868e96; border: 1px solid #ced4da; }  
+
+    /* 拡張された説明文・詳細情報コンテナエリア (400pxの壁を超えないよう高さを再計算) */
+    #notesArea { background: #fff; border: 1px solid #ced4da; padding: 4px; border-radius: 3px; margin-top: 2px; }  
+    .notes-title { font-weight: bold; color: #004085; margin-bottom: 2px; font-size: 10px; }  
+    
+    /* 概要コンテンツの最大高さを120px に絞り、外側のスクロールバー漏れを防御 */
+    #notesContent { white-space: pre-wrap; word-break: break-all; font-size: 10px; color: #111; max-height: 120px; overflow-y: auto; background: #f8f9fa; padding: 4px; border: 1px solid #dee2e6; border-radius: 2px; line-height: 1.35; }  
+    
+    /* 詳細情報(メタデータ)テーブルの文字コントラスト強化版 */
+    .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; font-size: 9px; background: #fff; border: 1px solid #ced4da; }
+    .meta-table th { background: #e9ecef; padding: 2px 4px; text-align: left; border: 1px solid #ced4da; font-weight: bold; width: 20%; color: #212529; }
+    .meta-table td { padding: 2px 4px; border: 1px solid #ced4da; color: #000; width: 30%; word-break: break-all; font-weight: 500; }
+  </style>  
+</head>  
+  
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>  
+  
+<script type="module">  
+  import { CsvMapper } from './CsvMapper.js';  
+  window.CsvMapperClass = CsvMapper;  
+</script>  
+  
+<script>  
+// Description:
+// 山口県オープンデータカタログに掲載されている位置情報を持つと思われるデータセットをリストアップ・表示するSVGMap LaWA
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+const CKAN_API    = 'https://yamaguchi-opendata.jp/ckan/api/3/action/package_search';  
+const TAG_QUERY   = 'fq=tags:' + encodeURIComponent('位置情報');  
+const DEFAULT_ICON= 0; 
+
+let myCsvMapper;  
+let lawaDatasets = [];  
+  
+let layerPreRenderFunc = () => {};  
+window.preRenderFunction = () => layerPreRenderFunc();  
+  
+addEventListener("layerWebAppReady", function () {  
+  myCsvMapper = new window.CsvMapperClass({  
+    svgMap:        window.svgMap,  
+    svgImage:      window.svgImage,  
+    svgImageProps: window.svgImageProps,  
+    layerID:       window.layerID,  
+    messageDivElm: null  
+  });  
+  
+  layerPreRenderFunc = myCsvMapper.preRenderFunction;  
+  myCsvMapper.onload();  
+  fetchOpendataMetadata();  
+});  
+
+function updateStatus(text, className) {
+  const statusEl = document.getElementById('status');
+  statusEl.innerText = text;
+  statusEl.className = className;
+}
+
+// メタデータ全件取得
+async function fetchOpendataMetadata() {
+  try {
+    const apiUrl = `${CKAN_API}?${TAG_QUERY}&rows=1000`;
+    const response = await fetch(svgMap.getCORSURL(apiUrl));
+    if (!response.ok) throw new Error("API HTTP " + response.status);  
+    
+    lawaDatasets = (await response.json()).result.results;
+    
+    console.log("========== 【位置情報】取得可能なデータセット一覧 ==========");
+    lawaDatasets.forEach(d => {
+      d.shortHash = getShortHash(d.id);
+      const formats = Array.from(new Set(d.resources.map(r => r.format && r.format.toUpperCase()))).filter(f => f);
+      console.log(`- [Hash: ${d.shortHash}] [${formats.join('/')}] ${d.title}`);
+    });
+    console.log("===============================================================");
+    
+    renderFilteredList();
+    document.getElementById('filterInput').disabled = false;
+    document.getElementById('datasetList').disabled = false;
+    await processHash();
+  } catch (err) {
+    updateStatus('初期化エラー: メタデータ取得に失敗しました。', 'error');
+    console.error(err);
+  }
+}
+
+// リアルタイムフィルタリング
+function renderFilteredList() {
+  const query = document.getElementById('filterInput').value.trim().toLowerCase();
+  const select = document.getElementById('datasetList');
+  
+  const currentSelectedId = select.value;
+  select.innerHTML = '<option value="">-- レイヤーを選択してください --</option>';
+  const keywords = query.split(/[\s ]+/).filter(k => k !== '');
+  
+  const filtered = lawaDatasets.filter(d => {
+    if (keywords.length === 0) return true;
+    const title = (d.title || '').toLowerCase();
+    const notes = (d.notes || '').toLowerCase();
+    return keywords.every(k => title.includes(k) || notes.includes(k));
+  });
+  
+  filtered.forEach(d => {
+    const formats = Array.from(new Set(d.resources.map(r => r.format && r.format.toUpperCase()))).filter(f => f);
+    const formatStr = formats.length > 0 ? `[${formats.join(',')}] ` : '[不明] ';
+    
+    const option = document.createElement('option');
+    option.value = d.id;
+    option.textContent = formatStr + d.title;
+    if (d.id === currentSelectedId) option.selected = true;
+    select.appendChild(option);
+  });
+  
+  if (keywords.length > 0) {
+    updateStatus(`全 ${lawaDatasets.length} 件中 ${filtered.length} 件ヒット`, 'filtered');
+  } else {
+    updateStatus(`現在、${lawaDatasets.length} 件のレイヤーが利用可能`, 'success');
+  }
+  updateNotesDisplay();
+}
+
+// リスト変更時の即時マッピングライフサイクル
+async function handleDatasetChange() {
+  updateNotesDisplay();
+  const selectedId = document.getElementById('datasetList').value;
+  const downloadBtn = document.getElementById('downloadBtn');
+  
+  if (!selectedId) {
+    downloadBtn.disabled = true;
+    if (window.svgImageProps) window.svgImageProps.hash = "";
+    if (myCsvMapper) {
+      await myCsvMapper.initCsv("緯度,経度,名称\n", 0, 1, 2, DEFAULT_ICON, null, 1);
+    }
+    const filterKeyword = document.getElementById('filterInput').value.trim();
+    if (!filterKeyword) {
+      updateStatus(`レイヤーの選択が解除されました。`, 'success');
+    }
+    renderFilteredList(); 
+    return;
+  }
+  
+  downloadBtn.disabled = false;
+  const dataset = lawaDatasets.find(d => d.id === selectedId);
+  if (dataset && window.svgImageProps) {
+    window.svgImageProps.hash = "#" + dataset.shortHash;
+  }
+  await handleLawaAction('map');
+}
+
+// 詳細メタデータ表示処理
+function updateNotesDisplay() {
+  const selectedId = document.getElementById('datasetList').value;
+  const notesArea = document.getElementById('notesArea');
+  const notesContent = document.getElementById('notesContent');
+  const metaContent = document.getElementById('metaContent'); 
+  
+  if (!selectedId) { notesArea.style.display = 'none'; return; }
+  
+  const dataset = lawaDatasets.find(d => d.id === selectedId);
+  if (dataset) {
+    const formatDate = (isoStr) => {
+      if (!isoStr) return '不明';
+      try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      } catch (e) { return isoStr; }
+    };
+
+    const author  = dataset.author || dataset.maintainer || '記載なし';
+    const dept    = (dataset.organization && dataset.organization.title) || '記載なし';
+    const updated = formatDate(dataset.metadata_modified);
+    const created = formatDate(dataset.metadata_created);
+
+    metaContent.innerHTML = `
+      <table class="meta-table">
+        <tr><th>作成者</th><td>${author}</td><th>所管部署</th><td>${dept}</td></tr>
+        <tr><th>最終更新</th><td>${updated}</td><th>作成日</th><td>${created}</td></tr>
+      </table>
+    `;
+
+    notesContent.textContent = dataset.notes ? dataset.notes.trim() : 'このデータセットに説明文はありません。';
+    notesArea.style.display = 'block';
+  }
+}
+
+function autoDecodeBuffer(buffer) {
+  try {
+    const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+    return utf8Decoder.decode(buffer);
+  } catch (e) {
+    console.log("【文字コード判定】-> [Shift_JIS] (UTF-8パースエラー検知によるフォールバック)");
+    const sjisDecoder = new TextDecoder('shift_jis');
+    return sjisDecoder.decode(buffer);
+  }
+}
+
+function triggerCsvDownload(csvText, fileName) {
+  const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+  const blob = new Blob([bom, csvText], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a");
+  if (link.download !== undefined) {
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", fileName + "_normalized.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}  
+
+async function handleLawaAction(action) {  
+  const selectedId = document.getElementById('datasetList').value;
+  if (!selectedId) return;
+  
+  const dataset = lawaDatasets.find(d => d.id === selectedId);
+  let resource = dataset.resources.find(r => r.format && r.format.toUpperCase() === 'CSV');
+  let isExcel = false;
+  if (!resource) {
+    resource = dataset.resources.find(r => r.format && (r.format.toUpperCase() === 'XLSX' || r.format.toUpperCase() === 'EXCEL' || r.format.toUpperCase() === 'XLS'));
+    if (resource) isExcel = true;
+  }
+  
+  if (!resource) { 
+    updateStatus('エラー: 処理可能なCSV/Excel形式ファイルがありません。', 'error');
+    return; 
+  }
+  
+  try {  
+    updateStatus('データ解析中...', 'loading');
+    const response = await fetch(svgMap.getCORSURL(resource.url));  
+    if (!response.ok) throw new Error("HTTP " + response.status);  
+    const buffer = await response.arrayBuffer();  
+  
+    let rawCsvText = "";
+    if (isExcel) {
+      const workbook = XLSX.read(buffer, { type: 'array' });  
+      rawCsvText = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);  
+    } else {
+      rawCsvText = autoDecodeBuffer(buffer);
+    }  
+  
+    const cleanResult = filterAndNormalizeToLawa(rawCsvText, dataset.title);
+    
+    console.log("========== 変換後のCSVデータ (緯度経度付き・エスケープ不要) ==========");  
+    console.log(cleanResult.consoleCsv);  
+    console.log("======================================================================");  
+  
+    if (action === 'map') {
+      await myCsvMapper.initCsv(cleanResult.csvTextForMap, cleanResult.latCol, cleanResult.lngCol, cleanResult.titleCol, DEFAULT_ICON, null, 1);  
+      
+      if (cleanResult.swapped) {
+        updateStatus(`補正可視化完了 (経緯度逆転を自動スワップしました)`, 'warning');
+      } else {
+        updateStatus(`地図に展開完了 (${cleanResult.validCount}件)`, 'success');
+      }
+    } else if (action === 'download') {
+      triggerCsvDownload(cleanResult.consoleCsv, dataset.title);
+      if (cleanResult.swapped) {
+        updateStatus(`DL完了 (経緯度逆転自動スワップ済み)`, 'warning');
+      } else {
+        updateStatus(`正規化CSVのダウンロードが完了しました。`, 'success');
+      }
+    }
+  } catch (e) {  
+    updateStatus("処理エラー: " + e.message, 'error'); 
+    console.error(e);  
+  }  
+}  
+
+function rfcParseCSV(text) {
+  const rows = []; let row = []; let cell = ''; let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]; const nextChar = text[i + 1];
+    if (char === '"') { if (inQuotes && nextChar === '"') { cell += '"'; i++; } else { inQuotes = !inQuotes; } }
+    else if (char === ',' && !inQuotes) { row.push(cell); cell = ''; }
+    else if (char === '\n' && !inQuotes) { row.push(cell); rows.push(row); row = []; cell = ''; }  
+    else if (char === '\r' && !inQuotes) {} else { cell += char; }
+  }
+  if (cell || row.length > 0) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function filterAndNormalizeToLawa(csvText, datasetTitle) {
+  const rows = rfcParseCSV(csvText).filter(row => row.length > 0 && row.join('').trim() !== '');
+  if (rows.length === 0) throw new Error("パース結果が空です。");
+
+  let headerRowIdx = rows.findIndex(r => r[0] && String(r[0]).trim().startsWith('#property'));
+  if (headerRowIdx !== -1) {
+    console.log("【特殊形式検知】-> LinkData形式を検出。#property行をスキーマに採用。");
+  } else {
+    headerRowIdx = rows.findIndex(r => r[0] && !String(r[0]).trim().startsWith('#'));
+  }
+  if (headerRowIdx === -1) headerRowIdx = 0;
+
+  let headers = rows[headerRowIdx].map(h => h ? String(h).replace(/^#property/, '').trim() : '');
+  const expectedColsCount = headers.length;
+
+  let latCol = headers.findIndex(h => h && ['緯度', 'latitude', 'lat'].some(k => h.toLowerCase().trim().includes(k)));
+  let lngCol = headers.findIndex(h => h && ['経度', 'longitude', 'lon', 'lng'].some(k => h.toLowerCase().trim().includes(k)));
+  let titleCol = headers.findIndex(h => h && ['名称', '施設', '名', 'title', 'name'].some(k => h.toLowerCase().trim().includes(k)));
+  if (titleCol === -1) titleCol = 0;
+  if (latCol === -1 || lngCol === -1) {
+    throw new Error("緯度または経度カラムを特定できませんでした。ヘッダー定義を確認してください。");
+  }
+  let swapped = false;
+  let firstDataRow = rows.find((r, idx) => idx > headerRowIdx && r.length === expectedColsCount && !String(r[0]).trim().startsWith('#'));
+  if (firstDataRow && latCol !== -1 && lngCol !== -1) {
+    const testLat = parseFloat(firstDataRow[latCol]);
+    const testLng = parseFloat(firstDataRow[lngCol]);
+    if (!isNaN(testLat) && !isNaN(testLng) && testLat > testLng) {
+      console.log("⚠️ 【重要】データ内の緯度と経度の数値が逆転しているのを検知しました。自動でスワップ補正します。");
+      let temp = latCol; latCol = lngCol; lngCol = temp;
+      headers[latCol] = "緯度"; headers[lngCol] = "経度";
+      swapped = true; 
+    }
+  }
+
+  const cleanCell = (cell) => {
+    if (cell === undefined || cell === null) return '';
+    return String(cell).replace(/,/g, ';').replace(/[\r\n]+/g, ' ').trim();
+  };
+
+  const cleanRows = []; 
+  cleanRows.push(headers.map(cleanCell).join(','));
+  
+  let skipCountStructure = 0; let skipCountGeometry = 0; let skipCountMetadata = 0;
+  let errorLogDetails = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    if (i === headerRowIdx) continue;
+    const cols = rows[i];
+    if (cols[0] && String(cols[0]).trim().startsWith('#')) {
+      skipCountMetadata++; continue;
+    }
+    if (cols.length !== expectedColsCount) {
+      skipCountStructure++;
+      errorLogDetails.push({ "元行": i + 1, "除外原因": `列数不一致 (${cols.length}/${expectedColsCount})`, "データ": cols.slice(0, 2).join('|') + "..." });
+      continue;
+    }
+    if (latCol !== -1 && lngCol !== -1) {
+      const lat = cols[latCol]; const lng = cols[lngCol];
+      if (!lat || !lng || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+        skipCountGeometry++;
+        errorLogDetails.push({ "元行": i + 1, "除外原因": `幾何数値不正 (${lat||'空'}/${lng||'空'})`, "データ": cols.slice(0, 2).join('|') + "..." });
+        continue;
+      }
+    }
+    cleanRows.push(cols.map(cleanCell).join(','));
+  }
+
+  console.log(`[一次検証] 有効抽出: ${cleanRows.length - 1}行 | メタデータ行スキップ: ${skipCountMetadata}行 | 除外(列数違い): ${skipCountStructure}行 | 除外(数値不正): ${skipCountGeometry}行`);
+  if (errorLogDetails.length > 0) { console.warn("⚠️ 除外行詳細:"); console.table(errorLogDetails); }
+
+  const csvTextForMap = cleanRows.join('\n');
+  validateFinalLawaCsv(csvTextForMap);
+
+  let infoHeader = `[情報] 緯度カラム index: ${latCol}, 経度カラム index: ${lngCol}, タイトルカラム index: ${titleCol}`;
+  const consoleCsv = infoHeader + '\n' + csvTextForMap;
+  return { consoleCsv, csvTextForMap, latCol, lngCol, titleCol, swapped, validCount: cleanRows.length - 1 };
+}
+
+// 最終成果物パース検証
+function validateFinalLawaCsv(finalCsvText) {
+  console.log("\n--- --- --- 【最終成果物パースチェック】 --- --- ---");
+  const lines = finalCsvText.split('\n').map(l => l.trim()).filter(l => l !== '');
+  const expectedCount = lines[0].split(',').length;
+  let passed = true; let failures = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length !== expectedCount) {
+      passed = false;
+      failures.push({ "成果物行": i + 1, "パース列数": cols.length, "期待列数": expectedCount, "内容": lines[i] });
+    }
+  }
+  if (passed) { console.log(`検証結果: 成功！全 ${lines.length - 1} 行がズレなく split(",") 可能です。`); } 
+  else { console.error(`❌ 検証結果: 失敗！`); console.table(failures); }
+  console.log("--- --- --- --- --- --- --- --- --- --- --- --- ---\n");
+}
+
+// 文字列から8文字の短いハッシュ(16進数)を生成する関数 (djb2アルゴリズムベース)
+function getShortHash(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i); // hash * 33 + c
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+// コンテナからのハッシュ(状態)を読み取り、レイヤーを復元する処理
+async function processHash() {
+  if (!window.svgImageProps || !window.svgImageProps.hash) return;
+  
+  const hs = window.svgImageProps.hash;
+  if (!hs.startsWith("#")) return; // "#"で始まらない場合は無視
+  
+  const targetHash = hs.substring(1); // "#" を除去して8文字のハッシュを取得
+  
+  // ハッシュが一致するデータセットを検索
+  const targetDataset = lawaDatasets.find(d => d.shortHash === targetHash);
+  if (targetDataset) {
+    console.log(`【状態復元】ハッシュ #${targetHash} からデータセットを選択します: ${targetDataset.title}`);
+    
+    const select = document.getElementById('datasetList');
+    select.value = targetDataset.id; // セレクトボックスの値を更新
+    
+    // 選択変更処理を強制発火させてマップを描画
+    await handleDatasetChange();
+  }
+}
+
+</script>  
+  
+<body>  
+  <h2>山口県オープンデータ レイヤ</h2>
+  
+  <div class="source">
+    出典：<a href="https://yamaguchi-opendata.jp/" target="_blank">山口県オープンデータカタログサイト</a>
+  </div>
+
+  <div class="search-box">
+    <label for="filterInput">🔍 キーワード検索 (AND対応):</label>
+    <input type="text" id="filterInput" placeholder="例: 観光 避難所" oninput="renderFilteredList()" disabled>
+    
+    <label for="datasetList">位置情報データセット一覧:</label>
+    <select id="datasetList" onchange="handleDatasetChange()" disabled>
+      <option>メタデータロード中...</option>
+    </select>
+  </div>
+
+  <div class="status-action-row">
+    <div id="status" class="loading">LaWA初期化中...</div>
+    <button id="downloadBtn" onclick="handleLawaAction('download')" disabled>CSVのDL</button>  
+  </div>
+
+  <div id="notesArea">
+    <div id="metaContent"></div>
+    <div class="notes-title">📄 レイヤー概要 (notes)</div>
+    <div id="notesContent"></div>
+  </div>  
+</body>  
+</html>
