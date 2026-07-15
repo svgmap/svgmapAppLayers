@@ -30,14 +30,15 @@
 	//
 	// 2013/01/24 : 1st ver.
 	// 2022/01/31 : WebApp layerに移植
+	// 2026/07/15 : S-LaWA対応
 	
 	// このファイルの読み込み時に実行する
-	onload = function(){
+	addEventListener("layerWebAppReady",function(){
 		// このスクリプトが読み込まれた直後、refreshScreen()を呼ぶことで、
 		//下記preRenderFunctionが初回実行される
 		svgMap.refreshScreen();
 		putGlobalMessage("© OpenStreetMap contributors");
-	}
+	});
 	
 	function preRenderFunction(){
 	// 再描画直前に実行されるコールバック関数
