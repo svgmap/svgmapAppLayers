@@ -5,3 +5,8 @@
 GEMINI.md
 .gemini/
 .kiro/
+.agent/
+AGENTS.md
+
+# 単体試験用のファイル
+node_modules/

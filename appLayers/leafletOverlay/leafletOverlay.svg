@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-180,-90,360,180" about="root" data-controller="leafletOverlay.html#exec=appearOnLayerLoad">
+ <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)" />
+<defs>
+ <g id="p0">
+	<circle cx="0" cy="0" r="5" stroke-width="1" stroke="#505050" vector-effect="non-scaling-stroke"/>
+</g>
+</defs>
+ <g id="marks"></g>
+</svg>

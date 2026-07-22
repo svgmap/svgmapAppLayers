@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- 
+    License: (MPL v2)
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  -->
+
+  <title>Leaflet Overlay LaWA</title>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
+  <style>
+    /* プレミアムなガラスモーフィズムスタイル */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+      background: transparent;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    /* マップ上に全画面で重ねる iframe */
+    #leaflet-iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      pointer-events: none; /* デフォルトは透過。コントロールUIのみ子で pointer-events: auto する */
+      z-index: 1;
+    }
+
+    /* 右上のフローティングコントロールパネル */
+    .control-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(30, 30, 40, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      color: #f5f5f7;
+      z-index: 10;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .control-panel h3 {
+      margin: 0 0 15px 0;
+      font-weight: 600;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* アップロードドラッグエリア */
+    .upload-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      transition: all 0.2s ease;
+      margin-bottom: 15px;
+    }
+
+    .upload-zone.dragover {
+      border-color: #78ffd6;
+      background: rgba(120, 255, 214, 0.1);
+      box-shadow: 0 0 12px rgba(120, 255, 214, 0.2);
+    }
+
+    .upload-zone p {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      color: #a0a0ab;
+    }
+
+    .upload-zone svg {
+      width: 32px;
+      height: 32px;
+      fill: rgba(255, 255, 255, 0.4);
+      transition: fill 0.2s ease;
+    }
+
+    .upload-zone.dragover svg {
+      fill: #78ffd6;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* スライダーやトグルなどのUI行 */
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #a0a0ab;
+      margin-bottom: 6px;
+    }
+
+    .control-label span.value {
+      color: #78ffd6;
+      font-weight: 600;
+    }
+
+    /* レンジスライダーのカスタムスタイル */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #78ffd6;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(120, 255, 214, 0.5);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+
+    /* アラート・メッセージ表示 */
+    .message-box {
+      margin-top: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .message-box.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      display: block;
+    }
+
+    .message-box.info {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      display: block;
+    }
+
+    .message-box.success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 地図ホスト用 iframe -->
+  <iframe id="leaflet-iframe"></iframe>
+
+  <!-- コントロールパネルUI -->
+  <div class="control-panel">
+    <h3>Leaflet Overlay LaWA</h3>
+    
+    <!-- ファイルアップロード -->
+    <div class="upload-zone" id="upload-zone">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+      </svg>
+      <p>HTMLファイルをドラッグ＆ドロップ<br>またはクリックして選択</p>
+      <input type="file" id="file-input" accept=".html">
+    </div>
+
+    <!-- 不透明度調整 -->
+    <div class="control-group">
+      <div class="control-label">
+        <span>不透明度 (Opacity)</span>
+        <span class="value" id="opacity-val">100%</span>
+      </div>
+      <input type="range" id="opacity-slider" min="0" max="100" value="100">
+    </div>
+
+
+    <!-- 表示非表示切り替え (Layer Visibility) -->
+    <div class="control-group">
+      <label style="display: flex; align-items: center; cursor: pointer; font-size: 12px; color: #a0a0ab;">
+        <input type="checkbox" id="visibility-checkbox" checked style="margin-right: 8px; accent-color: #78ffd6;">
+        レイヤーを重ね合わせて表示する
+      </label>
+    </div>
+
+    <!-- メッセージ表示エリア -->
+    <div class="message-box" id="message-box"></div>
+  </div>
+
+  <script type="module" src="leafletOverlay.js"></script>
+</body>
+</html>
