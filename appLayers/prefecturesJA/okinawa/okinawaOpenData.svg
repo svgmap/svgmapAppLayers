@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="-42.8202042942663 -49.9999999999999 513.842451531196 600"
+     property="dynamic_opendata_layer"
+     data-controller="okinawaOpenData.html#exec=appearOnLayerLoad&amp;requiredHeight=400">
+  <globalCoordinateSystem srsName="http://purl.org/crs/84"
+                          transform="matrix(100,0,0,-100,0,0)"/>
+  <defs id="icons">
+    <g id="p0">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/location_on.svg"/>
+    </g>
+    <g id="p1">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/storefront.svg"/>
+    </g>
+    <g id="p2">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/wifi.svg"/>
+    </g>
+    <g id="p3">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/elderly.svg"/>
+    </g>
+    <g id="p4">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/child_care.svg"/>
+    </g>
+    <g id="p5">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/local_hospital.svg"/>
+    </g>
+    <g id="p6">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/school.svg"/>
+    </g>
+    <g id="p7">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/local_parking.svg"/>
+    </g>
+    <g id="p8">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/park.svg"/>
+    </g>
+    <g id="p9">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/event.svg"/>
+    </g>
+    <g id="p10">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/museum.svg"/>
+    </g>
+    <g id="p11">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/travel_explore.svg"/>
+    </g>
+    <g id="p12">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/how_to_vote.svg"/>
+    </g>
+    <g id="p13">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/account_balance.svg"/>
+    </g>
+    <g id="p14">
+      <image x="-12.5" y="-12.5" width="25" height="25" preserveAspectRatio="xMidYMid meet" xlink:href="./img/restaurant.svg"/>
+    </g>
+  </defs>
+</svg>

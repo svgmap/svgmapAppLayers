@@ -1,0 +1,1076 @@
+[
+  {
+    "id": "5a2f661e-5f4f-4a2e-8229-5730cb3fa094",
+    "name": "okinawasyokuzai",
+    "title": "「おきなわ食材の店」登録店舗一覧",
+    "notes": "「おきなわ食材の店」制度に登録された店舗の一覧です。詳細は流通・加工推進課サイトをご確認ください。",
+    "metadata_modified": "2024-03-30T15:18:21.444482",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "地産地消"
+      },
+      {
+        "name": "県産"
+      },
+      {
+        "name": "農業"
+      },
+      {
+        "name": "飲食店"
+      }
+    ],
+    "resources": [
+      {
+        "id": "a1bb716e-fa0f-4079-a948-eea19b35e9f9",
+        "name": "「沖縄食材の店」登録店舗一覧（2023年発行版）",
+        "description": "「おきなわ食材の店」ガイドブック総合版（2023年発行版）に記載の店舗の一覧です。\r\n※一部非公開の店舗については掲載していません。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5a2f661e-5f4f-4a2e-8229-5730cb3fa094/resource/a1bb716e-fa0f-4079-a948-eea19b35e9f9/download/470007_okinawasyokuzai_202303.csv",
+        "created": "2023-03-23T05:38:39.681557",
+        "last_modified": "2023-03-27T15:16:33.361710"
+      },
+      {
+        "id": "6d89d0fe-401f-4753-8548-4cc71c8ee5bf",
+        "name": "「沖縄食材の店」登録店舗一覧（2024年発行版）",
+        "description": "「おきなわ食材の店」ガイドブック総合版（2024年発行版）に記載の店舗の一覧です。 ※一部非公開の店舗については掲載していません。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5a2f661e-5f4f-4a2e-8229-5730cb3fa094/resource/6d89d0fe-401f-4753-8548-4cc71c8ee5bf/download/470007_okinawasyokuzai_202403.csv",
+        "created": "2024-03-30T15:17:49.926404",
+        "last_modified": "2024-03-30T15:17:49.879514"
+      }
+    ]
+  },
+  {
+    "id": "cee1c1e9-e32d-44ec-bc2e-cb6229073b1a",
+    "name": "470007_meiboku",
+    "title": "おきなわの名木百選一覧",
+    "notes": "沖縄県が認定している「おきなわの名木百選」の一覧です。",
+    "metadata_modified": "2026-01-05T00:07:24.215913",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "沖縄県"
+      },
+      {
+        "name": "環境"
+      }
+    ],
+    "resources": [
+      {
+        "id": "82851811-637b-43c1-b23f-743a654c25cc",
+        "name": "おきなわの名木百選一覧",
+        "description": "沖縄県内の名木認定一覧　令和６年度末時点",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/cee1c1e9-e32d-44ec-bc2e-cb6229073b1a/resource/82851811-637b-43c1-b23f-743a654c25cc/download/470007_meibokuhyakusen_20251224.csv",
+        "created": "2026-01-05T00:04:46.388974",
+        "last_modified": "2026-01-05T00:04:46.335243"
+      }
+    ]
+  },
+  {
+    "id": "841ac2e1-39da-43a7-b71e-71be68360b74",
+    "name": "470007_education",
+    "title": "教育施設一覧",
+    "notes": "※このデータは、各年4月1日現在の部内資料を基に作成したもので、数値については概数となっています。数値の確定にあたっては、後日文部科学省から公表される「学校基本調査報告書」で御確認をお願いします。\r\n※（併）…小中併設校\r\nPDFデータは以下URLで公開しております。\r\nhttps://www.pref.okinawa.lg.jp/kyoiku/edu/1008451/1008452.html\r\n",
+    "metadata_modified": "2025-10-01T01:41:59.172434",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "中学校"
+      },
+      {
+        "name": "大学"
+      },
+      {
+        "name": "小学校"
+      },
+      {
+        "name": "幼稚園"
+      },
+      {
+        "name": "教育施設"
+      },
+      {
+        "name": "沖縄県"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      },
+      {
+        "name": "高校"
+      }
+    ],
+    "resources": [
+      {
+        "id": "c75232d8-6516-48a7-9639-15644f75ba43",
+        "name": "教育施設一覧_2025",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/841ac2e1-39da-43a7-b71e-71be68360b74/resource/c75232d8-6516-48a7-9639-15644f75ba43/download/470007_educational_institution_2025.csv",
+        "created": "2025-09-29T04:49:21.915424",
+        "last_modified": "2025-10-01T01:41:59.160856"
+      },
+      {
+        "id": "999fd0ba-4588-4660-8855-559703434624",
+        "name": "教育施設一覧_2024",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/841ac2e1-39da-43a7-b71e-71be68360b74/resource/999fd0ba-4588-4660-8855-559703434624/download/470007_educational_institution_2024.csv",
+        "created": "2024-11-14T05:46:42.521347",
+        "last_modified": "2024-11-14T08:02:23.789421"
+      },
+      {
+        "id": "fcb495c5-e676-417e-a70b-d6a831fbe5ff",
+        "name": "教育施設一覧_2023",
+        "description": "令和5年4月1日時点のデータです。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/841ac2e1-39da-43a7-b71e-71be68360b74/resource/fcb495c5-e676-417e-a70b-d6a831fbe5ff/download/470007_educational_institution.csv",
+        "created": "2024-03-29T06:37:59.457319",
+        "last_modified": "2024-03-29T06:37:59.426837"
+      }
+    ]
+  },
+  {
+    "id": "5cb9163d-0a59-4a20-a583-91b113be7895",
+    "name": "470007_shokuhin_2",
+    "title": "新規食品営業許可・届出一覧（月別）",
+    "notes": "沖縄県の新規食品営業許可・届出施設の一覧\r\n1か月ごとに更新。",
+    "metadata_modified": "2026-06-15T04:36:59.271606",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "推奨データセット"
+      },
+      {
+        "name": "食品営業許可"
+      },
+      {
+        "name": "食品営業許可施設"
+      }
+    ],
+    "resources": [
+      {
+        "id": "7fb51275-bed2-485d-ac48-116d104184a2",
+        "name": "新規食品営業許可・届出施設一覧（2022年11月）",
+        "description": "令和４年11月1日～令和４年11月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/7fb51275-bed2-485d-ac48-116d104184a2/download/1_suisyou_syokuhin-3.csv",
+        "created": "2022-12-27T02:22:08.655194",
+        "last_modified": "2022-12-27T02:22:08.581894"
+      },
+      {
+        "id": "46f41132-8eab-455a-aba5-6b9826b96321",
+        "name": "新規食品営業許可・届出施設一覧（2022年12月）",
+        "description": "令和４年12月1日～令和４年12月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/46f41132-8eab-455a-aba5-6b9826b96321/download/1_suisyou_syokuhin-4.csv",
+        "created": "2023-01-10T08:35:08.037798",
+        "last_modified": "2023-01-10T08:35:07.961851"
+      },
+      {
+        "id": "1acac0be-8127-4259-93ca-c7276292fbfa",
+        "name": "新規食品営業許可・届出施設一覧（2023年1月）",
+        "description": "令和5年1月1日～令和5年1月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/1acac0be-8127-4259-93ca-c7276292fbfa/download/1_suisyou_syokuhin-5.csv",
+        "created": "2023-02-14T01:27:51.360504",
+        "last_modified": "2023-02-14T01:27:51.265973"
+      },
+      {
+        "id": "6b6a7b16-9c53-4470-8e9f-6bd2a0972451",
+        "name": "新規食品営業許可・届出施設一覧（2023年3月）",
+        "description": "令和５年３月1日～令和５年３月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/6b6a7b16-9c53-4470-8e9f-6bd2a0972451/download/1_suisyou_syokuhin-7.csv",
+        "created": "2023-04-11T06:10:07.798666",
+        "last_modified": "2023-04-11T06:10:07.711066"
+      },
+      {
+        "id": "302747b1-a97a-447f-8d38-bafe91f528b3",
+        "name": "新規食品営業許可・届出施設一覧（2023年4月）",
+        "description": "令和５年4月1日～令和５年4月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/302747b1-a97a-447f-8d38-bafe91f528b3/download/1_suisyou_syokuhin-8.csv",
+        "created": "2023-05-15T04:38:03.898295",
+        "last_modified": "2023-05-15T04:38:03.786454"
+      },
+      {
+        "id": "bcfd557c-f791-42ed-bfdb-074fdfc8704a",
+        "name": "新規食品営業許可・届出施設一覧（2023年5月）",
+        "description": "令和５年５月１日～令和５年５月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/bcfd557c-f791-42ed-bfdb-074fdfc8704a/download/1_suisyou_syokuhin-9.csv",
+        "created": "2023-06-13T02:23:20.651719",
+        "last_modified": "2023-06-13T02:23:20.563051"
+      },
+      {
+        "id": "f37c24bb-1293-43f1-8fe6-c5e580b466fd",
+        "name": "新規食品営業許可・届出施設一覧（2023年6月）",
+        "description": "令和５年６月１日～令和５年６月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/f37c24bb-1293-43f1-8fe6-c5e580b466fd/download/1_suisyou_syokuhin-10.csv",
+        "created": "2023-07-25T05:20:00.269518",
+        "last_modified": "2023-07-25T05:20:00.177862"
+      },
+      {
+        "id": "f9aad485-7ae8-43a3-bec0-11125bd7d1f7",
+        "name": "新規食品営業許可・届出施設一覧（2023年7月）",
+        "description": "令和５年７月１日～令和５年７月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/f9aad485-7ae8-43a3-bec0-11125bd7d1f7/download/1_suisyou_syokuhin-11.csv",
+        "created": "2023-08-18T07:29:43.741552",
+        "last_modified": "2023-08-18T07:29:43.646474"
+      },
+      {
+        "id": "07708866-e7e5-411a-b85a-6f5afcd93476",
+        "name": "新規食品営業許可・届出施設一覧（2023年8月）",
+        "description": "令和５年８月１日～令和５年８月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/07708866-e7e5-411a-b85a-6f5afcd93476/download/1_suisyou_syokuhin-12.csv",
+        "created": "2023-09-19T02:51:35.115194",
+        "last_modified": "2023-09-19T02:51:35.015189"
+      },
+      {
+        "id": "e5f338ba-325e-4798-a3f6-a3ef0bc1ac66",
+        "name": "新規食品営業許可・届出施設一覧（2023年9月）",
+        "description": "令和５年９月１日～令和５年９月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/e5f338ba-325e-4798-a3f6-a3ef0bc1ac66/download/1_suisyou_syokuhin-13.csv",
+        "created": "2023-10-17T03:39:34.273531",
+        "last_modified": "2023-10-17T03:39:34.161650"
+      },
+      {
+        "id": "2bb4ee28-980c-4563-a755-c87f51b34814",
+        "name": "新規食品営業許可・届出施設一覧（2023年10月）",
+        "description": "令和5年10月1日～令和5年10月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/2bb4ee28-980c-4563-a755-c87f51b34814/download/1_suisyou_syokuhin-14.csv",
+        "created": "2023-11-17T02:03:45.730458",
+        "last_modified": "2023-11-17T02:03:45.631261"
+      },
+      {
+        "id": "1156a4a1-8c61-4d2c-954e-4220ebcfb3f8",
+        "name": "新規食品営業許可・届出施設一覧（2023年11月）",
+        "description": "令和5年11月1日～令和5年11月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/1156a4a1-8c61-4d2c-954e-4220ebcfb3f8/download/1_suisyou_syokuhin-15.csv",
+        "created": "2023-12-18T05:10:21.467404",
+        "last_modified": "2023-12-18T05:10:21.365629"
+      },
+      {
+        "id": "8a948513-3f19-42c1-ae35-6abaa885fdfc",
+        "name": "新規食品営業許可・届出施設一覧（2023年12月）",
+        "description": "令和5年12月1日～令和5年12月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/8a948513-3f19-42c1-ae35-6abaa885fdfc/download/1_suisyou_syokuhin-16.csv",
+        "created": "2024-01-18T04:22:21.708716",
+        "last_modified": "2024-01-18T04:22:21.603232"
+      },
+      {
+        "id": "5012248d-e576-409e-8601-207d3596a4d4",
+        "name": "新規食品営業許可・届出施設一覧（2024年1月）",
+        "description": "令和6年1月1日～令和6年1月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/5012248d-e576-409e-8601-207d3596a4d4/download/1_suisyou_syokuhin-17.csv",
+        "created": "2024-02-19T00:21:30.304245",
+        "last_modified": "2024-05-23T00:50:28.502186"
+      },
+      {
+        "id": "d51cc00c-b04d-4c7c-93b2-c8b1910939b4",
+        "name": "新規食品営業許可・届出施設一覧（2024年2月）",
+        "description": "令和6年2月1日～令和6年2月29日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/d51cc00c-b04d-4c7c-93b2-c8b1910939b4/download/1_suisyou_syokuhin-18.csv",
+        "created": "2024-03-22T01:11:23.210687",
+        "last_modified": "2024-03-22T01:11:23.081753"
+      },
+      {
+        "id": "82ee9827-243f-418f-a2a9-c0bda16d10c0",
+        "name": "新規食品営業許可・届出施設一覧（2024年3月）",
+        "description": "令和6年3月1日～令和6年3月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/82ee9827-243f-418f-a2a9-c0bda16d10c0/download/1_suisyou_syokuhin-19.csv",
+        "created": "2024-04-16T02:49:53.694625",
+        "last_modified": "2024-04-16T02:49:53.619105"
+      },
+      {
+        "id": "4959aea6-4e44-4e72-95ea-114beba779e7",
+        "name": "新規食品営業許可・届出施設一覧（2024年4月）",
+        "description": "令和6年4月1日～令和6年4月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/4959aea6-4e44-4e72-95ea-114beba779e7/download/1_suisyou_syokuhin-20.csv",
+        "created": "2024-05-28T08:23:23.558943",
+        "last_modified": "2024-05-28T08:23:23.499735"
+      },
+      {
+        "id": "5fb065f6-542e-4dcd-88a2-ac2520389690",
+        "name": "新規食品営業許可・届出施設一覧（2024年5月）",
+        "description": "令和6年5月1日～令和6年5月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/5fb065f6-542e-4dcd-88a2-ac2520389690/download/1_suisyou_syokuhin-21.csv",
+        "created": "2024-06-20T10:11:57.815056",
+        "last_modified": "2024-06-20T10:11:57.749689"
+      },
+      {
+        "id": "0a51dbc6-1fbc-4764-9e80-1d8c91f7851f",
+        "name": "新規食品営業許可・届出施設一覧（2024年6月）",
+        "description": "令和6年6月1日～令和6年6月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/0a51dbc6-1fbc-4764-9e80-1d8c91f7851f/download/1_suisyou_syokuhin-22.csv",
+        "created": "2024-08-08T04:03:59.509201",
+        "last_modified": "2024-08-08T04:03:59.417071"
+      },
+      {
+        "id": "f9b346ad-85ee-4fab-b8da-d1b7e124e2ec",
+        "name": "新規食品営業許可・届出施設一覧（2024年7月）",
+        "description": "令和6年7月1日～令和6年7月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/f9b346ad-85ee-4fab-b8da-d1b7e124e2ec/download/1_suisyou_syokuhin-23.csv",
+        "created": "2024-08-08T04:06:04.338559",
+        "last_modified": "2024-08-08T04:06:04.282778"
+      },
+      {
+        "id": "4a8ffedf-7100-419c-b4aa-d16b7bf419f3",
+        "name": "新規食品営業許可・届出施設一覧（2024年8月）",
+        "description": "令和6年8月1日～令和6年8月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/4a8ffedf-7100-419c-b4aa-d16b7bf419f3/download/1_suisyou_syokuhin-24.csv",
+        "created": "2024-09-30T09:14:55.279953",
+        "last_modified": "2024-09-30T09:14:55.190530"
+      },
+      {
+        "id": "80dfb30b-151c-4408-9f1b-c8d469e0b21f",
+        "name": "新規食品営業許可・届出施設一覧（2024年9月）",
+        "description": "令和６年９月１日～令和６年９月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/80dfb30b-151c-4408-9f1b-c8d469e0b21f/download/1_suisyou_syokuhin-25.csv",
+        "created": "2024-10-15T06:55:45.919756",
+        "last_modified": "2024-10-15T06:55:45.827195"
+      },
+      {
+        "id": "8f222718-fa59-4f1f-8004-eba94ef5938c",
+        "name": "新規食品営業許可・届出施設一覧（2024年10月）",
+        "description": "令和6年10月1日～令和6年10月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/8f222718-fa59-4f1f-8004-eba94ef5938c/download/1_suisyou_syokuhin-26.csv",
+        "created": "2024-11-11T23:41:34.165681",
+        "last_modified": "2024-11-11T23:41:33.978264"
+      },
+      {
+        "id": "c4367ead-34be-42f5-90b4-7921fab9a1b7",
+        "name": "新規食品営業許可・届出施設一覧（2024年11月）",
+        "description": "令和6年11月1日～令和6年11月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/c4367ead-34be-42f5-90b4-7921fab9a1b7/download/1_suisyou_syokuhin-27.csv",
+        "created": "2024-12-09T06:39:48.002313",
+        "last_modified": "2024-12-09T06:39:47.924978"
+      },
+      {
+        "id": "8d29e770-4a51-4283-9cec-f7a2e9a22922",
+        "name": "新規食品営業許可・届出施設一覧（2024年12月）",
+        "description": "令和6年12月1日～令和6年12月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/8d29e770-4a51-4283-9cec-f7a2e9a22922/download/1_suisyou_syokuhin-28.csv",
+        "created": "2025-01-17T09:48:27.578927",
+        "last_modified": "2025-01-17T09:48:27.507677"
+      },
+      {
+        "id": "fa6f03b2-43f1-40ca-a1c4-7bc425955fa7",
+        "name": "新規食品営業許可・届出施設一覧（2025年1月）",
+        "description": "令和7年1月1日～令和7年1月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/fa6f03b2-43f1-40ca-a1c4-7bc425955fa7/download/1_suisyou_syokuhin-29.csv",
+        "created": "2025-02-13T05:51:06.023826",
+        "last_modified": "2025-02-13T05:51:05.934461"
+      },
+      {
+        "id": "ac70445b-7316-49fa-8a56-00bf5bebcd48",
+        "name": "新規食品営業許可・届出施設一覧（2025年2月）",
+        "description": "令和6年2月1日～令和6年2月28日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/ac70445b-7316-49fa-8a56-00bf5bebcd48/download/1_suisyou_syokuhin-30.csv",
+        "created": "2025-03-07T09:47:50.003774",
+        "last_modified": "2025-03-07T09:47:49.922806"
+      },
+      {
+        "id": "aee32ccf-01f7-439a-9789-20c329167ba0",
+        "name": "新規食品営業許可・届出施設一覧（2025年3月）",
+        "description": "令和7年3月1日～令和7年3月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/aee32ccf-01f7-439a-9789-20c329167ba0/download/1_suisyou_syokuhin-31.csv",
+        "created": "2025-04-22T02:28:28.563756",
+        "last_modified": "2025-04-22T02:28:28.460972"
+      },
+      {
+        "id": "cff3c357-3a12-465d-a66e-5119da0ae5d9",
+        "name": "新規食品営業許可・届出施設一覧（2025年4月）",
+        "description": "令和7年4月1日～令和7年4月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/cff3c357-3a12-465d-a66e-5119da0ae5d9/download/1_suisyou_syokuhin-32.csv",
+        "created": "2025-05-27T07:32:41.207114",
+        "last_modified": "2025-05-27T07:32:40.993221"
+      },
+      {
+        "id": "84c234e2-852a-4e77-ac1c-c7f61b320107",
+        "name": "新規食品営業許可・届出施設一覧（2025年5月）",
+        "description": "令和7年5月1日～令和7年5月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/84c234e2-852a-4e77-ac1c-c7f61b320107/download/1_suisyou_syokuhin-33.csv",
+        "created": "2025-07-15T09:39:10.048628",
+        "last_modified": "2025-07-15T09:39:09.900768"
+      },
+      {
+        "id": "cabf79b8-9414-4edb-82a3-5f488bb9ab43",
+        "name": "新規食品営業許可・届出施設一覧（2025年6月）",
+        "description": "令和7年6月1日～令和7年6月30日の新規食品営業許可・届出施設一覧\r\n",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/cabf79b8-9414-4edb-82a3-5f488bb9ab43/download/1_suisyou_syokuhin-34.csv",
+        "created": "2025-07-15T09:40:57.380207",
+        "last_modified": "2025-07-15T09:40:57.294584"
+      },
+      {
+        "id": "3e0dab03-708d-4eed-80f7-0e2e2d5d19b1",
+        "name": "新規食品営業許可・届出施設一覧（2025年7月）",
+        "description": "令和7年7月1日～令和7年7月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/3e0dab03-708d-4eed-80f7-0e2e2d5d19b1/download/1_suisyou_syokuhin-35.csv",
+        "created": "2025-08-20T08:41:31.995575",
+        "last_modified": "2025-08-20T08:41:31.832944"
+      },
+      {
+        "id": "df532f18-02f4-4b8f-b27c-aaf617f61bfc",
+        "name": "新規食品営業許可・届出施設一覧（2025年8月）",
+        "description": "令和7年8月1日～令和7年8月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/df532f18-02f4-4b8f-b27c-aaf617f61bfc/download/1_suisyou_syokuhin-36.csv",
+        "created": "2025-09-26T11:01:17.623910",
+        "last_modified": "2025-09-26T11:01:17.451824"
+      },
+      {
+        "id": "f2fe0e60-280f-4b07-9388-2b0d62c6e5af",
+        "name": "新規食品営業許可・届出施設一覧（2025年9月）",
+        "description": "令和7年9月1日～令和7年9月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/f2fe0e60-280f-4b07-9388-2b0d62c6e5af/download/1_suisyou_syokuhin-37.csv",
+        "created": "2025-11-06T03:30:28.110956",
+        "last_modified": "2025-11-06T03:30:27.973352"
+      },
+      {
+        "id": "0fe3789a-ee93-4aa0-8b30-07aa7e940993",
+        "name": "新規食品営業許可・届出施設一覧（2025年10月）",
+        "description": "令和7年10月1日～令和7年10月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/0fe3789a-ee93-4aa0-8b30-07aa7e940993/download/1_suisyou_syokuhin-38.csv",
+        "created": "2025-11-06T03:31:52.186682",
+        "last_modified": "2025-11-06T03:31:52.072529"
+      },
+      {
+        "id": "03eaf240-b169-4c4e-b146-9e4a36d6555d",
+        "name": "新規食品営業許可・届出施設一覧（2025年11月）",
+        "description": "令和7年11月1日～令和7年11月30日の新規食品営業許可・届出施設一覧\r\n",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/03eaf240-b169-4c4e-b146-9e4a36d6555d/download/1_suisyou_syokuhin-39.csv",
+        "created": "2025-12-16T01:50:02.801456",
+        "last_modified": "2025-12-16T01:50:02.628498"
+      },
+      {
+        "id": "7b8d708a-efb2-471c-bf1e-14d808388226",
+        "name": "新規食品営業許可・届出施設一覧（2025年12 月）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/7b8d708a-efb2-471c-bf1e-14d808388226/download/1_suisyou_syokuhin-40.csv",
+        "created": "2026-01-27T02:26:47.036621",
+        "last_modified": "2026-01-27T02:26:46.777073"
+      },
+      {
+        "id": "bfc0173d-c44d-4361-bfa4-8db343f6aaa7",
+        "name": "新規食品営業許可・届出施設一覧（2025年12月）",
+        "description": "令和7年12月1日～令和7年12月31日の新規食品営業許可・届出施設一覧\r\n",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/bfc0173d-c44d-4361-bfa4-8db343f6aaa7/download/1_suisyou_syokuhin-40.csv",
+        "created": "2026-01-27T02:28:07.486954",
+        "last_modified": "2026-01-27T02:28:07.375703"
+      },
+      {
+        "id": "ae1484c2-b3bd-4260-a937-9c95985c444d",
+        "name": "新規食品営業許可・届出施設一覧（2026年1月）",
+        "description": "令和8年1月1日～令和8年1月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/ae1484c2-b3bd-4260-a937-9c95985c444d/download/1_suisyou_syokuhin-41.csv",
+        "created": "2026-02-18T04:02:15.114659",
+        "last_modified": "2026-02-18T04:02:14.973285"
+      },
+      {
+        "id": "b6e1fc61-e881-44e3-afb0-b321cd6e5f41",
+        "name": "新規食品営業許可・届出施設一覧（2026年2月）",
+        "description": "令和8年2月1日～令和8年2月28日の新規食品営業許可・届出施設一覧\r\n",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/b6e1fc61-e881-44e3-afb0-b321cd6e5f41/download/1_suisyou_syokuhin-42.csv",
+        "created": "2026-03-31T08:44:24.849964",
+        "last_modified": "2026-03-31T08:44:24.632639"
+      },
+      {
+        "id": "4b4d5668-98ba-4171-9529-f24f0c9f21b4",
+        "name": "新規食品営業許可・届出施設一覧（2026年3月）",
+        "description": "令和8年3月1日～令和8年3月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/4b4d5668-98ba-4171-9529-f24f0c9f21b4/download/1_suisyou_syokuhin-43.csv",
+        "created": "2026-04-14T07:27:56.335562",
+        "last_modified": "2026-04-14T07:27:56.187450"
+      },
+      {
+        "id": "c1b1ffe4-e639-42df-82b5-08b5725ec343",
+        "name": "新規食品営業許可・届出施設一覧（2026年4月）",
+        "description": "令和8年4月1日～令和8年4月30日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/c1b1ffe4-e639-42df-82b5-08b5725ec343/download/1_suisyou_syokuhin-45.csv",
+        "created": "2026-05-13T07:40:23.795956",
+        "last_modified": "2026-05-13T07:40:23.609890"
+      },
+      {
+        "id": "faf9561d-3f10-40f1-be53-6c7fb63f4db4",
+        "name": "新規食品営業許可・届出施設一覧（2026年5月）",
+        "description": "令和8年5月1日～令和8年5月31日の新規食品営業許可・届出施設一覧",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5cb9163d-0a59-4a20-a583-91b113be7895/resource/faf9561d-3f10-40f1-be53-6c7fb63f4db4/download/1_suisyou_syokuhin-46.csv",
+        "created": "2026-06-15T04:36:59.402521",
+        "last_modified": "2026-06-15T04:36:59.204967"
+      }
+    ]
+  },
+  {
+    "id": "9f1b0d23-53d9-4bbc-8175-3b7890c7b940",
+    "name": "470007_preschool",
+    "title": "沖縄県　子育て施設一覧",
+    "notes": "沖縄県における子育て施設（幼稚園、保育園、こども園、児童館等）の一覧です。",
+    "metadata_modified": "2025-03-18T08:09:55.741949",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "子ども"
+      },
+      {
+        "name": "子育て施設一覧"
+      },
+      {
+        "name": "沖縄県"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "012c934a-4c2d-4480-bec7-a189973b13ae",
+        "name": "沖縄県子育て施設一覧（令和5年4月1日時点）",
+        "description": "令和5年4月1日時点の各種子育て施設の一覧です。\r\n※那覇市・宮古島市以外の認可外保育施設及び児童館のデータは令和6年2月末時点のデータです。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/9f1b0d23-53d9-4bbc-8175-3b7890c7b940/resource/012c934a-4c2d-4480-bec7-a189973b13ae/download/470007_preschool.csv",
+        "created": "2024-03-25T15:09:05.684441",
+        "last_modified": "2024-03-25T15:09:05.659143"
+      },
+      {
+        "id": "25c16f3b-3670-483f-9464-535ae78f949a",
+        "name": "沖縄県子育て施設一覧（令和7年1月31日時点）",
+        "description": "令和7年1月31日時点の各種子育て施設の一覧です。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/9f1b0d23-53d9-4bbc-8175-3b7890c7b940/resource/25c16f3b-3670-483f-9464-535ae78f949a/download/470007_preschool_20250131.csv",
+        "created": "2025-03-18T08:09:11.224396",
+        "last_modified": "2025-03-18T08:09:11.118631"
+      }
+    ]
+  },
+  {
+    "id": "d1a1fca0-d974-49cc-bbba-d2783524c284",
+    "name": "470007_absentee_voting_facilities",
+    "title": "沖縄県における不在者投票施設一覧",
+    "notes": "沖縄県選挙管理委員会が指定する不在者投票施設のデータです。",
+    "metadata_modified": "2025-03-07T05:21:49.075986",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "不在者投票指定施設"
+      },
+      {
+        "name": "選挙"
+      }
+    ],
+    "resources": [
+      {
+        "id": "ed520796-3781-4aca-b7bb-59419bcc297c",
+        "name": "不在者投票施設一覧（令和7年1月31日現在）",
+        "description": "県選挙管理委員会が指定する不在者投票施設のデータです。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d1a1fca0-d974-49cc-bbba-d2783524c284/resource/ed520796-3781-4aca-b7bb-59419bcc297c/download/470007__202501.csv",
+        "created": "2025-03-07T04:41:51.153945",
+        "last_modified": "2025-03-07T04:41:51.117836"
+      },
+      {
+        "id": "01bdb20c-85ae-4e93-860f-9db22390f58f",
+        "name": "不在者投票施設一覧（令和5年2月14日現在）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d1a1fca0-d974-49cc-bbba-d2783524c284/resource/01bdb20c-85ae-4e93-860f-9db22390f58f/download/470007_absentee_voting_facilities.csv",
+        "created": "2023-12-18T07:19:15.406735",
+        "last_modified": "2023-12-18T07:19:15.324881"
+      }
+    ]
+  },
+  {
+    "id": "55c0bcf2-b656-4e75-ac9f-dbf06796acac",
+    "name": "47007_event",
+    "title": "沖縄県イベント一覧",
+    "notes": "沖縄県及び市町村で予定しているイベント一覧です。",
+    "metadata_modified": "2026-03-30T06:33:28.770218",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "bda2e391-3b62-4978-a3bd-3c4e9ede06f0",
+        "name": "2026イベント一覧",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/55c0bcf2-b656-4e75-ac9f-dbf06796acac/resource/bda2e391-3b62-4978-a3bd-3c4e9ede06f0/download/470007_event_2026.csv",
+        "created": "2026-03-30T06:33:20.846591",
+        "last_modified": "2026-03-30T06:33:20.831976"
+      }
+    ]
+  },
+  {
+    "id": "70c87745-835e-4941-ba60-77c9f5834e75",
+    "name": "470007_shisetsu",
+    "title": "沖縄県公共施設一覧",
+    "notes": "沖縄県の公共施設一覧。",
+    "metadata_modified": "2026-05-12T04:57:40.099684",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "公共施設"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "8e4db463-40c3-4341-a396-c574f6756583",
+        "name": "470007_pref-office_2025.csv",
+        "description": "県庁舎",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/70c87745-835e-4941-ba60-77c9f5834e75/resource/8e4db463-40c3-4341-a396-c574f6756583/download/470007_pref-office_2025.csv",
+        "created": "2026-04-27T06:36:38.688048",
+        "last_modified": "2026-04-27T06:36:38.660940"
+      },
+      {
+        "id": "70310d14-17d7-42a9-964a-e4e9c9e1409a",
+        "name": "470007_prefectural-urban-park_2025.csv",
+        "description": "県営都市公園",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/70c87745-835e-4941-ba60-77c9f5834e75/resource/70310d14-17d7-42a9-964a-e4e9c9e1409a/download/470007_prefectural-urban-park_2025.csv",
+        "created": "2026-04-27T06:39:54.500881",
+        "last_modified": "2026-04-27T06:39:54.479797"
+      },
+      {
+        "id": "ec418f62-c163-4a36-8ce1-b8d6ac76bd12",
+        "name": "470007_prefectural-public-housing_2025.csv",
+        "description": "県公営住宅",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/70c87745-835e-4941-ba60-77c9f5834e75/resource/ec418f62-c163-4a36-8ce1-b8d6ac76bd12/download/470007_prefectural-public-housing_2025.csv",
+        "created": "2026-04-27T06:44:03.784875",
+        "last_modified": "2026-04-27T06:44:03.764425"
+      }
+    ]
+  },
+  {
+    "id": "f7a48359-cc9b-4575-92d4-c5337afe435d",
+    "name": "470007_public-parking-lots-list",
+    "title": "沖縄県公営駐車場一覧",
+    "notes": "沖縄県が管理・運営する公営駐車場の情報をまとめたデータセットです。デジタル庁の「自治体標準オープンデータセット（公営駐車場一覧）」フォーマットに準拠しています。\r\n\r\n県民広場地下駐車場、てだこ浦西駅パークアンドライド駐車場、沖縄県樋川立体駐車場のデータを記載しています。それぞれの駐車場の詳細については、沖縄県HPをご確認ください。\r\n\r\n県民広場地下駐車場：https://www.pref.okinawa.lg.jp/machizukuri/dorokotsu/1012759/1022309/index.html\r\n\r\nてだこ浦西駅パークアンドライド駐車場：https://www.pref.okinawa.lg.jp/machizukuri/dorokotsu/1012759/1012761.html\r\n\r\n沖縄県樋川立体駐車場：https://www.pref.okinawa.lg.jp/machizukuri/dorokotsu/1012759/1012763.html\r\n",
+    "metadata_modified": "2026-02-16T05:45:44.782970",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "GIS"
+      },
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "駐車場"
+      }
+    ],
+    "resources": [
+      {
+        "id": "92e1b0de-2fff-4cf9-96a8-054d36cca95a",
+        "name": "沖縄県公営駐車場一覧.csv",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/f7a48359-cc9b-4575-92d4-c5337afe435d/resource/92e1b0de-2fff-4cf9-96a8-054d36cca95a/download/470007_public-parking-lots-list_2026.csv",
+        "created": "2026-02-16T05:26:06.596275",
+        "last_modified": "2026-02-16T05:45:44.774612"
+      }
+    ]
+  },
+  {
+    "id": "d99032ee-bd2c-41af-9fd5-391819dcf7b0",
+    "name": "470007_beokinawa",
+    "title": "沖縄県公衆無線LANアクセスポイント一覧（Be.Okinawa Free Wi-Fi）",
+    "notes": "沖縄県が民間事業者と協力して整備している無料公衆無線LAN「Be.Okinawa Free Wi-Fi」のアクセスポイント一覧です。詳細については、観光振興課サイトをご確認ください。",
+    "metadata_modified": "2026-01-16T02:53:44.478488",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "FreeWi-Fi"
+      },
+      {
+        "name": "インバウンド"
+      },
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "公衆無線LAN"
+      },
+      {
+        "name": "推奨データセット"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "854b560a-2cbb-44db-98b8-4c311d371c73",
+        "name": "沖縄県公衆無線LANアクセスポイント一覧（令和4年8月1日現在）",
+        "description": "沖縄県無料公衆無線LAN「Be.Okinawa Free Wi-Fi」のアクセスポイント一覧です（令和4年8月1日現在）。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d99032ee-bd2c-41af-9fd5-391819dcf7b0/resource/854b560a-2cbb-44db-98b8-4c311d371c73/download/470007_public_wireless_lan.csv",
+        "created": "2023-03-27T08:59:56.703237",
+        "last_modified": "2023-03-27T15:14:40.810194"
+      },
+      {
+        "id": "b3e62094-e907-41b9-bff4-803d55e28ce6",
+        "name": "沖縄県公衆無線LANアクセスポイント一覧（令和７年11月19日現在）",
+        "description": "沖縄県無料公衆無線LAN「Be.Okinawa Free Wi-Fi」のアクセスポイント一覧です（令和７年11月19日現在）。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d99032ee-bd2c-41af-9fd5-391819dcf7b0/resource/b3e62094-e907-41b9-bff4-803d55e28ce6/download/470007_public-wireless-lan_20251119.csv",
+        "created": "2026-01-16T02:50:48.911305",
+        "last_modified": "2026-01-16T02:50:48.845346"
+      }
+    ]
+  },
+  {
+    "id": "18c561bd-c2b3-4a19-a23a-e1ea3fc8f7c9",
+    "name": "470007_ireihi",
+    "title": "沖縄県内慰霊塔（碑）管理状況等実態調査結果",
+    "notes": "このデータは平成30年度慰霊塔（碑）調査結果を基にして、令和2年度に一部更新したものです。\r\n緯度・経度の項目に記載がある慰霊塔（碑）については、建立者や管理者の確認ができていないものとなっております。\r\nこれらの慰霊塔（碑）の建立者等関係者の所在を探しておりますので、情報をお持ちの方は、\r\n下記までご連絡下さるようお願いします。\r\n\r\n保護・援護課　098-866-2428 ",
+    "metadata_modified": "2025-03-05T02:41:23.086688",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [],
+    "resources": [
+      {
+        "id": "63aab031-7698-46ff-a57a-61ade74153bf",
+        "name": "慰霊塔（碑）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/18c561bd-c2b3-4a19-a23a-e1ea3fc8f7c9/resource/63aab031-7698-46ff-a57a-61ade74153bf/download/47007_ireihi_2025.csv",
+        "created": "2025-03-05T02:36:38.931118",
+        "last_modified": "2025-03-05T02:36:38.830942"
+      }
+    ]
+  },
+  {
+    "id": "872c00c8-efc5-4dd3-83dc-41662f8d7f5c",
+    "name": "470007_okinawakeniryoukikan",
+    "title": "沖縄県医療機関一覧",
+    "notes": "沖縄県医療機関一覧",
+    "metadata_modified": "2025-03-28T00:44:52.234330",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "健康"
+      },
+      {
+        "name": "医療"
+      },
+      {
+        "name": "医療機関"
+      },
+      {
+        "name": "医療機関一覧"
+      },
+      {
+        "name": "情報公開"
+      },
+      {
+        "name": "推奨データセット"
+      },
+      {
+        "name": "施設"
+      },
+      {
+        "name": "生活"
+      },
+      {
+        "name": "集計"
+      }
+    ],
+    "resources": [
+      {
+        "id": "5f21adb5-9eba-4e2f-b7aa-d6aa8ad05e02",
+        "name": "沖縄県医療機関一覧（2022年10月31日時点）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/872c00c8-efc5-4dd3-83dc-41662f8d7f5c/resource/5f21adb5-9eba-4e2f-b7aa-d6aa8ad05e02/download/470007_hospital.csv",
+        "created": "2023-01-10T08:21:06.034073",
+        "last_modified": "2023-03-27T15:45:12.353547"
+      },
+      {
+        "id": "f13fa712-caff-4a4d-a8a7-df0549a39285",
+        "name": "沖縄県医療機関一覧（2025年3月1日時点）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/872c00c8-efc5-4dd3-83dc-41662f8d7f5c/resource/f13fa712-caff-4a4d-a8a7-df0549a39285/download/470007_hospital_20250328.csv",
+        "created": "2025-03-28T00:43:39.020752",
+        "last_modified": "2025-03-28T00:43:38.864068"
+      }
+    ]
+  },
+  {
+    "id": "d8301a57-c280-4fb1-9bf0-26f55abd0c9d",
+    "name": "470007_care_service_20250909",
+    "title": "沖縄県指定介護サービス施設・事業所一覧",
+    "notes": "沖縄県が指定・許可を行った介護サービス施設・事業所の一覧です。",
+    "metadata_modified": "2025-09-09T05:00:38.398100",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "介護サービス事業所一覧"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "dcca1ff9-fccd-4e6a-95ea-4bf7403ab9c9",
+        "name": "470007_care_service.csv",
+        "description": "沖縄県が指定・許可を行った介護サービス施設・事業所の一覧です。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d8301a57-c280-4fb1-9bf0-26f55abd0c9d/resource/dcca1ff9-fccd-4e6a-95ea-4bf7403ab9c9/download/470007_care_service.csv",
+        "created": "2025-03-11T00:38:07.937014",
+        "last_modified": "2025-03-11T00:38:07.905548"
+      },
+      {
+        "id": "16cf9530-5532-4698-9625-1b7970449300",
+        "name": "470007_care_service_2025.csv",
+        "description": "沖縄県が指定・許可を行った介護サービス施設・事業所の一覧です。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/d8301a57-c280-4fb1-9bf0-26f55abd0c9d/resource/16cf9530-5532-4698-9625-1b7970449300/download/470007_care_service_20250909.csv",
+        "created": "2025-09-09T04:50:08.689514",
+        "last_modified": "2025-09-09T04:50:08.659556"
+      }
+    ]
+  },
+  {
+    "id": "5f9f1214-be55-4af5-acc6-c6577f07d1af",
+    "name": "470007_bunkazai",
+    "title": "沖縄県文化財一覧",
+    "notes": "沖縄県の文化財一覧データです。\r\n教育庁文化財課発行「文化財課要覧」に記載の文化財データをオープンデータにしております。",
+    "metadata_modified": "2026-02-25T00:06:07.174264",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "推奨データセット"
+      },
+      {
+        "name": "文化財"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      }
+    ],
+    "resources": [
+      {
+        "id": "950d55ce-4cc7-45cc-87ca-e5100baa2eca",
+        "name": "文化財一覧（令和3年5月1日時点）.xlsx",
+        "description": "",
+        "format": "XLSX",
+        "url": "https://data.bodik.jp/dataset/5f9f1214-be55-4af5-acc6-c6577f07d1af/resource/950d55ce-4cc7-45cc-87ca-e5100baa2eca/download/stg-svm002redirectxenapptamashhadownloads4_suisyou_bunkazai-1.xlsx",
+        "created": "2022-02-17T07:02:46.087042",
+        "last_modified": "2022-02-17T07:02:46.026330"
+      },
+      {
+        "id": "70caa174-340b-480c-afad-6867f733de9d",
+        "name": "文化財一覧（令和５年３月現在）",
+        "description": "国・県・市町村指定文化財データを掲載。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5f9f1214-be55-4af5-acc6-c6577f07d1af/resource/70caa174-340b-480c-afad-6867f733de9d/download/470007_cultural_property.csv",
+        "created": "2023-03-15T15:53:09.119493",
+        "last_modified": "2023-03-27T14:40:22.348663"
+      },
+      {
+        "id": "107dbe75-bd58-4b97-b2ff-96823b023f6f",
+        "name": "文化財一覧（令和６年５月現在）",
+        "description": "国・県・市町村指定文化財データを掲載。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5f9f1214-be55-4af5-acc6-c6577f07d1af/resource/107dbe75-bd58-4b97-b2ff-96823b023f6f/download/470007_cultural_property_202405.csv",
+        "created": "2024-12-20T02:03:20.439516",
+        "last_modified": "2024-12-20T02:03:20.389818"
+      },
+      {
+        "id": "edcc7bd0-6c56-4dcd-81ca-cc8fcc51acdb",
+        "name": "文化財一覧（令和７年５月現在）",
+        "description": "国・県・市町村指定文化財データを掲載。",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/5f9f1214-be55-4af5-acc6-c6577f07d1af/resource/edcc7bd0-6c56-4dcd-81ca-cc8fcc51acdb/download/470007_cultural_property_202505.csv",
+        "created": "2026-02-25T00:06:07.201230",
+        "last_modified": "2026-02-25T00:06:07.126176"
+      }
+    ]
+  },
+  {
+    "id": "b8f43b75-efaf-49a9-99d0-c88d2b54931c",
+    "name": "470007_hanamidorimeisho",
+    "title": "美ら島おきなわ・花と緑の名所100選一覧",
+    "notes": "沖縄県が認定している「美ら島おきなわ・花と緑の名所100選」の一覧です。",
+    "metadata_modified": "2026-01-05T00:11:41.910652",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "一覧"
+      },
+      {
+        "name": "沖縄県"
+      },
+      {
+        "name": "環境"
+      }
+    ],
+    "resources": [
+      {
+        "id": "7447c970-aa2d-43b0-89f4-2e8660fe49ca",
+        "name": "美ら島おきなわ・花と緑の名所100選一覧",
+        "description": "沖縄県内の名所認定箇所一覧　令和６年度末時点",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/b8f43b75-efaf-49a9-99d0-c88d2b54931c/resource/7447c970-aa2d-43b0-89f4-2e8660fe49ca/download/470007_meishohyakusen_20251224.csv",
+        "created": "2026-01-05T00:11:40.977055",
+        "last_modified": "2026-01-05T00:11:40.948227"
+      }
+    ]
+  },
+  {
+    "id": "d6df3581-015c-457a-ab5b-b1683e777042",
+    "name": "470007_tourist_attraction",
+    "title": "観光ポイント一覧",
+    "notes": "沖縄県の主要観光スポットの一覧データです。",
+    "metadata_modified": "2026-01-09T06:57:09.192696",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "位置情報"
+      },
+      {
+        "name": "自治体標準オープンデータセット"
+      },
+      {
+        "name": "観光ポイント一覧"
+      }
+    ],
+    "resources": [
+      {
+        "id": "57e74516-40c5-4e07-8f06-dac4ea0193e9",
+        "name": "沖縄県観光ポイント一覧",
+        "description": "沖縄県観光ポイント一覧",
+        "format": "CSV",
+          "url": "https://data.bodik.jp/dataset/d6df3581-015c-457a-ab5b-b1683e777042/resource/57e74516-40c5-4e07-8f06-dac4ea0193e9/download/470007_tourist_attraction.csv",
+        "created": "2026-01-09T06:31:30.609790",
+        "last_modified": "2026-01-09T06:31:30.584142"
+      }
+    ]
+  },
+  {
+    "id": "1491f4e0-4631-45c2-b5d9-ecbce3206a01",
+    "name": "470007_syokuhin",
+    "title": "食品等営業許可・届出全一覧",
+    "notes": "沖縄県食品営業許可および届出の全一覧。\r\n年1回程度更新予定。",
+    "metadata_modified": "2023-03-15T16:11:20.808410",
+    "organization": {
+      "title": "沖縄県"
+    },
+    "tags": [
+      {
+        "name": "推奨データセット"
+      },
+      {
+        "name": "食品営業許可"
+      }
+    ],
+    "resources": [
+      {
+        "id": "44bb9c40-b890-415e-945d-cc60ec426a84",
+        "name": "食品営業許可・届出全一覧（令和3年5月31日）.xlsx",
+        "description": "",
+        "format": "XLSX",
+        "url": "https://data.bodik.jp/dataset/1491f4e0-4631-45c2-b5d9-ecbce3206a01/resource/44bb9c40-b890-415e-945d-cc60ec426a84/download/1_suisyou_syokuhin-1.xlsx",
+        "created": "2022-02-17T06:40:03.957265",
+        "last_modified": "2022-06-14T09:03:02.320014"
+      },
+      {
+        "id": "32878cd6-3817-41a1-8063-12db90392561",
+        "name": "食品営業許可・届出全一覧（令和４年11月30日時点）",
+        "description": "",
+        "format": "CSV",
+        "url": "https://data.bodik.jp/dataset/1491f4e0-4631-45c2-b5d9-ecbce3206a01/resource/32878cd6-3817-41a1-8063-12db90392561/download/1_suisyou_syokuhin-2.csv",
+        "created": "2022-12-27T02:04:03.607049",
+        "last_modified": "2022-12-27T02:04:03.532604"
+      }
+    ]
+  }
+]

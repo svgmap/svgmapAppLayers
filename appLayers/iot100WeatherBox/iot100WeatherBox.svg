@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="-180 -90 360 180"
+     data-controller="iot100WeatherBox.html#exec=appearOnLayerLoad&amp;requiredHeight=620"
+     property="NodeID,名称,緯度,経度,最新気温,モデル,センサー設置方法,カメラ撮影方位,景観">
+  <globalCoordinateSystem srsName="http://purl.org/crs/84"
+                          transform="matrix(1,0,0,-1,0,0)"/>
+  <defs>
+    <g id="temperatureCold">
+      <circle cx="0" cy="0" r="6" fill="#1976d2" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="temperatureCool">
+      <circle cx="0" cy="0" r="6" fill="#2e7d32" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="temperatureWarm">
+      <circle cx="0" cy="0" r="6" fill="#f9a825" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="temperatureHot">
+      <circle cx="0" cy="0" r="6" fill="#ef6c00" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="temperatureVeryHot">
+      <circle cx="0" cy="0" r="6" fill="#c62828" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="temperatureUnavailable">
+      <circle cx="0" cy="0" r="6" fill="#757575" stroke="#ffffff" stroke-width="2"/>
+    </g>
+  </defs>
+  <g id="mapContents"></g>
+</svg>

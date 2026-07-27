@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>関東バス リアルタイム運行情報</title>
+<style>
+body {
+  margin: 8px;
+  font-family: sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+[hidden] {
+  display: none !important;
+}
+h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+p {
+  margin: 4px 0 8px;
+}
+table {
+  width: 100%;
+  margin: 8px 0;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #eef2f7;
+}
+.summary-table > tbody > tr > th {
+  width: 34%;
+}
+.selector {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+select,
+input[type="search"] {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 4px 6px;
+  font: inherit;
+}
+.controls,
+.list-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.auto-note {
+  color: #555;
+}
+.list-tools input {
+  flex: 1;
+}
+.filter-count {
+  flex: 0 0 auto;
+  color: #555;
+  white-space: nowrap;
+}
+.status {
+  min-height: 1.4em;
+  color: #444;
+}
+.status.error {
+  color: #b00020;
+}
+.legend {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin: 0 3px 0 8px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #777;
+  vertical-align: -1px;
+}
+.legend:first-child {
+  margin-left: 0;
+}
+.moving { background: #0878d1; }
+.stopped { background: #e87917; }
+.stale { background: #777; }
+.selected-vehicle { background: #e0041d; }
+button {
+  padding: 3px 10px;
+}
+.result-list {
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid #ccd3da;
+  border-radius: 4px;
+  background: #f7f9fb;
+}
+.data-card {
+  margin: 6px;
+  border: 1px solid #c7d0da;
+  border-radius: 4px;
+  background: #fff;
+}
+.data-card summary {
+  padding: 7px;
+  cursor: pointer;
+}
+.data-card[open] summary {
+  border-bottom: 1px solid #d8dee5;
+  background: #f5f8fb;
+}
+.summary-main {
+  word-break: break-all;
+}
+.route-badge,
+.delay-badge,
+.alert-severity {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.route-badge {
+  background: #e3eef9;
+  color: #12558a;
+}
+.delay-normal { background: #e6f3e8; color: #25662d; }
+.delay-late { background: #fde5df; color: #a12613; }
+.delay-early { background: #e5efff; color: #24569b; }
+.alert-severity { background: #e8ebef; color: #3f4750; }
+.severity-3 { background: #fff0c2; color: #735000; }
+.severity-4 { background: #fbd8d3; color: #9c1c0c; }
+.detail-content {
+  padding: 0 7px 7px;
+}
+.metadata-table th {
+  width: 34%;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.stop-table {
+  min-width: 520px;
+  font-size: 12px;
+}
+.stop-table th {
+  white-space: nowrap;
+}
+.alert-description {
+  margin: 8px 0;
+  padding: 7px;
+  border-left: 3px solid #5486b8;
+  background: #f4f7fa;
+  white-space: pre-wrap;
+}
+.vehicle-selection-message {
+  margin: 8px 0;
+  padding: 6px 8px;
+  border-left: 3px solid #f3c400;
+  background: #fffbea;
+}
+.vehicle-selection-message.error {
+  border-left-color: #b00020;
+  background: #fff0f1;
+  color: #b00020;
+}
+.empty-state {
+  padding: 12px;
+  color: #555;
+  text-align: center;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="gtfsRealtime.js"></script>
+<script src="odptRealtimeKantoBusAllLinesVehicle.js"></script>
+</head>
+<body>
+<h3>関東バス リアルタイム運行情報</h3>
+<div class="selector">
+  <label for="dataTypeSelect">表示データ</label>
+  <select id="dataTypeSelect">
+    <option value="vehicle">車両位置 (VehiclePosition)</option>
+    <option value="trip">ルート更新情報 (TripUpdates)</option>
+    <option value="alert">運行情報 (Alert)</option>
+  </select>
+</div>
+<p id="displayHint">車両位置を地図上で常時更新します。</p>
+<div class="controls">
+  <button id="refreshButton" type="button">今すぐ更新</button>
+  <span class="auto-note">車両位置は30秒ごとに自動更新</span>
+</div>
+<div id="statusMessage" class="status" role="status" aria-live="polite">読み込み待ち</div>
+<table class="summary-table">
+  <tr><th>地図上の車両</th><td id="vehicleMapCount">-</td></tr>
+  <tr><th>車両データ時刻</th><td id="vehicleDataTimestamp">-</td></tr>
+  <tr id="selectedCountRow" hidden><th id="countLabel">選択データ件数</th><td id="countValue">-</td></tr>
+  <tr id="selectedDataTimestampRow" hidden><th>選択データ時刻</th><td id="dataTimestamp">-</td></tr>
+  <tr><th>最終取得</th><td id="lastFetched">-</td></tr>
+  <tr id="legendRow"><th>凡例</th><td><span class="legend moving"></span>走行中 <span class="legend stopped"></span>停車中 <span class="legend stale"></span>5分以上更新なし <span class="legend selected-vehicle"></span>選択車両</td></tr>
+</table>
+<p id="vehicleHelp">車両アイコン、またはTripUpdatesの便詳細を開くと、対象車両の詳細を確認できます。</p>
+<div id="listTools" class="list-tools" hidden>
+  <input id="resultFilter" type="search" aria-label="一覧を絞り込み" placeholder="一覧を絞り込み">
+  <span id="filterCount" class="filter-count">0件</span>
+</div>
+<div id="resultList" class="result-list" aria-live="polite" hidden></div>
+</body>
+</html>

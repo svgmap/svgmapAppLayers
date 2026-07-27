@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>JR駅バリアフリー情報</title>
+<style>
+body {
+  margin: 8px;
+  font-family: sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+p {
+  margin: 4px 0 8px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #eef2f7;
+}
+.status {
+  color: #b00020;
+  min-height: 1.4em;
+}
+.legend {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+.step-free {
+  background: #0b72d9;
+}
+.not-step-free {
+  background: #d13f31;
+}
+.unknown {
+  background: #777;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="accessibilityInformationJR.js"></script>
+</head>
+<body>
+<h3>JR駅バリアフリー情報</h3>
+<p>
+  出典:
+  <a href="https://www.hokoukukan.go.jp/top.html" target="_blank" rel="noopener">歩行者移動支援サービスに関するデータサイト</a>
+</p>
+<p>
+  Source:
+  <a href="https://www.hokoukukan.go.jp/metadata/resource/10" target="_blank" rel="noopener">鉄道施設に関するバリアフリー情報（JR）</a>
+</p>
+<div id="messageDiv" class="status">読み込み待ち</div>
+<table>
+  <tr><th>表示件数</th><td id="countCell">-</td></tr>
+  <tr><th>凡例</th><td><span class="legend step-free"></span>段差対応あり <span class="legend not-step-free"></span>段差対応なし <span class="legend unknown"></span>不明・未設定</td></tr>
+  <tr><th>表示項目</th><td>駅名、路線名、鉄道事業者、所在地、段差対応、ホーム数、エレベーター、エスカレーター、傾斜路、誘導ブロック、案内設備、障害者対応設備、緯度、経度</td></tr>
+</table>
+</body>
+</html>
