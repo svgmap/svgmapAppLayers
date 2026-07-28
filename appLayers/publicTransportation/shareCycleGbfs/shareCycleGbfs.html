@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>シェアサイクル GBFS</title>
+<style>
+body {
+  margin: 8px;
+  color: #1f2937;
+  font-family: sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+p {
+  margin: 4px 0 8px;
+}
+a {
+  color: #075ea8;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+button {
+  padding: 4px 10px;
+  font: inherit;
+}
+.status {
+  min-height: 1.5em;
+  margin: 6px 0;
+  color: #374151;
+}
+.status.error {
+  color: #b91c1c;
+}
+.summary {
+  width: 100%;
+  margin: 8px 0;
+  border-collapse: collapse;
+}
+.summary th,
+.summary td {
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  text-align: left;
+}
+.summary th {
+  width: 44%;
+  background: #f3f4f6;
+  font-weight: 600;
+}
+.legend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.legend {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #6b7280;
+  vertical-align: -1px;
+}
+.empty { background: #dc2626; }
+.low { background: #f59e0b; }
+.available { background: #16a34a; }
+.unavailable { background: #6b7280; }
+.unknown { background: #2563eb; }
+.notice {
+  margin-top: 10px;
+  padding: 8px;
+  border-left: 3px solid #6b7280;
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 12px;
+}
+.notice p:last-child {
+  margin-bottom: 0;
+}
+.technical {
+  color: #6b7280;
+  font-size: 11px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script type="module" src="./shareCycleGbfs.js"></script>
+</head>
+<body>
+<h3 id="layerTitle">シェアサイクル GBFS</h3>
+<p><span id="location"></span>のポートを、Client-Side QTCTでズーム連動表示します。</p>
+
+<div class="controls">
+  <button id="refreshButton" type="button">空き状況を更新</button>
+  <button id="reloadButton" type="button">ポートを再読込</button>
+  <label><input id="autoRefresh" type="checkbox" checked> 自動更新</label>
+</div>
+
+<div id="statusMessage" class="status" role="status" aria-live="polite">読み込み待ち</div>
+<div id="qtctProgress" class="technical" aria-live="polite"></div>
+
+<ul class="legend-list" aria-label="空き状況の凡例">
+  <li><span class="legend available"></span>3台以上</li>
+  <li><span class="legend low"></span>残り1〜2台／20%以下</li>
+  <li><span class="legend empty"></span>空き0台</li>
+  <li><span class="legend unavailable"></span>貸出停止・未設置</li>
+  <li><span class="legend unknown"></span>不明</li>
+</ul>
+
+<table class="summary">
+  <tr><th>ステーション</th><td><span id="stationCount">-</span>件</td></tr>
+  <tr><th>利用可能車両（合計）</th><td><span id="vehicleCount">-</span>台</td></tr>
+  <tr><th>返却可能枠（合計）</th><td><span id="dockCount">-</span>台</td></tr>
+  <tr><th>3台以上のポート</th><td id="availableCount">-</td></tr>
+  <tr><th>残りわずか</th><td id="lowCount">-</td></tr>
+  <tr><th>空きなし</th><td id="emptyCount">-</td></tr>
+  <tr><th>貸出停止・未設置</th><td id="unavailableCount">-</td></tr>
+  <tr><th>状況不明</th><td id="unknownCount">-</td></tr>
+  <tr><th>データ生成時刻</th><td id="dataTimestamp">-</td></tr>
+  <tr><th>アプリ最終取得</th><td id="lastFetched">-</td></tr>
+  <tr><th>GBFSシステム名</th><td id="gbfsSystemName">-</td></tr>
+  <tr><th>カタログ確認</th><td id="catalogState">-</td></tr>
+</table>
+
+<div class="notice">
+  <p>出典: <a id="sourceLink" target="_blank" rel="noopener noreferrer"><span id="sourceName"></span></a></p>
+  <p>データライセンス: <a id="licenseLink" target="_blank" rel="noopener noreferrer"><span id="licenseName"></span></a></p>
+  <p><a id="termsLink" target="_blank" rel="noopener noreferrer">利用規約</a> ／ <a id="guidelineLink" target="_blank" rel="noopener noreferrer">開発者ガイドライン</a></p>
+  <p>提供元カタログ: <a id="catalogLink" target="_blank" rel="noopener noreferrer"><span id="catalogCredit"></span></a></p>
+  <p>本データの正確性・完全性・可用性は保証されず、実際の状況と異なる場合があります。このアプリについて交通事業者へ直接問い合わせないでください。</p>
+  <p>アプリに関する連絡先: <a href="https://github.com/svgmap/svgmapAppLayers/issues" target="_blank" rel="noopener noreferrer">svgmapAppLayers Issues</a></p>
+</div>
+</body>
+</html>
+
