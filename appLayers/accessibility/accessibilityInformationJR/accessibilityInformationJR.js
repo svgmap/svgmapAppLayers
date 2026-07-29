@@ -1,4 +1,8 @@
 // JR駅バリアフリー情報CSVをSVGMapのPOIとして動的に描画する。
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 const accessibilityInformationJRService = "https://www.hokoukukan.go.jp/uploads/22/10/mlit_jr_sta1.csv";
 let csvRows = [];
