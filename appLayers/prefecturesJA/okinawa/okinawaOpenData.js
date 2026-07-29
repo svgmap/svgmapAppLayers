@@ -1,4 +1,9 @@
-import { CsvMapper } from "https://svgmap.github.io/svgmapAppLayers/commonLib/CsvMapper.js";
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import { CsvMapper } from "../../../commonLib/CsvMapper.js";
 import { geocodeAddresses } from "./addressGeocoder.js";
 import { decodeText, normalizeForMap, normalizeGeocodedRows, prepareAddressRows } from "./csvNormalizer.js";
 import { DEFAULT_DATASET_ICON, iconForDataset } from "./iconClassifier.js";
