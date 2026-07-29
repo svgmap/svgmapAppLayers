@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IoT百葉箱</title>
+<style>
+body {
+  margin: 8px;
+  color: #202124;
+  font-family: sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+p {
+  margin: 5px 0 8px;
+}
+a {
+  color: #125ea8;
+}
+.controls {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 8px;
+  align-items: center;
+  margin: 9px 0;
+}
+input,
+select,
+button {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 4px 6px;
+  font: inherit;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0;
+}
+.status {
+  min-height: 1.5em;
+  margin: 6px 0;
+  color: #444;
+}
+.status.error {
+  color: #b00020;
+}
+.summary {
+  margin: 8px 0;
+  padding: 7px 9px;
+  border-left: 4px solid #1976d2;
+  background: #eef5fc;
+}
+.summary.empty {
+  border-left-color: #9e9e9e;
+  background: #f5f5f5;
+  color: #555;
+}
+.summary-title {
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.metric {
+  padding: 2px 6px;
+  border: 1px solid #c5d7e8;
+  border-radius: 3px;
+  background: #fff;
+}
+.legend {
+  margin: 7px 0;
+  color: #555;
+  font-size: 12px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 3px 0 8px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #777;
+  vertical-align: -1px;
+}
+.swatch:first-child { margin-left: 0; }
+.cold { background: #1976d2; }
+.cool { background: #2e7d32; }
+.warm { background: #f9a825; }
+.hot { background: #ef6c00; }
+.very-hot { background: #c62828; }
+.unavailable { background: #757575; }
+details {
+  margin: 8px 0;
+  border: 1px solid #d2d7dc;
+  border-radius: 4px;
+}
+summary {
+  padding: 6px 8px;
+  cursor: pointer;
+  background: #f5f7f9;
+}
+.table-scroll {
+  max-height: 230px;
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 4px 6px;
+  border: 1px solid #d9dde1;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f3f5f7;
+}
+.notice {
+  margin-top: 9px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  background: #fff8e1;
+  color: #5f4b00;
+  font-size: 12px;
+}
+.source {
+  font-size: 12px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="iot100WeatherBox.js"></script>
+</head>
+<body>
+<h3>IoT百葉箱</h3>
+<p>全国の公開観測地点を表示します。ピンを選ぶと、その地点の最新値と過去24時間の範囲を取得します。</p>
+
+<div class="controls">
+  <label for="nodeSearch">地点名</label>
+  <input id="nodeSearch" type="search" placeholder="学校名などで絞り込み">
+  <label for="deviceTypeFilter">モデル</label>
+  <select id="deviceTypeFilter">
+    <option value="all">すべて</option>
+    <option value="0">基本気象観測モデル</option>
+    <option value="1">総合気象観測モデル</option>
+  </select>
+</div>
+
+<div class="actions">
+  <button id="refreshButton" type="button">地点一覧を更新</button>
+  <span id="nodeCount">-</span>
+</div>
+<div id="statusMessage" class="status" role="status" aria-live="polite">読み込み待ち</div>
+
+<div class="legend" aria-label="気温の凡例">
+  <span class="swatch cold"></span>10℃未満
+  <span class="swatch cool"></span>10–19.9℃
+  <span class="swatch warm"></span>20–29.9℃
+  <span class="swatch hot"></span>30–34.9℃
+  <span class="swatch very-hot"></span>35℃以上
+  <span class="swatch unavailable"></span>値なし
+</div>
+
+<section id="selectedSummary" class="summary empty" aria-live="polite">
+  ピンを選択すると観測詳細を表示します。
+</section>
+
+<details>
+  <summary>データ種別・単位（<span id="dataTypeCount">-</span>）</summary>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>項目</th><th>APIラベル</th><th>単位</th></tr></thead>
+      <tbody id="dataTypeRows"><tr><td colspan="3">読み込み待ち</td></tr></tbody>
+    </table>
+  </div>
+</details>
+
+<p class="notice">このAPIはクロスオリジン直接取得に対応していないため、SVGMapに設定されたCORSプロキシを使用します。</p>
+<p class="source">出典: <a href="https://iot100.uchida.co.jp/" target="_blank" rel="noopener">内田洋行 IoT百葉箱</a>（公開データを加工して表示）</p>
+</body>
+</html>

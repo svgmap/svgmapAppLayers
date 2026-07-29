@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-180 -90 360 180" data-controller="odptRealtimeKantoBusAllLinesVehicle.html#exec=appearOnLayerLoad" property="">
+  <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1,0,0,-1,0,0)"/>
+  <defs>
+    <g id="busMoving">
+      <circle cx="0" cy="0" r="10" fill="#0878d1" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="busStopped">
+      <circle cx="0" cy="0" r="10" fill="#e87917" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="busStale">
+      <circle cx="0" cy="0" r="10" fill="#777777" stroke="#ffffff" stroke-width="2"/>
+    </g>
+    <g id="vehicleSelection">
+      <circle cx="0" cy="0" r="10" fill="#e0041d" stroke="#ffffff" stroke-width="2"/>
+    </g>
+  </defs>
+  <g id="mapContents"></g>
+</svg>
