@@ -190,6 +190,7 @@
 <animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
 <!-- 自治体レイヤ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okinawa/okinawaOpenData.svg" title="沖縄県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 
 <!-- ライブカメラ -->
@@ -202,6 +203,8 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeKantoBusAllLinesVehicle/odptRealtimeKantoBusAllLinesVehicle.svg#proxy=https://kantobus-odpt-proxy.svgmap.workers.dev" title="関東バスロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
   
 <!-- その他政府/民間 アプリレイヤー -->
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/accessibility/accessibilityInformationJR/accessibilityInformationJR.svg"  class="POI"  title="鉄道施設に関するバリアフリー情報（JR）"  visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/iot100WeatherBox/iot100WeatherBox.svg"  class="POI"  title="IoT百葉箱"  visibility="hidden"/>
 <animation xlink:href="./appLayers/multiCsvView/multiCsvView.svg" title="OpenStreetMap各種ポイント情報" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/mhlw_IryouNet/IryouNetPoi.svg" title="厚労省 病院・診療所・薬局等" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/><!-- #HOSPITAL など大文字でカテゴリ名入れるとカテゴリ固定レイヤ化可能-->
