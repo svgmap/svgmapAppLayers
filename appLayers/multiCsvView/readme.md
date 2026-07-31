@@ -10,6 +10,13 @@
    現在設定されている格納場所の参照先(githubpages)のリポジトリは以下になりますので、次項以降についても参考としてください。
    https://github.com/svgmap/svgMapDemo/tree/main/contents/OSMPOIs
 
+1. **データの準備**
+
+   緯度経度カラムを持つPointのCSVを用意してください。
+
+   参考 : OpenSetrretMapデータから所望の地物データセットのCSVデータを構築する
+   - [こちらのwikiページに詳細な手順を記載しています](https://www.svgmap.org/wiki/index.php?title=OpenStreetMap%E3%83%87%E3%83%BC%E3%82%BF%E3%81%8B%E3%82%89%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC%E3%82%92%E4%BD%9C%E6%88%90%E3%81%99%E3%82%8B)
+
 1. **データの可視化**
 
    「CSVデータ可視化」レイヤーを使用して、まずは対象のデータを可視化します。
