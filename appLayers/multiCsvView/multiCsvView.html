@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Layer specific UI for CsvXHR.html</title>
+<link rel="stylesheet" href="./csvEditMainPanel.css">
+<style>
+        .table-container {
+            max-height: 300px; /* 必要に応じて高さを調整 */
+            overflow-y: auto;
+        }
+</style>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script type="module">
+import { CsvMapper } from './CsvMapper.js';
+window.CsvMapperClass = CsvMapper; // 下のスクリプトブロックからnewできるように露出させる
+
+// URLのハッシュ（#以降）から datasrc を抽出してグローバルに保持 2026/7/31
+let datasrc = "";
+if (location.hash) {
+	let searchParams = new URLSearchParams(location.hash.substring(1));
+	datasrc = searchParams.get("datasrc") || "";
+	if (datasrc && !datasrc.endsWith("/")) {
+		datasrc += "/"; // パスの結合用に末尾のスラッシュを保証
+	}
+}
+window.baseDataSrc = datasrc;
+</script>
+
+<script type="module">
+import {ImageMetadata} from "./imageMetadataExtension.js";
+
+// datasrcが指定されていれば、それをベースに画像ZIPディレクトリのパスを組み立てる 2026/7/31
+let imageWorkDir = window.baseDataSrc ? (window.baseDataSrc + "uploadedImagesZip/") : undefined;
+const im = new ImageMetadata(undefined, undefined, imageWorkDir);
+</script>
+<script type="module">
+// Description:
+// MultiCsvView : csvオーサリングレイヤー(rev20)で構築されたデータを複数サブレイヤーの形で表示可能なレイヤー
+//
+// Programmed by Satoru Takagi
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
+//
+// 2025/06/12 凡例表示
+// 2025/07/15 サブレイヤー固定モードを追加
+// 2026/04/21 [Refactor 2026] CsvMapperのクラス化・DI対応に伴い、疑似GlobalObjectを作成するハックを廃止
+// 2026/07/31 データ格納先を レイヤルートsvg(multiCsvView.svg)のdata-controllerのhashのdatasrcパートで指定可能に(指定パス(URL)下にcontents, uploadedImagesZip等の必要なディレクトリやファイルがあること前提)
+
+import {FetchTextProgress} from "./FetchTextProgress.js";
+
+class MultiCsvView{
+	contentDir="uploaded/contents/";
+	subLayerTemplateSvg = "multiCsvViewSubLayer.svg"; // サブレイヤーのテンプレートとなるSVG
+	
+	contentDirPath;
+	fetchTextProgress;
+	
+	// ★[Refactor 2026] csvMapperGlobalObjects をやめ、純粋に CsvMapper インスタンスの配列/ハッシュにする
+	csvMappers = {}; // サブレイヤーのsvg毎に生成されるCsvMapperインスタンスを入れる器
+	
+	constructor(options){
+		if (options?.contentDir){
+			this.contentDir = options.contentDir;
+		}
+		this.contentDirPath = new URL(this.contentDir,location);
+		this.fetchTextProgress = new FetchTextProgress();
+	}
+	
+	addSubLayer = async function(fnameOrJson){
+		try{
+			var subImg = await this.addSubImae();
+			var imageId = subImg.documentElement.getAttribute("about");
+			console.log("imageId:",imageId);
+			var srcJson;
+			if ( typeof fnameOrJson == "string" ){
+				srcJson = await this.fetchData(fnameOrJson,progMsg);
+			} else {
+				srcJson = fnameOrJson;
+			}
+			
+			// ★[Refactor 2026] 疑似GlobalObjハックをやめ、素直に新しい CsvMapper を new するだけ！
+			var mapper = new window.CsvMapperClass({
+				svgMap: window.svgMap,
+				svgImage: subImg, // 取得したサブレイヤーのSVGを渡す
+				svgImageProps: window.svgImageProps,
+				layerID: window.layerID,
+				messageDivElm: window.messageDiv
+			});
+			
+			// 保存して初期化
+			this.csvMappers[imageId] = mapper;
+			mapper.onload(); // 初期設定等を実行
+			
+			await this.displayData(srcJson, subImg, mapper);
+			
+		} catch(e){
+			console.error(e);
+		}
+		return imageId;
+	}.bind(this);
+	
+	getUsedIcon(imageId){
+		// ★[Refactor 2026] CsvMapperインスタンスから直接取得
+		const mapper = this.csvMappers[imageId];
+		if (!mapper) return null;
+		const icon = mapper.getUsedIcon();
+		return icon;
+	}
+	
+	preRenderFunction=function(){
+		// ★[Refactor 2026] 各インスタンスの preRenderFunction を呼び出す
+		for ( var imageId in this.csvMappers){
+			this.csvMappers[imageId].preRenderFunction();
+		}
+	}.bind(this);
+	
+	deleteSubLayer(imageId){
+		var subLayerAnim = svgImage.querySelector(`[iid="${imageId}"]`);
+		console.log(subLayerAnim,imageId);
+		// ★[Refactor 2026]
+		if (this.csvMappers[imageId]) {
+			this.csvMappers[imageId].clearMap();
+			delete this.csvMappers[imageId];
+		}
+		if (subLayerAnim && subLayerAnim.parentElement) {
+			subLayerAnim.parentElement.removeChild(subLayerAnim);
+		}
+	}
+	
+	// ★[Refactor 2026] getCsvMapperGlobalObj, setQTCTrendererGlobalObj, setCsvMapperGlobalObj は全て不要になったため削除！
+	// 新アーキテクチャでは DI（依存性の注入）により、上記のハックなしで複数インスタンスの独立稼働が保証されます。
+	
+	async getIndex(){
+		var indexPath = new URL("../index.txt",this.contentDirPath);
+		var indexCsvTxt = await(await fetch(`${indexPath.href}?t=${new Date().getTime()}`)).text();
+		var indexCsv = this.parseCsv(indexCsvTxt);
+		console.log(indexCsv);
+		return indexCsv;
+	}
+	
+	parseCsv(txt){
+		var csv=[];
+		txt = txt.split("\n");
+		for ( var i=0 ; i <  txt.length ; i++ ){
+			var line = txt[i];
+			if(line.length>0){
+				line = line.split(",");
+				for ( var j = 0 ; j < line.length ; j++){
+					line[j]=line[j].trim();
+				}
+				csv.push(line);
+			}
+		}
+		return csv;
+	}
+	
+	async fetchData(fname, progressCbf){
+		var srcJson = JSON.parse(await this.fetchTextProgress.fetch(new URL(fname,this.contentDirPath),function(byte){
+			if ( progressCbf ){
+				progressCbf(byte);
+			}
+		}));
+		return srcJson;
+	}
+	
+	
+	async displayData(srcJson,subImg, csvMapper){
+		var schema = srcJson.schema;
+		var vit, iconIndex;
+		if ( schema.varIconCol >=0){
+			vit = [];
+			iconIndex = schema.varIconCol;
+		} else if ( isNaN (schema.defaultIconNumber)){
+			// カスタムアイコン (下と同じロジックで動く)
+			vit = null;
+			iconIndex = schema.defaultIconNumber;
+		} else {
+			vit = null;
+			iconIndex = schema.defaultIconNumber;
+		}
+		console.log(schema);
+		await csvMapper.initCsv(srcJson.csv, schema.latCol, schema.lngCol, schema.titleCol, iconIndex, vit, schema.firstRecord );
+	}
+	
+	addSubImae = function(){
+		return new Promise(function(okCallback, ngCallback) {
+			var anim = svgImage.createElement("animation");
+			anim.setAttribute("x","-30000");
+			anim.setAttribute("y","-30000");
+			anim.setAttribute("width","60000");
+			anim.setAttribute("height","60000");
+			anim.setAttribute("xlink:href",this.subLayerTemplateSvg);
+			svgImage.documentElement.appendChild(anim);
+			var ev = this.addOnceEventListener(  window, "screenRefreshed",async function(){
+				var imageId = anim.getAttribute("iid");
+				console.log("refreshed", imageId); // ここでimageIdが取れないことがある 2024/10/11(多分他のrefreshScreenと統合される感じで) 本来はimageIdが取れるまでawaitする感じの非同期のほうが良いと思う
+				if ( !imageId ){
+					await new Promise(resolve => setTimeout(resolve, 300));
+					imageId = anim.getAttribute("iid");
+					console.warn("Retry to get imageId:", imageId);
+				}
+				var si = svgMap.getSvgImages()[imageId];
+				if ( si ){
+					okCallback(si);
+				} else {
+					ngCallback(imageId);
+				}
+			});
+			svgMap.refreshScreen();
+		}.bind(this));
+	}
+		
+	addOnceEventListener = function (el, evt, listener, capture) {
+		capture = !!capture;
+		const __listener = function () {
+			listener.apply(this, arguments);
+			el.removeEventListener(evt, __listener, capture);
+		}.bind(this);
+		el.addEventListener(evt, __listener, capture);
+	}.bind(this);
+}
+
+// contentDirを指定(2026/7/31)
+let multiCsvOptions = {};
+if (window.baseDataSrc) {
+	multiCsvOptions.contentDir = window.baseDataSrc + "uploaded/contents/";
+}
+var multiCsvView = new MultiCsvView(multiCsvOptions);
+window.multiCsvView = multiCsvView;
+
+// ★[Refactor 2026] アプリ全体の preRenderFunction フックを登録
+window.preRenderFunction = multiCsvView.preRenderFunction;
+
+window.checkList = checkList;
+
+window.noInteractivity = false;
+
+addEventListener("load", async function(){
+	initPageTitle();
+	await listSubLayers();
+	processHash();
+});
+
+function initPageTitle(){
+	const htmlHashParams={};
+	if ( !location.hash){return}
+	new URL(location.hash.replace("#","?"),location).searchParams.forEach(function(p,i){
+		console.log(p,i);
+		htmlHashParams[i]=p;
+	});
+	if (htmlHashParams.link){
+		linkDiv.innerHTML=`出典:<a href="${htmlHashParams.link}" target="_blank">${htmlHashParams.link}</a>`;
+		linkDiv.style.display="";
+	}
+	if (htmlHashParams.title){
+		titleHd.innerText=htmlHashParams.title;
+	}
+	if (htmlHashParams.interactivity && htmlHashParams.interactivity=="none"){
+		window.noInteractivity = true;
+	}
+}
+
+async function listSubLayers(){
+	var indexDat = await multiCsvView.getIndex();
+	for ( var metaDat of indexDat){
+		indexTable.insertAdjacentHTML("beforeend", `<tr><td><input type="checkbox" value="${metaDat[0]}" id="file_${encodeURIComponent(metaDat[0])}" onclick="checkList(event)"></input><label for="file_${encodeURIComponent(metaDat[0])}">${metaDat[2]}</label></td><td><img style="display:none" height="16" id="listIcon_${metaDat[0]}"></td></tr>`);
+	}
+}
+
+async function checkList(event){
+	var et = event.target;
+	var file = et.getAttribute("value");
+	var ck = et.checked;
+	console.log(file, ck);
+	if ( ck==true){
+		var subLayerID = await multiCsvView.addSubLayer(file);
+		et.setAttribute("data-subLayerID",subLayerID);
+		const icon = multiCsvView.getUsedIcon(subLayerID);
+		console.log("Used Icon: ",icon);
+		if ( typeof icon =="string"){ // 可変アイコンは未サポート
+			setListIcon(et.getAttribute("id"), icon);
+		}
+	} else {
+		var subLayerID = et.getAttribute("data-subLayerID");
+		multiCsvView.deleteSubLayer(subLayerID);
+		svgMap.refreshScreen();
+	}
+	if ( !window.noInteractivity ){
+		buildHash();
+	}
+}
+
+function setListIcon(fileId, icon){
+	const iconId = fileId.replace("file_","listIcon_");
+	const img = document.getElementById(iconId);
+	if ( img ){
+		img.setAttribute("src",icon);
+		img.style.display="";
+	}
+	//console.log(img);
+}
+
+function buildHash(){
+	var checks = indexTable.getElementsByTagName("INPUT");
+	var hstr=[];
+	for ( var check of checks){
+		if (check.checked){
+			hstr.push(check.value);
+		}
+	}
+	if ( hstr.length > 0 ){
+		svgImageProps.hash = `#${hstr.join(";")}`;
+	} else {
+		svgImageProps.hash = "";
+	}
+	console.warn("buildHash:",hstr, "  hash:",svgImageProps.hash);
+}
+
+async function processHash(){
+	if ( !svgImageProps.hash || svgImageProps.hash.length < 2 ){return}
+	var files = svgImageProps.hash.substring(1).split(";");
+	for ( var file of files){
+		if (file.toLowerCase()=="nointeractivity"){
+			window.noInteractivity = true;
+		}
+	}
+	const labelTxts=[];
+	for ( var file of files){
+//		var tgt = document.getElementById(`file_${encodeURIComponent(file)}`);
+		var tgt = document.getElementById(`file_${(file)}`);
+		if ( tgt ){
+			tgt.click();
+			if ( window.noInteractivity ){
+				tgt.style.visibility="hidden";
+			}
+			labelTxts.push(tgt.parentElement.getElementsByTagName("label")[0].innerText);
+		}
+	}
+	
+	if ( window.noInteractivity ){
+		const items = document.getElementById("indexTable").getElementsByTagName("input");
+		for ( const itm of items){
+			if ( !itm.checked){
+				itm.parentElement.parentElement.style.display="none";
+			}
+		}
+		titleHd.innerText=labelTxts.join(",");
+		// svgImageProps.hash="";
+	}
+	
+}
+
+function progMsg(pg){
+	messageDiv.innerText=`${(pg/(1024*1024)).toFixed(1)} MB downloaded`;
+}
+
+</script>
+<body>
+<h4 id="titleHd">複数の保存済みCSVデータ同時表示</h4>
+<div id="linkDiv" style="display:none;font-size:11px"></div>
+<div style="font-size:12px"><span>msg:</span><span id="messageDiv"></span></div>
+<div class="table-container">
+
+<table><tbody style="font-size:12px" id="indexTable"></tbody></table>
+</div>
+</body>
+</html>
