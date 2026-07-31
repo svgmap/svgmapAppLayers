@@ -40,6 +40,7 @@
 <animation class="GIS clickable editable" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
 
 <!-- オーサリングツール的なもののグループ -->
+<animation xlink:href="./appLayers/leafletOverlay/leafletOverlay.svg" title="Leaflet Overlay" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" visibility="hidden"/>
 <animation xlink:href="./appLayers/leafletOverlay/leafletOverlay.svg" title="leafletオーバーレイ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/kmlLoader/kmlLoader.svg" title="KML(MyMaps)データ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/vectorFileLoader/vectorFileLoader3.svg" title="shape・GeoJSONファイル表示" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
@@ -180,7 +181,6 @@
 <animation class="気象" title="気象庁_2021_TileImages" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象 clickable" title="気象庁_2021_アメダス" xlink:href="./appLayers/jma/jma_amedas.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 
-
 <!-- 国交省川の防災情報(ライブカメラ以外) -->
 <animation xlink:href="./appLayers/mlitRiver/riverLineTile.svg" title="河川形状" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/stg.svg" title="水位観測所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
@@ -189,16 +189,18 @@
 <animation xlink:href="./appLayers/mlitRiver/overObs_stg.svg" title="警報のみ 水位観測所" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
-
 <!-- 自治体レイヤ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
-
 
 <!-- ライブカメラ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
+<!-- モビリティ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg" title="シェアサイクル・マイクロモビリティ(GBFS)" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeKantoBusAllLinesVehicle/odptRealtimeKantoBusAllLinesVehicle.svg#proxy=https://kantobus-odpt-proxy.svgmap.workers.dev" title="関東バスロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+  
 <!-- その他政府/民間 アプリレイヤー -->
 <animation xlink:href="./appLayers/multiCsvView/multiCsvView.svg" title="OpenStreetMap各種ポイント情報" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
