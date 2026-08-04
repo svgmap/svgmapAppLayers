@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>厚生労働省「通いの場」マップ</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #17202a;
+      background: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 7px; font-size: 12px; line-height: 1.42; }
+    h1 { margin: 0; color: #173f5f; font-size: 17px; line-height: 1.25; }
+    h2 { margin: 10px 0 4px; font-size: 13px; }
+    p { margin: 4px 0; }
+    a { color: #075ea8; }
+    fieldset {
+      margin: 8px 0;
+      padding: 7px;
+      border: 1px solid #b8c3cc;
+      border-radius: 5px;
+      background: #f7f9fb;
+    }
+    legend { padding: 0 4px; font-weight: 700; }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .filter-grid .wide { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 2px; font-weight: 650; }
+    input, select, button {
+      min-height: 31px;
+      border: 1px solid #8595a3;
+      border-radius: 4px;
+      font: inherit;
+    }
+    input, select { width: 100%; padding: 4px 6px; background: #ffffff; }
+    input:focus, select:focus, button:focus {
+      outline: 2px solid #0d79a8;
+      outline-offset: 1px;
+    }
+    .actions { display: flex; gap: 6px; margin-top: 7px; margin-bottom: 8px; }
+    button {
+      flex: 1;
+      padding: 4px 8px;
+      border-color: #31556f;
+      background: #31556f;
+      color: #ffffff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background: #ffffff; color: #23445b; }
+    button:disabled { border-color: #c7ced4; background: #e4e8eb; color: #697780; cursor: wait; }
+    .status {
+      min-height: 33px;
+      padding: 7px;
+      border: 1px solid #b8c3cc;
+      border-radius: 4px;
+      background: #f1f4f6;
+      font-weight: 700;
+    }
+    .status.success { border-color: #69ad84; color: #145b32; background: #e9f7ef; }
+    .status.warning { border-color: #d5a23a; color: #704b00; background: #fff7df; }
+    .status.empty { border-color: #7e9eb8; color: #274c68; background: #edf5fa; }
+    .status.error { border-color: #d27a7a; color: #8a1c1c; background: #fff0f0; }
+    .progress { min-height: 1.4em; color: #5c6973; font-size: 10px; }
+    .counts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      margin: 7px 0;
+    }
+    .count {
+      min-width: 0;
+      padding: 5px;
+      border: 1px solid #d4dbe0;
+      border-radius: 4px;
+      background: #ffffff;
+    }
+    .count dt { color: #5e6c76; font-size: 9px; }
+    .count dd {
+      margin: 1px 0 0;
+      overflow-wrap: anywhere;
+      color: #173f5f;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .legend-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3px 8px;
+      margin: 4px 0;
+      padding: 0;
+      list-style: none;
+    }
+    .symbol {
+      display: inline-flex;
+      width: 13px;
+      height: 13px;
+      margin-right: 4px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ffffff;
+      box-shadow: 0 0 0 1px #6b7780;
+      color: #ffffff;
+      vertical-align: -2px;
+      font-size: 9px;
+      font-weight: 800;
+    }
+    .exercise { border-radius: 50%; background: #0070a6; }
+    .prevention { transform: rotate(45deg); background: #7646ac; }
+    .prevention > span { transform: rotate(-45deg); }
+    .social { border-radius: 2px; background: #00876c; }
+    .meal { clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #d35400; }
+    .hobby { border-radius: 50%; background: #b4357a; }
+    .other { border-radius: 4px; background: #59656f; }
+    .unknown { border-radius: 50%; background: #757575; }
+    .metadata {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .metadata th, .metadata td {
+      padding: 3px 5px;
+      border: 1px solid #d5dce1;
+      text-align: left;
+      vertical-align: top;
+    }
+    .metadata th { width: 35%; background: #f1f4f6; }
+    details {
+      margin-top: 8px;
+      padding: 6px;
+      border-left: 3px solid #768894;
+      background: #f7f8f9;
+      color: #43515a;
+      font-size: 10px;
+    }
+    summary { color: #253e50; font-weight: 700; cursor: pointer; }
+    .source { color: #46535d; font-size: 10px; }
+    @media (max-width: 350px) {
+      .filter-grid, .counts { grid-template-columns: 1fr; }
+      .filter-grid .wide { grid-column: auto; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <script type="module" src="./kayoinoba.js"></script>
+</head>
+<body>
+  <h1>厚生労働省「通いの場」マップ</h1>
+  <p class="source">
+    全国の介護予防・交流活動を検索します。地点を選ぶと詳細を表示します。
+  </p>
+
+  <fieldset id="filterFieldset" disabled>
+    <legend>検索・絞り込み</legend>
+    <div class="filter-grid">
+      <div>
+        <label for="prefectureFilter">都道府県</label>
+        <select id="prefectureFilter"><option value="">全国</option></select>
+      </div>
+      <div>
+        <label for="cityFilter">市区町村</label>
+        <select id="cityFilter" disabled><option value="">都道府県を選択</option></select>
+      </div>
+      <div class="wide">
+        <label for="keywordFilter">名称・住所・活動内容など</label>
+        <input id="keywordFilter" type="search" placeholder="例：体操 札幌（空白区切りAND）">
+      </div>
+      <div>
+        <label for="activityFilter">活動内容</label>
+        <select id="activityFilter"><option value="">すべて</option></select>
+      </div>
+      <div>
+        <label for="feeFilter">料金</label>
+        <select id="feeFilter">
+          <option value="">すべて</option>
+          <option value="free">無料</option>
+          <option value="paid">有料</option>
+          <option value="unknown">不明</option>
+        </select>
+      </div>
+      <div>
+        <label for="shuttleFilter">送迎</label>
+        <select id="shuttleFilter">
+          <option value="">すべて</option>
+          <option value="yes">あり</option>
+          <option value="no">なし</option>
+          <option value="unknown">不明</option>
+        </select>
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button id="resetButton" class="secondary" type="button" disabled>条件をリセット</button>
+    <button id="reloadButton" type="button">データを再読込</button>
+  </div>
+
+  <div id="status" class="status loading" role="status" aria-live="polite">LaWAの準備中…</div>
+  <div id="qtctProgress" class="progress" aria-live="polite"></div>
+
+  <dl class="counts" aria-label="データ件数">
+    <div class="count"><dt>全データ</dt><dd id="sourceCount">-</dd></div>
+    <div class="count"><dt>条件該当</dt><dd id="matchedCount">-</dd></div>
+    <div class="count"><dt>地図対象</dt><dd id="mapTargetCount">-</dd></div>
+    <div class="count"><dt>現在の個別記号</dt><dd id="renderedCount">-</dd></div>
+    <div class="count"><dt>座標不正除外（全体）</dt><dd id="invalidCount">-</dd></div>
+    <div class="count"><dt>重複除外</dt><dd id="duplicateCount">-</dd></div>
+  </dl>
+
+  <h2>活動分類の凡例</h2>
+  <ul class="legend-list" aria-label="活動分類の凡例">
+    <li><span class="symbol exercise"></span>体操・運動</li>
+    <li><span class="symbol prevention"><span></span></span>介護・認知症予防</li>
+    <li><span class="symbol social"></span>交流・茶話</li>
+    <li><span class="symbol meal"></span>食事・栄養</li>
+    <li><span class="symbol hobby"></span>趣味・文化</li>
+    <li><span class="symbol other"></span>その他</li>
+    <li><span class="symbol unknown"></span>記載なし</li>
+  </ul>
+  <p class="source">縮小時はQTCTの集約画像、拡大時は個別記号を表示します。</p>
+
+  <h2>データ情報</h2>
+  <table class="metadata">
+    <tbody>
+      <tr><th>対象年月</th><td id="dataPeriod">-</td></tr>
+      <tr><th>提供元出力日</th><td id="outputDate">-</td></tr>
+      <tr><th>アプリ取得日時</th><td id="fetchedAt">-</td></tr>
+      <tr><th>取得形式・サイズ</th><td id="payloadFormat">-</td></tr>
+      <tr>
+        <th>掲載元</th>
+        <td>
+          <a href="https://www.mhlw.go.jp/stf/kayoinoba_opendata_00002.html"
+             target="_blank" rel="noopener noreferrer">通いの場のオープンデータ</a>
+          ／ <a id="dataFileLink" href="https://www.mhlw.go.jp/stf/kayoinoba_opendata_00002.html"
+                target="_blank" rel="noopener noreferrer">データ</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <details>
+    <summary>出典・利用条件・注意事項</summary>
+    <p>
+      出典：「通いの場のオープンデータ」（厚生労働省）
+      （対象年月は上表）。介護サービス情報公表システムから抽出したデータです。
+    </p>
+    <p>
+      「通いの場のオープンデータ」（厚生労働省）を検索用に正規化・分類し、
+      QTCTによる地図表示へ加工して作成しています。
+    </p>
+    <p>
+      <a href="https://www.mhlw.go.jp/chosakuken/index.html"
+         target="_blank" rel="noopener noreferrer">厚生労働省ホームページ利用規約</a>
+      （<a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0"
+          target="_blank" rel="noopener noreferrer">PDL1.0</a>、CC BY互換）に従います。
+    </p>
+    <p>
+      データは自治体の登録状況に依存し、最新状況や正確性を保証しません。
+      料金は明記された語句だけで無料・有料を分類します。フラグは
+      1を「あり」、0を「なし」、空欄・未知値を「不明」として扱います。
+      更新は通常、毎年6月末・12月末時点です。
+    </p>
+  </details>
+</body>
+</html>
