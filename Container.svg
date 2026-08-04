@@ -199,7 +199,9 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
 <!-- モビリティ -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg" title="シェアサイクル・マイクロモビリティ(GBFS)" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=toyama" title="CyclOcity（富山）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=hellocycling" title="HELLO CYCLING" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=docomo-cycle" title="ドコモ・バイクシェア（全国）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeKantoBusAllLinesVehicle/odptRealtimeKantoBusAllLinesVehicle.svg#proxy=https://kantobus-odpt-proxy.svgmap.workers.dev" title="関東バスロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
   
 <!-- その他政府/民間 アプリレイヤー -->
