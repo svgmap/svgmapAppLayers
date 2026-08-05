@@ -44,14 +44,34 @@ function getCORSURL(srcUrl){
 	return ( srcURL );
 }
 
-onload=async function(){
+onload = async function(){
 	var p_csvIndexContent = getCORSURL(csvIndexContent);
-	console.log("Index Content URL:",csvIndexContent);
+	console.log("Index Content URL:", csvIndexContent);
 	var srcContent = await getLatestGsiCsvUrl(p_csvIndexContent);
-	console.log("Csv Src Content URL:",srcContent);
+	console.log("Csv Src Content URL:", srcContent);
 	var srcURL = getCORSURL(srcContent);
+	
 	var res = await fetch(srcURL);
-	var txt = await res.text();
+	
+	// --- 文字化け対策（自動判別） ---
+	// text()ではなく、生のバイナリデータ（ArrayBuffer）として取得する
+	var buffer = await res.arrayBuffer();
+	var txt = "";
+	
+	try {
+		// まずUTF-8としてデコードを試みる
+		// fatal: true を指定すると、UTF-8以外の文字（SJISなど）が混ざっていた場合に例外(Error)を投げる
+		const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+		txt = utf8Decoder.decode(buffer);
+		console.log("UTF-8としてデコードしました。");
+	} catch (e) {
+		// UTF-8でのデコードに失敗した場合（例外が発生した場合）は、Shift_JISとしてデコードする
+		console.log("UTF-8ではない文字コードを検出したため、Shift_JISでデコードします。");
+		const sjisDecoder = new TextDecoder("shift_jis");
+		txt = sjisDecoder.decode(buffer);
+	}
+	// ------------------------------
+	
 	printCsv(txt);
 }
 
