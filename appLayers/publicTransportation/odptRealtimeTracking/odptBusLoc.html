@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>バス リアルタイム運行情報</title>
+<style>
+body {
+  margin: 6px;
+  font-family: sans-serif;
+  font-size: 12px; /* 13px -> 12px に縮小 */
+  line-height: 1.3; /* 行間を圧縮 */
+  color: #222;
+}
+[hidden] {
+  display: none !important;
+}
+h3 {
+  margin: 0 0 6px 0;
+  font-size: 14px; /* タイトルのはみ出し防止 */
+  line-height: 1.2;
+  padding-right: 18px; /* 右上のXボタンと被らないように余白を確保 */
+  word-break: break-all;
+}
+p {
+  margin: 4px 0 6px;
+}
+table {
+  width: 100%;
+  margin: 4px 0;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 3px 4px; /* セルの余白を圧縮 */
+  border: 1px solid #ccc;
+  text-align: left;
+  vertical-align: middle;
+}
+th {
+  background: #eef2f7;
+}
+.summary-table > tbody > tr > th {
+  width: 32%;
+}
+.selector {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+select,
+input[type="search"] {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 2px 4px;
+  font: inherit;
+}
+.controls,
+.list-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.auto-note {
+  color: #555;
+  font-size: 11px;
+}
+.list-tools input {
+  flex: 1;
+}
+.filter-count {
+  flex: 0 0 auto;
+  color: #555;
+  white-space: nowrap;
+}
+.status {
+  min-height: 1.2em;
+  color: #444;
+  margin-bottom: 4px;
+}
+.status.error {
+  color: #b00020;
+}
+.legend {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 2px 0 6px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #777;
+  vertical-align: -1px;
+}
+.legend:first-child {
+  margin-left: 0;
+}
+.moving { background: #0878d1; }
+.stopped { background: #e87917; }
+.stale { background: #777; }
+.selected-vehicle { background: #e0041d; }
+button {
+  padding: 2px 8px;
+}
+.result-list {
+  max-height: 400px;
+  overflow: auto;
+  border: 1px solid #ccd3da;
+  border-radius: 4px;
+  background: #f7f9fb;
+}
+.data-card {
+  margin: 4px;
+  border: 1px solid #c7d0da;
+  border-radius: 4px;
+  background: #fff;
+}
+.data-card summary {
+  padding: 5px;
+  cursor: pointer;
+}
+.data-card[open] summary {
+  border-bottom: 1px solid #d8dee5;
+  background: #f5f8fb;
+}
+.summary-main {
+  word-break: break-all;
+}
+.route-badge,
+.delay-badge,
+.alert-severity {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.route-badge {
+  background: #e3eef9;
+  color: #12558a;
+}
+.delay-normal { background: #e6f3e8; color: #25662d; }
+.delay-late { background: #fde5df; color: #a12613; }
+.delay-early { background: #e5efff; color: #24569b; }
+.alert-severity { background: #e8ebef; color: #3f4750; }
+.severity-3 { background: #fff0c2; color: #735000; }
+.severity-4 { background: #fbd8d3; color: #9c1c0c; }
+.detail-content {
+  padding: 0 5px 5px;
+}
+.metadata-table th {
+  width: 32%;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.stop-table {
+  min-width: 500px;
+  font-size: 11px;
+}
+.stop-table th {
+  white-space: nowrap;
+}
+.alert-description {
+  margin: 6px 0;
+  padding: 5px;
+  border-left: 3px solid #5486b8;
+  background: #f4f7fa;
+  white-space: pre-wrap;
+}
+.vehicle-selection-message {
+  margin: 6px 0;
+  padding: 4px 6px;
+  border-left: 3px solid #f3c400;
+  background: #fffbea;
+}
+.vehicle-selection-message.error {
+  border-left-color: #b00020;
+  background: #fff0f1;
+  color: #b00020;
+}
+.empty-state {
+  padding: 8px;
+  color: #555;
+  text-align: center;
+}
+/* 出典表記用のスタイルを追加 */
+.citation {
+  margin-top: 8px;
+  font-size: 10px;
+  text-align: right;
+  color: #666;
+}
+.citation a {
+  color: #0056b3;
+  text-decoration: none;
+}
+.citation a:hover {
+  text-decoration: underline;
+}
+/* 以下を追加 */
+.footer-disclaimer {
+  font-size: 11px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #ccc;
+  font-size: 10px;
+  color: #555;
+  line-height: 1.4;
+}
+.footer-disclaimer a { color: #0056b3; text-decoration: none; }
+.footer-disclaimer a:hover { text-decoration: underline; }
+.disclaimer-alert {
+  margin-top: 6px;
+  color: #777;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="gtfsRealtime.js"></script>
+<script src="odptCkanScraper.js"></script>
+<script src="odptBusLoc.js"></script>
+</head>
+<body>
+<h3 id="appTitle">バス リアルタイム運行情報</h3>
+
+<div class="selector">
+  <label for="operatorSelect">公共交通事業者</label>
+  <select id="operatorSelect" disabled>
+    <option value="">事業者一覧を読み込み中...</option>
+  </select>
+</div>
+
+<div class="selector">
+  <label for="dataTypeSelect">表示データ</label>
+  <select id="dataTypeSelect">
+    <option value="vehicle">車両位置 (VehiclePosition)</option>
+    <option value="trip">ルート更新情報 (TripUpdates)</option>
+    <option value="alert">運行情報 (Alert)</option>
+  </select>
+</div>
+
+<div class="controls">
+  <button id="refreshButton" type="button">今すぐ更新</button>
+  <span class="auto-note">車両位置は30秒ごとに自動更新</span>
+</div>
+
+<!-- 改行を防ぐために、span でまとめています -->
+<div style="font-size: 11px; margin: 6px 0; color: #444; border-top: 1px dashed #ccc; padding-top: 6px;">
+  <span style="display:inline-block; margin-right:8px;">次回の更新まで: <strong><span id="countdown" style="color: #007bff; font-size: 13px;">30</span></strong> 秒</span>
+  <span style="display:inline-block;">軌跡: 過去 <strong><span id="trailTime" style="color: #007bff;">0分0秒</span></strong> まで表示中</span>
+</div>
+
+<div id="statusMessage" class="status" role="status" aria-live="polite">読み込み待ち</div>
+
+<table class="summary-table">
+  <tr><th>地図上の車両</th><td id="vehicleMapCount">-</td></tr>
+  <tr><th>車両データ時刻</th><td id="vehicleDataTimestamp">-</td></tr>
+  <tr id="selectedCountRow" hidden><th id="countLabel">選択データ件数</th><td id="countValue">-</td></tr>
+  <tr id="selectedDataTimestampRow" hidden><th>選択データ時刻</th><td id="dataTimestamp">-</td></tr>
+  <tr><th>最終取得</th><td id="lastFetched">-</td></tr>
+  <tr id="legendRow">
+    <th>凡例</th>
+    <td>
+      <span class="legend moving"></span>走行中 
+      <span class="legend stopped"></span>停車中 
+      <span class="legend stale"></span>5分以上前 
+      <span class="legend selected-vehicle"></span>選択
+    </td>
+  </tr>
+</table>
+
+<p id="vehicleHelp" style="font-size:11px;">車両アイコン、またはTripUpdatesの便詳細を開くと、対象車両の詳細を確認できます。</p>
+
+<div id="listTools" class="list-tools" hidden>
+  <input id="resultFilter" type="search" aria-label="一覧を絞り込み" placeholder="一覧を絞り込み">
+  <span id="filterCount" class="filter-count">0件</span>
+</div>
+
+<div id="resultList" class="result-list" aria-live="polite" hidden></div>
+
+<!-- ライセンス準拠・権利表示・免責エリアに置き換え -->
+<div class="footer-disclaimer">
+  <div id="odptCitation">出典情報読込中...</div>
+  <div class="disclaimer-alert">
+    ※データの正確性について、センター及び各事業者は一切の責任を負いません。<br>
+    ※各事業者への直接のお問い合わせはお断りします（お問い合わせは開発者まで）。
+  </div>
+</div>
+
+</body>
+</html>

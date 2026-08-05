@@ -40,7 +40,6 @@
 <animation class="GIS clickable editable" xlink:href="./geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
 
 <!-- オーサリングツール的なもののグループ -->
-<animation xlink:href="./appLayers/leafletOverlay/leafletOverlay.svg" title="Leaflet Overlay" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" visibility="hidden"/>
 <animation xlink:href="./appLayers/leafletOverlay/leafletOverlay.svg" title="leafletオーバーレイ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/kmlLoader/kmlLoader.svg" title="KML(MyMaps)データ表示" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./authoringLayers/local/vectorFileLoader/vectorFileLoader3.svg" title="shape・GeoJSONファイル表示" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="オーサリング・ファイル clickable" opacity="0.6" visibility="hidden"/>
@@ -202,7 +201,7 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=toyama" title="CyclOcity（富山）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=hellocycling" title="HELLO CYCLING" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=docomo-cycle" title="ドコモ・バイクシェア（全国）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeKantoBusAllLinesVehicle/odptRealtimeKantoBusAllLinesVehicle.svg#proxy=https://kantobus-odpt-proxy.svgmap.workers.dev" title="関東バスロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeTracking/odptBusLoc.svg" title="公共交通ロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
   
 <!-- その他政府/民間 アプリレイヤー -->
 <animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/mhlw_Kayoinoba/kayoinoba.svg"  class="POI"  title="厚労省 通いの場 マップ"  visibility="hidden"/>
