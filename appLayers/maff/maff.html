@@ -1,0 +1,487 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script >
+//
+// eMAFF農地ナビ LaWA
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+
+// eMAFFプロキシのパス
+let proxyUrl = "./maff_proxy.php"; 
+
+let polyDataG;
+
+onload = function(){
+	if ( svgImageProps.hash.indexOf("proxy=")>0){
+		proxyUrl = svgImageProps.hash.substring(svgImageProps.hash.indexOf("proxy=")+6);
+	}
+	window.addEventListener("zoomPanMap", testZoom);
+	svgMap.setShowPoiProperty(showMaffProperty, layerID);
+	polyDataG = svgImage.getElementById("data");
+	testZoom();
+}
+
+async function testZoom(){
+	const vb = svgMap.getGeoViewBox();
+	const dispTh = tileSpan*1.5;
+	//console.log("gvb:", vb);
+
+	// 【重要】ズームレベルの制限（任意）
+	// 日本全国のような広すぎる領域をリクエストすると、eMAFF側で弾かれたり
+	// データが多すぎてブラウザがフリーズする可能性があります。
+	// 例: 経度の幅が 設定 未満の時だけデータ取得する
+	if (vb.width > dispTh) {
+			msg.innerText=`領域が広すぎるため、表示をスキップします。あと${(vb.width/dispTh).toFixed(1)}倍ズームインしてください。`;
+		//console.log("領域が広すぎるため、データ取得をスキップします。もう少しズームインしてください。");
+		clearTileMap();
+	} else {
+		if ( vb.width < dispTh*0.2){
+//			console.log("ポリゴンデータも表示を試みます");
+			drawMapPoly(vb);
+		} else {
+			removeChildren(polyDataG);
+		}
+//		await drawMap(vb);
+		await drawMapTiles(vb);
+	}
+}
+
+async function drawMapPoly(bbox){
+	try {
+		//console.log("eMAFFへデータ要求中...", bbox);
+		msg.innerText="eMAFFバックエンドへデータ要求中...";
+		const geojson = await fetchMaffPoints(bbox,"polygon");
+		polygon2polyline(geojson);
+//		console.log(`MAFF polygonデータ取得成功: `, geojson);
+		drawData(geojson);
+	} catch (e) {
+		console.error("eMAFFデータの取得に失敗しました", e);
+		msg.innerText="eMAFFデータの取得に失敗しました";
+		clearTileMap();
+	}
+}
+
+function polygon2polyline(gj){
+	for ( const f of gj.features){
+		if (f.geometry.type=="Polygon"){
+			f.geometry.type="MultiLineString";
+		} else if (f.geometry.type === "MultiPolygon") {
+			f.geometry.type = "MultiLineString";
+			f.geometry.coordinates = f.geometry.coordinates.flat(1);
+		}
+	}
+}
+
+function drawData(gj){
+	removeChildren(polyDataG);
+//	msg.innerText=gj.features.length+"個の情報を取得";
+	svgMapGIStool.drawGeoJson(gj, layerID, "darkgreen", 0.5, "white", "p0", "title", null, polyDataG, metaDict);
+	svgMap.refreshScreen();
+}
+
+function clearTileMap(){
+	removeChildren(polyDataG);
+	var tileGroups=svgImage.getElementsByTagName("g");
+	for ( let i = tileGroups.length-1 ; i >=0  ; i--){
+		const tile = tileGroups[i];
+		const tileId = tile.getAttribute("id");
+		if ( tileId.startsWith("tile_")){
+			//console.log("remove:",tileId);
+			tile.parentElement.removeChild(tile);
+		}
+	}
+	svgMap.refreshScreen();
+}
+
+let  metaDict = null;
+
+
+// ==========================================
+// リクエストのタイル化とそのキャッシュメカニズム付きの描画機能
+// ==========================================
+
+// オブジェクトではなく、挿入順を記憶できる Map を使用する（LRUキャッシュ用）
+const tileCache = new Map(); 
+const MAX_CACHE_SIZE = 512; // メモリを保護するための最大キャッシュタイル数
+const tileSpan = 0.05;
+
+// tileSpan[deg]のタイルを作る
+async function drawMapTiles(bbox){
+	msg.innerText="eMAFFバックエンドへデータ要求中...";
+	
+	// タイル境界と必要なループ数の計算（オフセット完全対応版）
+	const tx0 = Math.floor(bbox.x / tileSpan) * tileSpan;
+	const ty0 = Math.floor(bbox.y / tileSpan) * tileSpan;
+	const twn = Math.floor(((bbox.x + bbox.width) - tx0)/tileSpan) + 1;
+	const thn = Math.floor(((bbox.y + bbox.height) - ty0)/tileSpan) + 1;
+	
+	const bboxHash = [];
+	const reqTilesHash = [];
+	const reqTilesP = [];
+	
+	// 必要なタイルを洗い出し、未取得のものだけリクエストを投げる
+	for ( let yn = 0 ; yn < thn ; yn++){
+		const y0 = ty0 + yn * tileSpan;
+		for ( let xn = 0 ; xn < twn ; xn++){
+			const x0 = tx0 + xn * tileSpan;
+			// 浮動小数点の端数によるハッシュ不一致を防ぐための丸め処理
+			const tileHash = `tile_${x0.toFixed(4)}_${y0.toFixed(4)}`;
+			bboxHash.push(tileHash);
+			
+			if ( !tileCache.has(tileHash) ){
+				// 二重リクエスト防止のロック
+				tileCache.set(tileHash, "fetching");
+				
+				const reqbb = {
+					x: x0,
+					y: y0,
+					width: tileSpan,
+					height: tileSpan
+				};
+				reqTilesHash.push(tileHash);
+				
+				// リクエストを実行（失敗した場合はロックを解除して空データを返す）
+				const fetchPromise = fetchMaffPoints(reqbb).catch(err => {
+					console.error(`タイル取得失敗 [${tileHash}]:`, err);
+					tileCache.delete(tileHash);
+					return { type: "FeatureCollection", features: [] };
+				});
+				reqTilesP.push(fetchPromise);
+				
+			} else if ( tileCache.get(tileHash) !== "fetching" ) {
+				// LRU管理：既存キャッシュにヒットした場合は、最新の履歴として最後尾に移動させる
+				const existingData = tileCache.get(tileHash);
+				tileCache.delete(tileHash);
+				tileCache.set(tileHash, existingData);
+			}
+		}
+	}
+	
+	// 新規リクエストがあれば待機し、キャッシュに格納する
+	if (reqTilesP.length > 0) {
+		const tileGJs = await Promise.all(reqTilesP);
+		
+		for ( let i = 0 ; i < tileGJs.length ; i++){
+			const hashKey = reqTilesHash[i];
+			const gj = tileGJs[i];
+			
+			// ツールチップ用プロパティ付与
+			addMaffGjTitle(gj); 
+			// キャッシュに実データを格納（"fetching" を上書き）
+			tileCache.set(hashKey, gj);
+			
+			// LRUキャッシュ上限チェック：超えたら最も古いものを捨てる
+			if (tileCache.size > MAX_CACHE_SIZE) {
+				const oldestKey = tileCache.keys().next().value;
+				tileCache.delete(oldestKey);
+				// console.log(`キャッシュ上限到達: 古いタイルを破棄 [${oldestKey}]`);
+			}
+		}
+	}
+
+	// 画面外になった不要なタイルDOMを削除する
+	var tileGroups = svgImage.getElementsByTagName("g");
+	// 逆順ループで生きたHTMLCollectionから安全に削除
+	for ( let i = tileGroups.length - 1 ; i >= 0 ; i-- ){
+		const tile = tileGroups[i];
+		const tileId = tile.getAttribute("id");
+		if ( tileId.startsWith("tile_") ){
+			if ( !bboxHash.includes(tileId) ){
+				tile.parentElement.removeChild(tile);
+			}
+		}
+	}
+	
+	// 不足している（画面内に入ってきた）タイルDOMを追加する
+	let fts = 0; // 現在表示中の合計件数
+	for ( const tileId of bboxHash ){
+		const gj = tileCache.get(tileId);
+		
+		// データが正常にあり、かつ"fetching"（通信中）ではない場合のみ処理
+		if ( gj && gj !== "fetching" ) {
+			fts += gj.features.length; // 件数カウント
+			
+			// DOMにまだ無ければ描画
+			if ( !svgImage.getElementById(tileId) ){
+				const grp = svgImage.createElement("g");
+				grp.setAttribute("id", tileId);
+				svgImage.documentElement.appendChild(grp);
+				
+				svgMapGIStool.drawGeoJson(gj, layerID, "darkgreen", 2, "white", "p0", "title", null, grp, metaDict);
+			}
+		}
+	}
+	
+	// ステータス更新
+	if ( reqTilesP.length > 0 ){
+		msg.innerText = `新規データ取得完了（表示中: ${fts} 点）`;
+	} else {
+		msg.innerText = `キャッシュから描画（表示中: ${fts} 点）`;
+	}
+	
+	svgMap.refreshScreen();
+}
+
+function addMaffGjTitle(geojson){
+	for ( var ft of geojson.features){
+		//console.log(ft);
+		ft.properties.title=`${ft.geometry.coordinates[1].toFixed(6)},${ft.geometry.coordinates[0].toFixed(6)}`;
+	}
+}
+
+async function showMaffProperty(target){
+	//console.log("showMaffProperty:",target);
+	/**
+	Array.from(target.attributes).forEach(attr => {
+		console.log(`属性名: ${attr.name}, 値: ${attr.value}`);
+		});
+	**/
+	var message = "<table border='1' style='font-size:11px;word-break: break-all;table-layout:fixed;width:100%;border:solid blue;border-collapse: collapse'>";
+	message += "<tr><th style='width:30%'>property</th><th>value</th></tr>";
+	
+	
+	var lats = target.getAttribute("lat").split(",");
+	var lons = target.getAttribute("lng").split(",");
+	lats.forEach(function(val,idx){lats[idx]=Number(val)});
+	lons.forEach(function(val,idx){lons[idx]=Number(val)});
+	var lat = (lats[0]+lats[1])/2;
+	var lon = (lons[0]+lons[1])/2;
+	var bbox = {
+		lat0:(lats[0]),
+		lat1:(lats[1]),
+		lon0:(lons[0]),
+		lon1:(lons[1]),
+	}
+	//console.log(lats,lons,bbox,lat,lon);
+	var layerName = target.getAttribute("data-layername");
+	message += `<tr><td>layerName</td><td>${layerName}</td></tr>`;
+	message += `<tr><td>lat</td><td>${lat}</td></tr>`;
+	message += `<tr><td>lon</td><td>${lon}</td></tr>`;
+
+	
+	var message0 = message + `<tr><td colspan="2" style="color:purple">データ取得中</td></tr>`;
+	message0 += "</table>";
+	svgMap.showModal(message0, 450, 540);
+	
+	const geojson = await fetchMaffPoints(bbox,true);
+	//console.log(geojson);
+
+	var targetFt;
+	var minDif = 10;
+	
+	for ( var ft of geojson.features){
+		var dlat = Math.abs(ft.geometry.coordinates[1] - lat);
+		var dlon = Math.abs(ft.geometry.coordinates[0] - lon);
+		var dif = dlat*dlon;
+		//console.log(dif);
+		if ( dif < minDif){
+			targetFt = ft;
+			minDif = dif;
+		}
+	}
+	console.log("targetFt:",targetFt, "  minDif:",minDif);
+	for ( var key in targetFt.properties ){
+		var val = targetFt.properties[key];
+		var keyName = maffPropertyMap[key];
+		if ( !keyName){
+			keyName = key;
+		}
+		if ( val ){
+			message += `<tr><td>${keyName}</td><td>${val}</td></tr>`;
+		}
+	}
+	message += "</table>";
+	svgMap.showModal(message, 450, 540);
+}
+
+/**
+ * eMAFFエンドポイントから、指定BBox内の農地データ（ピンまたはポリゴン）を取得する
+ * （自前のPHPプロキシ経由でWAFを突破するハック版）
+ * @param {Object} bbox - { lat0: 南端, lon0: 西端, lat1: 北端, lon1: 東端 }
+ * @param {boolean|string} getDetail - false: 軽量ピン, true: 詳細ピン, "polygon": 詳細ポリゴン
+ * @returns {Promise<Object>} GeoJSON (FeatureCollection)
+ */
+async function fetchMaffPoints(bbox, getDetail = false) {
+    
+	if (!bbox){ return; }
+	if (bbox.width){
+		bbox.lat0 = bbox.y;
+		bbox.lon0 = bbox.x;
+		bbox.lat1 = bbox.y + bbox.height;
+		bbox.lon1 = bbox.x + bbox.width;
+	}
+
+	// モード判定
+	const isPolygonMode = (getDetail === "polygon");
+	const isDetailPinMode = (getDetail === true);
+	const isLightPinMode = (getDetail === false);
+
+	// レイヤーIDの切り替え（キャプチャ結果より、ポリゴンは別レイヤーID）
+	const pinLayerId = "aaa81ee7-f2af-44fe-a6d1-2f8e0b834056";
+	const polygonLayerId = "25f37bd7-da6b-4003-ba19-4209efad176c";
+	const layerId = isPolygonMode ? polygonLayerId : pinLayerId;
+
+	// 共通ペイロード
+	const payload = {
+		systemID: "d45b4360-2d8f-86e0-84e1-9d5949e3624d",
+		layerIdArr: [layerId],
+		isNeedKojinJuho: false,
+		koukaiFlag: true,
+		extent: {
+			lat1: bbox.lat1,
+			lon1: bbox.lon0,
+			lat2: bbox.lat0,
+			lon2: bbox.lon1
+		},
+		fileType: "1",
+		searchArr: {},
+		riyouSceneID: "S00I000_Apl",
+		isGeometryDownloadFlag: false
+	};
+
+	// --- 核心部のハックパラメータ ---
+	if (isPolygonMode) {
+		// 【ポリゴン取得モード】 キャプチャデータに準拠
+		payload.isResAttribute = true;
+		payload.isOnlyPolygon = true;
+	} else {
+		// 【ピン取得モード】 軽量 or 詳細
+		payload.isResAttribute = isDetailPinMode;
+		payload.isOnlyPin = true;
+		payload.clusterDisplayFlag = false; // サーバー側で紫のクラスタに丸めない
+	}
+
+	try {
+		const response = await fetch(proxyUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(payload)
+		});
+
+		if (!response.ok) {
+			throw new Error(`eMAFF API通信エラー: HTTP ${response.status}`);
+		}
+
+		const rawData = await response.json();
+
+		// 期待通りデータが返ってきているかチェックしてGeoJSONだけを返す
+		// （動的にlayerIdを変えているので rawData.data[layerId] で抽出）
+		if (rawData.result && rawData.data && rawData.data[layerId]) {
+			return rawData.data[layerId];
+		}
+
+		// 該当エリアにデータがない場合は空のFeatureCollectionを返す
+		return { type: "FeatureCollection", features: [] };
+
+	} catch (err) {
+		console.error(`[fetchMaffPoints(getDetail=${getDetail})] 取得失敗:`, err);
+		return { type: "FeatureCollection", features: [] };
+	}
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+/**
+ * "ref(svg, x, y)" 形式の文字列からxとyの数値を抽出する
+ * @param {string} str - 例: "ref(svg,13907.639800100003,-3628.8624362000064)"
+ * @returns {number[] | null} - [x, y] の配列。パース失敗時はnull
+ */
+function extractRefCoordinates(str) {
+	console.log(str);
+    // 正規表現で "ref(svg," と ")" の間にある2つの数値をキャプチャ
+    // (-?\d+\.?\d*) は「マイナスがつくかもしれない整数または小数」を意味します
+    const regex = /ref\(svg,\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*\)/;
+    const match = str.match(regex);
+
+    if (match) {
+        // 文字列として抽出された数値を、扱いやすいようにfloatに変換して返す
+        return [parseFloat(match[1])/100, -1*parseFloat(match[2])/100];
+    }
+    
+    // マッチしなかった場合
+    console.warn("文字列の形式が正しくありません:", str);
+    return null;
+}
+
+const maffPropertyMap = {
+	// === 基本情報・所在地 ===
+	"DaichoId": "台帳ID",
+	"daicho_shubetsu_cd": "台帳種別コード",
+	"TodofukenCode": "都道府県コード",
+	"ShikuchosonCode": "市区町村コード",
+	"OazaCode": "大字コード",
+	"Address": "所在地（住所）",
+	"Tiban": "地番",
+
+	// === 面積・地目 ===
+	"AreaOnRegistry": "登記面積 (㎡)",
+	"ClassificationOfLand": "地目コード",
+	"ClassificationOfLandCodeName": "地目", // 例: 田、畑
+
+	// === 法令区分 ===
+	"SectionOfNoushinhou": "農振法区分コード",
+	"SectionOfNoushinhouCodeName": "農振法区分", // 例: 農業振興地域内・農用地区域内(青地)
+	"SectionOfToshikeikakuhou": "都市計画法区分コード",
+	"SectionOfToshikeikakuhouCodeName": "都市計画法区分", // 例: 市街化調整区域
+
+	// === 権利関係（賃借権・中間管理権など） ===
+	"KindOfRight": "権利の種類コード",
+	"KindOfRightCodeName": "権利の種類", // 例: 使用貸借権
+	"CommencementDate": "権利設定の始期", // 例: 20211201
+	"EndStagesDate": "権利設定の終期", // 例: 20261130
+	"RightSettingContents": "権利設定内容コード",
+	"RightSettingContentsCodeName": "権利設定内容", // 例: 農地中間管理権が設定されていない
+	"RightOfMiddleManagement": "農地中間管理権", 
+
+	// === 所有者の意向・調査情報 ===
+	"FarmerIndicationNumberHash": "農業者番号ハッシュ",
+	"OwnerFarmIntention": "所有者の意向コード",
+	"OwnerFarmIntentionCodeName": "所有者の意向", // 例: 非公表
+	"OwnerStatementIntentSurveyResults": "意向調査結果コード",
+	"OwnerStatementIntentSurveyResultsCodeName": "意向調査結果", // 例: 調査対象外
+
+	// === 遊休農地調査関連 ===
+	"UsageSituationInvestigationDate": "利用状況調査日",
+	"UsageSituationInvestigationResult": "利用状況調査結果コード",
+	"UsageSituationInvestigationResultCodeName": "利用状況", // 例: 遊休農地ではない
+	"UseIntentionInvestigationDate": "利用意向調査日",
+	"UseIntentionAscertainmentResult": "利用意向把握結果コード",
+	"UseIntentionAscertainmentResultCodeName": "利用意向把握結果", // 例: 対象外
+
+	// === 農地法に基づく行政指導・処分（遊休農地対策） ===
+	"RecommendationContenDate": "勧告年月日", // 農業委員会からの貸付勧告
+	"PublicNoticeDate": "公示年月日", // 共有者不明等の公示
+	"ActionOrderDate": "措置命令年月日", // 市町村長からの措置命令
+	"MayorPublicAnnouncementDate": "市町村長公告年月日", // 裁定等の公告
+
+	// === 管理情報 ===
+	"FarmCommitteeCd": "農業委員会コード",
+	"FarmCommitteeName": "管轄農業委員会",
+	"SectionOfPolygon": "ポリゴン区分コード",
+	"SectionOfPolygonCodeName": "ポリゴン区分" // 例: 農業委員会管理のポリゴン
+};
+
+</script>
+
+<body>
+<h4>eMAFF 農地ポイントレイヤ</h4>
+<p style="font-size:12px">出典：<a href="https://map.maff.go.jp/" target="_blank">eMAFF農地ナビ</a> 農林水産省</p>
+<div id="msg" style="font-size:11px">-</div>
+</body>
+</html>
