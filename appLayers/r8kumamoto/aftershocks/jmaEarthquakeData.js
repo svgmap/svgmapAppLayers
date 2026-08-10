@@ -1,4 +1,7 @@
-// License: MPL-2.0
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 export const JMA_FEED_URL = "https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml";
 export const MAIN_SHOCK_SOURCE = "https://www.data.jma.go.jp/eew/data/mech/fig/mc2026072816270000N323600E13042000100071.html";
