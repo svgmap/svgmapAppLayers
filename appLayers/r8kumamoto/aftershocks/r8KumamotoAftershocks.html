@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>令和8年熊本地震 地震活動</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 8px; color: #1f2937; font-size: 13px; line-height: 1.45; }
+    h1 { margin: 0 0 8px; font-size: 17px; }
+    h2 { margin: 10px 0 5px; font-size: 14px; }
+    button { min-height: 30px; font: inherit; }
+    .status { min-height: 1.5em; margin: 7px 0; padding: 6px 8px; border-left: 4px solid #2563eb; background: #eff6ff; }
+    .status.warning { border-color: #d97706; background: #fffbeb; color: #78350f; }
+    .status.error { border-color: #b91c1c; background: #fef2f2; color: #7f1d1d; }
+    .scale { display: flex; flex-wrap: wrap; gap: 4px 9px; }
+    .scale span::before { content: "●"; margin-right: 3px; color: var(--c); }
+    .notice { padding: 7px 9px; background: #f8fafc; border-left: 3px solid #64748b; font-size: 11px; }
+    a { color: #075ea8; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <script type="module" src="./r8KumamotoAftershocks.js"></script>
+</head>
+<body>
+  <h1>本震・最新の地震活動</h1>
+  <button id="refreshButton" type="button">気象庁フィードを再取得</button>
+  <div id="statusMessage" class="status" role="status" aria-live="polite">初期化待ち</div>
+  <p>フィード更新: <span id="feedUpdated">-</span> ／ 熊本周辺 <span id="eventCount">-</span>件（本震を含む）</p>
+  <h2>凡例</h2>
+  <p>円の大きさ：マグニチュード</p>
+  <div class="scale">
+    <span style="--c:#3b82f6">震度3</span><span style="--c:#facc15">4</span><span style="--c:#fb923c">5弱</span><span style="--c:#ef4444">6弱</span><span style="--c:#7f1d1d">7</span>
+  </div>
+  <p class="notice">出典：<a href="https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml" target="_blank" rel="noopener noreferrer">気象庁 防災情報XMLフィード</a>。フィードの保持期間内に配信された「震源・震度に関する情報」から熊本周辺を抽出します。全余震の履歴ではありません。本震は<a href="https://www.data.jma.go.jp/eew/data/mech/fig/mc2026072816270000N323600E13042000100071.html" target="_blank" rel="noopener noreferrer">気象庁の発震機構解</a>を固定表示します。</p>
+</body>
+</html>

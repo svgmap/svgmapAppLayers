@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>令和8年熊本地震 道路状況</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 8px; color: #1f2937; font-size: 13px; line-height: 1.45; }
+    h1 { margin: 0 0 8px; font-size: 17px; }
+    h2 { margin: 10px 0 5px; font-size: 14px; }
+    p { margin: 5px 0; }
+    fieldset { margin: 8px 0; padding: 7px 9px; border: 1px solid #cbd5e1; }
+    legend { padding: 0 4px; font-weight: 700; }
+    label { display: block; margin: 5px 0; }
+    select, button { min-height: 30px; font: inherit; }
+    select { width: 100%; padding: 3px 5px; }
+    button { padding: 3px 9px; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 7px 0; }
+    .status { min-height: 1.5em; padding: 6px 8px; border-left: 4px solid #2563eb; background: #eff6ff; }
+    .status.error { border-color: #b91c1c; background: #fef2f2; color: #7f1d1d; }
+    .status.warning { border-color: #d97706; background: #fffbeb; color: #78350f; }
+    .progress { min-height: 1.4em; color: #475569; font-size: 11px; }
+    .availability { margin-left: 4px; color: #64748b; font-size: 11px; }
+    .meta, .stats { width: 100%; border-collapse: collapse; }
+    .meta th, .meta td, .stats th, .stats td { padding: 4px 5px; border: 1px solid #cbd5e1; text-align: left; }
+    .meta th { width: 34%; background: #f8fafc; }
+    .stats { font-size: 11px; }
+    .stats th { background: #f8fafc; }
+    .stats td { text-align: right; font-variant-numeric: tabular-nums; }
+    .legend-list { margin: 5px 0; padding: 0; list-style: none; }
+    .legend-list li { display: flex; align-items: center; gap: 7px; margin: 4px 0; }
+    .line { display: inline-block; width: 42px; height: 0; border-top: 4px solid; flex: none; }
+    .road-active { border-color: #990000; border-top-width: 7px; }
+    .road-other { border-color: #999999; border-top-width: 7px; }
+    .etc-slow { border-color: #ff9900; }
+    .etc-fast { border-color: #0000ff; }
+    .travel { border-color: #c0504d; }
+    .notice { margin-top: 9px; padding: 7px 9px; border-left: 3px solid #64748b; background: #f8fafc; font-size: 11px; }
+    .notice ul { margin: 5px 0; padding-left: 18px; }
+    a { color: #075ea8; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <script type="module" src="./r8KumamotoRoad.js"></script>
+</head>
+<body>
+  <h1>令和8年熊本地震 道路状況</h1>
+
+  <label for="archiveSelect">表示時点</label>
+  <select id="archiveSelect" aria-describedby="archiveHelp"></select>
+  <p id="archiveHelp">国土交通省の掲載ページを確認し、最新データと日時別ZIPを動的に取得します。</p>
+
+  <div class="actions">
+    <button id="loadButton" type="button">選択時点を表示</button>
+    <button id="refreshButton" type="button">最新を再取得</button>
+    <button id="cancelButton" type="button" disabled>読み込み中止</button>
+  </div>
+
+  <fieldset>
+    <legend>表示する情報</legend>
+    <label><input id="roadToggle" type="checkbox" checked> 道路規制情報 <span id="roadAvailability" class="availability"></span></label>
+    <label><input id="etcToggle" type="checkbox" checked> ETC2.0平均速度 <span id="etcAvailability" class="availability"></span></label>
+    <label><input id="travelToggle" type="checkbox" checked> 民間プローブ通行実績 <span id="travelAvailability" class="availability"></span></label>
+  </fieldset>
+
+  <div id="statusMessage" class="status" role="status" aria-live="polite">初期化待ち</div>
+  <div id="progressMessage" class="progress" aria-live="polite"></div>
+
+  <h2>表示データ</h2>
+  <table class="meta">
+    <tr><th>掲載時点</th><td id="dataAsOf">-</td></tr>
+    <tr><th>道路規制時点</th><td id="roadAsOf">-</td></tr>
+    <tr><th>プローブ集計期間</th><td id="probePeriod">-</td></tr>
+    <tr><th>アプリ取得時刻</th><td id="fetchedAt">-</td></tr>
+    <tr><th>ZIP取得量</th><td id="archiveBytes">-</td></tr>
+  </table>
+
+  <h2>件数</h2>
+  <table class="stats">
+    <thead><tr><th>データ</th><th>元件数</th><th>表示件数</th><th>重複除去</th><th>不正除外</th></tr></thead>
+    <tbody>
+      <tr><th>道路規制</th><td id="roadOriginal">-</td><td id="roadUnique">-</td><td id="roadDuplicate">-</td><td id="roadInvalid">-</td></tr>
+      <tr><th>ETC2.0</th><td id="etcOriginal">-</td><td id="etcUnique">-</td><td id="etcDuplicate">-</td><td id="etcInvalid">-</td></tr>
+      <tr><th>通行実績</th><td id="travelOriginal">-</td><td id="travelUnique">-</td><td id="travelDuplicate">-</td><td id="travelInvalid">-</td></tr>
+    </tbody>
+  </table>
+
+  <h2>凡例</h2>
+  <ul class="legend-list" aria-label="道路状況の凡例">
+    <li><span class="line road-active"></span>道路規制（配信色・詳細は区間をクリック）</li>
+    <li><span class="line road-other"></span>道路規制のその他配信色（状態は属性で確認）</li>
+    <li><span class="line etc-slow"></span>ETC2.0平均速度 20km/h以下</li>
+    <li><span class="line etc-fast"></span>ETC2.0平均速度 21km/h以上</li>
+    <li><span class="line travel"></span>民間プローブの走行実績</li>
+  </ul>
+
+  <div class="notice">
+    <p>出典：<a href="https://www.mlit.go.jp/road/saigai/r8kumamoto/index.html" target="_blank" rel="noopener noreferrer">国土交通省「令和8年熊本地震 通れるマップ」</a>。国土交通省公開GeoJSONを重複除去・表示範囲処理して表示しています。</p>
+    <p><a href="https://www.mlit.go.jp/link.html" target="_blank" rel="noopener noreferrer">国土交通省の利用条件</a> ／ <a href="https://www.digital.go.jp/resources/open_data/public_data_license_v1.0" target="_blank" rel="noopener noreferrer">PDL1.0</a></p>
+    <ul>
+      <li>災害時の参考情報です。実際の通行可否は道路管理者・警察等の最新情報を確認してください。</li>
+      <li>通行実績には工事車両等が含まれ、一般車が通行できない場合があります。</li>
+      <li>掲載情報は後日修正される場合があります。</li>
+    </ul>
+    <p>民間プローブ提供元（順不同）：トヨタ自動車株式会社、日産自動車株式会社、本田技研工業株式会社、いすゞ自動車株式会社、日野自動車株式会社。</p>
+  </div>
+</body>
+</html>
