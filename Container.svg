@@ -197,6 +197,12 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
+<!-- R8熊本地震 -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/aftershocks/r8KumamotoAftershocks.svg" title="気象庁 震源・震度に関する情報" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/gsiDamage/r8KumamotoGsiDamage.svg" title="国土地理院の被災後正射画像" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/road/r8KumamotoRoad.svg" title="国土交通省 通れるマップ" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/supportActivities/r8KumamotoSupport.svg" title="九州地方整備局 給水・入浴・トイレ・照明・復旧活動" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+  
 <!-- モビリティ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=toyama" title="CyclOcity（富山）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=hellocycling" title="HELLO CYCLING" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
