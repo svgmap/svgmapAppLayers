@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="-42.8202042942663 -49.9999999999999 513.842451531196 600"
+     data-controller="r8KumamotoRoad.html#exec=appearOnLayerLoad&amp;requiredHeight=720&amp;requiredWidth=460"
+     property="名称,県名,市町村名,道路種別,路線名,始点,終点,規制種別,規制理由,規制開始日時,規制内容,規制方向,規制延長(km)">
+  <globalCoordinateSystem srsName="http://purl.org/crs/84"
+                          transform="matrix(100,0,0,-100,0,0)"/>
+  <g id="travelRasterGroup">
+    <image id="travelRasterImage" x="0" y="0" width="1" height="1"
+           visibility="hidden" preserveAspectRatio="none"/>
+  </g>
+  <g id="etcRasterGroup">
+    <image id="etcRasterImage" x="0" y="0" width="1" height="1"
+           visibility="hidden" preserveAspectRatio="none"/>
+  </g>
+  <g id="roadVectorGroup" property="名称,県名,市町村名,道路種別,路線名,始点,終点,規制種別,規制理由,規制開始日時,規制内容,規制方向,規制延長(km)"/>
+</svg>

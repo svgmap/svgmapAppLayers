@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>令和8年熊本地震 復旧・支援活動</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 8px; color: #1f2937; font-size: 13px; line-height: 1.45; }
+    h1 { margin: 0 0 8px; font-size: 17px; }
+    h2 { margin: 10px 0 5px; font-size: 14px; }
+    button { min-height: 30px; font: inherit; }
+    label { display: inline-block; margin: 4px 10px 4px 0; }
+    .status { min-height: 1.5em; margin: 7px 0; padding: 6px 8px; border-left: 4px solid #2563eb; background: #eff6ff; }
+    .status.warning { border-color: #d97706; background: #fffbeb; color: #78350f; }
+    .status.error { border-color: #b91c1c; background: #fef2f2; color: #7f1d1d; }
+    .legend { list-style: none; padding: 0; margin: 4px 0; }
+    .legend li { margin: 4px 0; }
+    .dot { display: inline-block; width: 12px; height: 12px; margin-right: 7px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #334155; vertical-align: -2px; }
+    .notice { padding: 7px 9px; background: #f8fafc; border-left: 3px solid #64748b; font-size: 11px; }
+    a { color: #075ea8; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <script type="module" src="./r8KumamotoSupport.js"></script>
+</head>
+<body>
+  <h1>復旧・支援活動</h1>
+  <button id="refreshButton" type="button">最新情報を再取得</button>
+  <div>
+    <label><input class="typeToggle" type="checkbox" value="給水・物資" checked> 給水・物資</label>
+    <label><input class="typeToggle" type="checkbox" value="入浴" checked> 入浴</label>
+    <label><input class="typeToggle" type="checkbox" value="トイレ" checked> トイレ</label>
+    <label><input class="typeToggle" type="checkbox" value="電源・照明" checked> 電源・照明</label>
+    <label><input class="typeToggle" type="checkbox" value="復旧" checked> 復旧</label>
+  </div>
+  <div id="statusMessage" class="status" role="status" aria-live="polite">初期化待ち</div>
+  <p>取得時刻: <span id="fetchedAt">-</span> ／ 活動 <span id="activityCount">-</span>件・地点 <span id="placeCount">-</span>か所</p>
+  <h2>凡例</h2>
+  <ul class="legend">
+    <li><span class="dot" style="background:#2563eb"></span>給水・物資</li>
+    <li><span class="dot" style="background:#0891b2"></span>入浴</li>
+    <li><span class="dot" style="background:#7c3aed"></span>トイレ</li>
+    <li><span class="dot" style="background:#d97706"></span>電源・照明</li>
+    <li><span class="dot" style="background:#dc2626"></span>復旧</li>
+  </ul>
+  <p class="notice">出典：<a href="https://www.qsr.mlit.go.jp/bousai_joho/r80728kumamotozisinn.html" target="_blank" rel="noopener noreferrer">国土交通省 九州地方整備局「令和8年熊本地震の対応状況」</a>。掲載文に地点名があり、登録済み地点と一致した活動のみ表示します。活動の継続中・終了はリンク先の最新案内で確認してください。</p>
+</body>
+</html>

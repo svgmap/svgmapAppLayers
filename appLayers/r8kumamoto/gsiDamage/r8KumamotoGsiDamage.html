@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>令和8年熊本地震 正射画像</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 8px; color: #1f2937; font-size: 13px; line-height: 1.45; }
+    h1 { margin: 0 0 8px; font-size: 17px; }
+    label { display: block; margin: 6px 0; }
+    select, button, input { font: inherit; }
+    select { width: 100%; min-height: 30px; }
+    button { min-height: 30px; }
+    .status { min-height: 1.5em; margin: 7px 0; padding: 6px 8px; border-left: 4px solid #2563eb; background: #eff6ff; }
+    .status.warning { border-color: #d97706; background: #fffbeb; color: #78350f; }
+    .status.error { border-color: #b91c1c; background: #fef2f2; color: #7f1d1d; }
+    .notice { padding: 7px 9px; background: #f8fafc; border-left: 3px solid #64748b; font-size: 11px; }
+    a { color: #075ea8; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+  <script type="module" src="./r8KumamotoGsiDamage.js"></script>
+</head>
+<body>
+  <h1>正射画像</h1>
+  <label for="orthoSelect">正射画像</label>
+  <select id="orthoSelect"></select>
+  <label for="opacityRange">正射画像の不透明度 <output id="opacityValue">80%</output></label>
+  <input id="opacityRange" type="range" min="0" max="100" value="80">
+  <button id="reloadButton" type="button">最新データを再取得</button>
+  <div id="statusMessage" class="status" role="status" aria-live="polite">初期化待ち</div>
+  <p id="dataSummary">表示データを準備しています</p>
+  <p class="notice">出典：<a href="https://www.gsi.go.jp/BOUSAI/20260728_kumamoto_earthquake.html" target="_blank" rel="noopener noreferrer">国土地理院「令和8年熊本地震に関する情報」</a>。起動時に掲載ページを確認し、実際に取得できる最新の正射画像だけを表示します。正射画像には歪みや不連続が生じる場合があります。</p>
+</body>
+</html>
