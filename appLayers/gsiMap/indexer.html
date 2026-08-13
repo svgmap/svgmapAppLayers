@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地理院地図 レイヤー一覧取得アプリ</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f9f9f9; }
+        h1 { font-size: 1.5rem; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px; }
+        #loading { color: #666; font-weight: bold; margin-bottom: 10px; }
+        
+        /* ツリービューのスタイル */
+        ul { list-style-type: none; margin-top: 5px; margin-bottom: 5px; padding-left: 20px; border-left: 1px dashed #ccc; }
+        li { margin: 5px 0; }
+        
+        .layer-group { cursor: pointer; font-weight: bold; color: #333; user-select: none; display: flex; align-items: center; }
+        .layer-group::before { content: '📁'; margin-right: 5px; font-size: 0.9em; }
+        .layer-group.open::before { content: '📂'; }
+        
+        .layer-item { display: flex; flex-direction: column; margin-left: 5px; padding: 5px; background: #fff; border: 1px solid #eee; border-radius: 4px; }
+        .layer-title { color: #0066cc; font-weight: bold; }
+        .layer-title::before { content: '🗺️'; margin-right: 5px; font-size: 0.9em; }
+        
+        .layer-details { font-size: 0.8rem; color: #666; margin-top: 4px; margin-left: 20px; word-break: break-all; }
+        .layer-details a { color: #0066cc; }
+        
+        .hidden { display: none !important; }
+        .error { color: red; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h1>地理院地図 レイヤー一覧</h1>
+    <div id="loading">データを読み込んでいます...</div>
+    <div id="tree-container">
+        <!-- ツリー構造がここに生成されます -->
+    </div>
+
+    <script>
+        const BASE_URL = "https://maps.gsi.go.jp/layers_txt/";
+        const INDEX_URL = `${BASE_URL}layers.txt`;
+        const BASEMAP_URL = `${BASE_URL}layers0.txt`; // layers.txtに含まれないベースマップ
+
+        // URLを解決するユーティリティ関数
+        function resolveUrl(url, currentBase = BASE_URL) {
+            if (!url) return null;
+            if (url.startsWith("http")) return url;
+            if (url.startsWith("./")) return currentBase + url.substring(2);
+            return currentBase + url;
+        }
+
+        // JSONをフェッチする関数
+        async function fetchJson(url) {
+            // キャッシュ回避のためにダミーパラメータを付与（本家仕様を模倣）
+            const fetchUrl = `${url}${url.includes('?') ? '&' : '?'}_=${new Date().getTime()}`;
+            try {
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Failed to fetch ${url}:`, error);
+                return null;
+            }
+        }
+
+        // DOM要素を作成するメインロジック
+        async function createTreeNodes(layers, parentUl, currentBaseUrl) {
+            if (!layers || !Array.isArray(layers)) return;
+
+            for (const layer of layers) {
+                const li = document.createElement('li');
+
+                if (layer.type === "LayerGroup") {
+                    // グループヘッダー
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'layer-group';
+                    groupDiv.textContent = layer.title || "名称不明グループ";
+                    
+                    const childUl = document.createElement('ul');
+                    childUl.className = 'hidden'; // 初期状態は閉じる
+
+                    // 開閉トグル処理
+                    groupDiv.addEventListener('click', async () => {
+                        groupDiv.classList.toggle('open');
+                        childUl.classList.toggle('hidden');
+
+                        // srcによる遅延読み込み（外部参照）がある場合
+                        if (layer.src && childUl.children.length === 0 && !childUl.dataset.loading) {
+                            childUl.dataset.loading = "true";
+                            const loadingLi = document.createElement('li');
+                            loadingLi.textContent = "読み込み中...";
+                            loadingLi.style.color = "#999";
+                            childUl.appendChild(loadingLi);
+
+                            const srcUrl = resolveUrl(layer.src, currentBaseUrl);
+                            const srcData = await fetchJson(srcUrl);
+                            
+                            childUl.innerHTML = ''; // ローディング文字を消す
+                            
+                            if (srcData && srcData.layers) {
+                                // 読み込んだURLをベースに次の相対パスを解決できるようにする
+                                const newBaseUrl = srcUrl.substring(0, srcUrl.lastIndexOf('/') + 1);
+                                await createTreeNodes(srcData.layers, childUl, newBaseUrl);
+                            } else {
+                                childUl.innerHTML = '<li class="error">読み込みに失敗しました</li>';
+                            }
+                        }
+                    });
+
+                    li.appendChild(groupDiv);
+                    li.appendChild(childUl);
+
+                    // entriesによるネスト構造がある場合
+                    if (layer.entries && layer.entries.length > 0) {
+                        await createTreeNodes(layer.entries, childUl, currentBaseUrl);
+                    }
+                    
+                } else if (layer.type === "Layer") {
+                    // 単一レイヤー
+                    const layerDiv = document.createElement('div');
+                    layerDiv.className = 'layer-item';
+                    
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = 'layer-title';
+                    titleSpan.textContent = layer.title || "名称不明レイヤー";
+                    
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'layer-details';
+                    
+                    let detailsHTML = `<strong>ID:</strong> ${layer.id || '-'}<br>`;
+                    if (layer.url) {
+                        const layerUrl = resolveUrl(layer.url, currentBaseUrl);
+                        detailsHTML += `<strong>URL:</strong> <a href="${layerUrl}" target="_blank">${layerUrl}</a><br>`;
+                    }
+                    if (layer.minZoom !== undefined || layer.maxZoom !== undefined) {
+                        detailsHTML += `<strong>Zoom:</strong> ${layer.minZoom || 0} - ${layer.maxZoom || '-'}<br>`;
+                    }
+                    
+                    detailsDiv.innerHTML = detailsHTML;
+
+                    layerDiv.appendChild(titleSpan);
+                    layerDiv.appendChild(detailsDiv);
+                    li.appendChild(layerDiv);
+                }
+
+                parentUl.appendChild(li);
+            }
+        }
+
+        // メイン処理
+        async function initApp() {
+            const container = document.getElementById('tree-container');
+            const rootUl = document.createElement('ul');
+            container.appendChild(rootUl);
+
+            try {
+                // 1. 特殊なベースマップ (layers0.txt) の取得
+                const basemapData = await fetchJson(BASEMAP_URL);
+                if (basemapData && basemapData.layers) {
+                    const basemapGroup = [{
+                        type: "LayerGroup",
+                        title: "ベースマップ (layers0.txt)",
+                        entries: basemapData.layers
+                    }];
+                    await createTreeNodes(basemapGroup, rootUl, BASE_URL);
+                }
+
+                // 2. インデックス (layers.txt) の取得
+                const indexData = await fetchJson(INDEX_URL);
+                if (indexData && Array.isArray(indexData)) {
+                    // インデックスはURLの配列なので、仮想のグループを作ってまとめるか、並列で読み込む
+                    for (const entry of indexData) {
+                        if (entry.url) {
+                            const entryUrl = resolveUrl(entry.url, BASE_URL);
+                            const entryData = await fetchJson(entryUrl);
+                            
+                            if (entryData && entryData.layers) {
+                                // 新しいベースURL（相対パスの起点）を計算
+                                const newBaseUrl = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
+                                await createTreeNodes(entryData.layers, rootUl, newBaseUrl);
+                            }
+                        }
+                    }
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').textContent = 'エラーが発生しました。コンソールを確認してください。';
+                document.getElementById('loading').style.color = 'red';
+            }
+        }
+
+        // アプリケーション起動
+        initApp();
+    </script>
+</body>
+</html>
