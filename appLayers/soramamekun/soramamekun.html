@@ -1,0 +1,56 @@
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+  If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="description" content="「そらまめくん」が提供する大気汚染状況を地図上に可視化するレイヤーです。" />
+    <title>そらまめくん(大気汚染状況マップ)</title>
+    <link rel="stylesheet" href="./css/index.css" />
+    <script type="module" src="./js/index.js"></script>
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <img
+          class="header-logo"
+          alt="そらまめくん"
+          src="https://soramame.env.go.jp/img/soramame-01.950e0d23.png"
+          width="48"
+          height="60"
+        />
+        <h1 class="header-title">そらまめくん<br />(大気汚染状況マップ)</h1>
+      </header>
+      <hr class="divider" />
+      <section class="overview">
+        <p>
+          「そらまめくん」はPM2.5やSPM、光化学オキシダントといった、大気汚染状況について情報提供しているサイトです。
+        </p>
+        <a class="link" href="https://soramame.env.go.jp/" target="_blank" rel="noopener noreferrer">
+          https://soramame.env.go.jp/
+        </a>
+      </section>
+      <section class="selector">
+        <div class="selector-label">可視化指標</div>
+        <div class="selector-wrapper">
+          <select id="indicator">
+            <option value="PM2.5">微小粒子状物質(PM2.5)</option>
+            <option value="SPM">浮遊粒子状物質(SPM)</option>
+            <option value="OX">光化学オキシダント(OX)</option>
+            <option value="SO2">二酸化硫黄(SO2)</option>
+            <option value="NO">一酸化窒素(NO)</option>
+            <option value="NO2">二酸化窒素(NO2)</option>
+            <option value="NMHC">非メタン炭化水素(NMHC)</option>
+          </select>
+          <span class="icon-down-arrow"></span>
+        </div>
+      </section>
+      <section id="legend" class="legend"></section>
+    </main>
+  </body>
+</html>
