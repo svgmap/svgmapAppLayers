@@ -484,6 +484,48 @@ function downloadCsv(){ // 読み込み済みのcsvをDLする
 	}
 }
 
+function downloadCurrentDatasetJson(){ // 表示中データセットのjsonを保存する  2026/7/31
+	if ( !csvMapper || !csvMapper.getCsv || !csvMapper.getCsv() || csvMapper.getCsv().length === 0 ){  
+		messageDiv.innerText = "表示中のデータセットがありません";  
+		return;  
+	}  
+	var json = getSourceFunc();  
+	var fileName = "dataset.json";  
+	if ( csvMapper.csvPath ){  
+		var sp = csvMapper.csvPath.split("/");  
+		fileName = (sp[sp.length-1].split("."))[0] + ".json";  
+	}  
+	var blob = new Blob([json],{"type" : "application/json"});  
+	if (window.navigator.msSaveBlob) {  
+		window.navigator.msSaveBlob(blob, fileName);  
+	} else {  
+		document.getElementById("downloadJsonAnchor").href = window.URL.createObjectURL(blob);  
+		document.getElementById("downloadJsonAnchor").download = fileName;  
+		document.getElementById("downloadJsonAnchor").click();  
+	}  
+}  
+
+function loadDatasetJsonFile(event){ // データセットjsonファイルを読み込む  2026/7/31  
+	var fileData = event.target.files[0];  
+	if ( !fileData ){ return; }  
+	var reader = new FileReader();  
+	reader.onerror = function(){  
+		messageDiv.innerText = "ファイルの読み込みに失敗しました";  
+	}  
+	reader.onload = function(evt){  
+		try {  
+			svgImageProps.hash=""; // 既存データをクリアしておく (clearMapFuncと同様の配慮)  
+			showMapFunc(evt.target.result); // 中身は{csv,schema}のjson文字列を想定  
+			messageDiv.innerText = "データセットを読み込みました";  
+		} catch(e){  
+			console.warn("loadDatasetJsonFile parse error:",e);  
+			messageDiv.innerText = "jsonの解析に失敗しました。フォーマットを確認してください";  
+		}  
+	}  
+	reader.readAsText(fileData, "UTF-8");  
+	event.target.value=""; // 同じファイルを連続選択してもchangeイベントが発火するようにリセット  
+}
+
 function getPermaLink(mode){
 	var ans;
 	var fileHash=getHash();
@@ -558,6 +600,7 @@ function getPermaLinkButton(event){
 		<input type="button" onClick="downloadCsv()" value="CSVをダウンロード" /><br>
 		<table id="csvTable" style="display:none" border="1"></table>
 		<a id="downloadAnchor" href="" download="data.csv" style="display:none" >hiddenDL</a>
+		<a id="downloadJsonAnchor" href="" download="dataset.json" style="display:none" >hiddenDLjson</a>
 <!--		<div id="messageDiv" style="color:red;display:;font-size:11px">　</div>-->
 	</div>
 	
@@ -604,6 +647,11 @@ function getPermaLinkButton(event){
 				<input type="checkbox" id="customLayerCk"></input><label for="customLayerCk">カスタムレイヤー用URL</label><br>
 				
 				<span id="pathAns" style="font-size:10px;word-break: break-all;"></span></p>
+				<hr>
+				<p><input type="button" value="表示中データセットjsonファイルを保存" style="font-size:10px" onclick="downloadCurrentDatasetJson()"></input><br>
+				<input type="button" value="データセットjsonファイルを読み込み" style="font-size:10px" onclick="datasetJsonFileInput.click()"></input>  
+				<input type="file" id="datasetJsonFileInput" accept="application/json,.json" style="display:none" onchange="loadDatasetJsonFile(event)"></input></p>  
+				<hr>
 				<p><a href="fileAdminPanel.html" target="_fileAdminCSV">Administraion</a></p>
 			</div>
 		</div>

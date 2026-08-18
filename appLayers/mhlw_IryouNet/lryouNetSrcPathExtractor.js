@@ -60,8 +60,8 @@ function parseDateFromText(text) {
  * @returns {string|null} 日付文字列、または null
  */
 function extractDateFromFilename(filename) {
-	// _(YYYYMMDD).zip のパターンをマッチング
-	const match = filename.match(/_(\d{8})\.zip$/);
+	// _(YYYYMMDD).zip または _(YYYYMMDD).csv.zip のパターンをマッチング
+	const match = filename.match(/_(\d{8})(?:\.csv)?\.zip$/i);
 	return match ? match[1] : null;
 }
 
@@ -92,9 +92,9 @@ function parseDateString(dateString) {
  * @returns {string|null} データセット名、または null
  */
 function extractDatasetName(filename) {
-	// パターン: (datasetName)_YYYYMMDD.zip
-	// 例: 01-2_hospital_speciality_hours_20250601.zip → 01-2_hospital_speciality_hours
-	const match = filename.match(/(.+?)_(\d{8})\.zip$/);
+	// パターン: (datasetName)_YYYYMMDD.zip または (datasetName)_YYYYMMDD.csv.zip
+	// 例: 01-2_hospital_speciality_hours_20260601.csv.zip → 01-2_hospital_speciality_hours
+	const match = filename.match(/(.+?)_(\d{8})(?:\.csv)?\.zip$/i);
 	return match ? match[1] : null;
 }
 

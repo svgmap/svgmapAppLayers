@@ -1,0 +1,48 @@
+/* from https://ginpen.com/2012/12/24/fix-window-height/ , https://tmg0525.hatenadiary.jp/entry/2018/04/11/004714 , https://www.nxworld.net/tips/css-variable-width-and-fixed-width-layout.html */
+
+/**
+html, body { height:95%; margin:0; }
+
+* {
+  /* すごい重要！！ */
+  box-sizing: border-box;
+}
+**/
+
+.main {
+  width: 100%;
+  height: 220px;
+/*  background-color: orange; */
+}
+
+.ediv {
+  /* paddingで調整 */
+  padding: 10px;
+  /* height: 100%; */
+  height: 170px;
+  margin-top: -200px;
+  padding-top: 200px;
+}
+
+.editer {
+  width: 100%;
+  height: 100%;
+/*  background-color: red; */
+}
+
+table tr:nth-child(odd){
+  background-color:#f0f0f0;
+}
+ 
+table tr:nth-child(even){
+  background-color:white;
+}
+
+/* blinkはパフォーマンスを大幅に低下させる・・ */
+.blink {
+	animation: blinking 0.2s ease-in-out infinite alternate;
+} 
+@keyframes blinking {
+	0% {opacity: 0.3;}
+	100% {opacity: 1;}
+}

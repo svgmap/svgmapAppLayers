@@ -180,7 +180,6 @@
 <animation class="気象" title="気象庁_2021_TileImages" xlink:href="./appLayers/jma/jma_bm_r2.svg#type=1&amp;cat=0&amp;autoupdate" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 <animation class="気象 clickable" title="気象庁_2021_アメダス" xlink:href="./appLayers/jma/jma_amedas.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
 
-
 <!-- 国交省川の防災情報(ライブカメラ以外) -->
 <animation xlink:href="./appLayers/mlitRiver/riverLineTile.svg" title="河川形状" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/stg.svg" title="水位観測所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
@@ -189,24 +188,31 @@
 <animation xlink:href="./appLayers/mlitRiver/overObs_stg.svg" title="警報のみ 水位観測所" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 <animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
-
 <!-- 自治体レイヤ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okinawa/okinawaOpenData.svg" title="沖縄県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
-
 
 <!-- ライブカメラ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
+<!-- モビリティ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=toyama" title="CyclOcity（富山）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=hellocycling" title="HELLO CYCLING" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=docomo-cycle" title="ドコモ・バイクシェア（全国）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/odptRealtimeTracking/odptBusLoc.svg" title="公共交通ロケーション" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
+  
 <!-- その他政府/民間 アプリレイヤー -->
-<!--
-<animation xlink:href="./authoringLayers/local/csvLayer/multiCsvView.svg" title="保存済み複数CSVデータ表示" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.75" visibility="hidden"/>
--->
-<animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/mhlw_IryouNet/IryouNetPoi.svg" title="厚労省 病院・診療所・薬局等" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/><!-- #HOSPITAL など大文字でカテゴリ名入れるとカテゴリ固定レイヤ化可能-->
-<animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
-<animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="poi" opacity="0.6" visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/mhlw_Kayoinoba/kayoinoba.svg"  class="POI"  title="厚労省 通いの場 マップ"  visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/accessibility/accessibilityInformationJR/accessibilityInformationJR.svg"  class="POI"  title="鉄道施設に関するバリアフリー情報（JR）"  visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/iot100WeatherBox/iot100WeatherBox.svg"  class="POI"  title="IoT百葉箱"  visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/maff/maff.svg"  class="POI clickable"  title="eMAFF農地情報"  visibility="hidden"/>
+<animation xlink:href="./appLayers/multiCsvView/multiCsvView.svg" title="OpenStreetMap各種ポイント情報" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/mhlw_IryouNet/IryouNetPoi.svg" title="厚労省 病院・診療所・薬局等" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/><!-- #HOSPITAL など大文字でカテゴリ名入れるとカテゴリ固定レイヤ化可能-->
+<animation xlink:href="./appLayers/gsiEvacuation/shelter.svg" title="地理院 指定避難所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="./appLayers/gsiEvacuation/evacuationPlace.svg" title="地理院 指定緊急避難場所" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>
 
 <animation xlink:href="./appLayers/geminiSearchLayers/geminiBYOKlayerSearch.svg" title="AIレイヤー検索 by Gemini" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="レイヤー検索" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/layer-recommender/recommender.svg" title="ローカルAIレイヤー検索" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="レイヤー検索" opacity="0.6" visibility="hidden"/>
