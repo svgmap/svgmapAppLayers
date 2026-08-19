@@ -94,6 +94,7 @@ function renderRasterTiles() {
     image.setAttribute("height", String((tile.north - tile.south) * 100));
     image.setAttribute("preserveAspectRatio", "none");
     image.setAttribute("metadata", tile.key);
+    image.setAttribute("crossorigin", "anonymous");
     image.setAttribute("xlink:href", svgMap.getCORSURL(rawUrl));
     image.addEventListener("error", () => image.remove(), { once: true });
     fragment.appendChild(image);
