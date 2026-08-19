@@ -102,6 +102,7 @@
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
 
 <!-- 国土地理院 -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiMap/map.svg" title="地理院タイル：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiBosai/gsiBosai.svg" title="地理院防災・災害データ：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiTiles/gsiTilesListLayer.svg" title="地理院タイル：サブレイヤーあり" class="国土地理院 clickable" visibility="hidden" opacity="0.6"/>
 
@@ -197,6 +198,12 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
 
+<!-- R8熊本地震 -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/aftershocks/r8KumamotoAftershocks.svg" title="気象庁 震源・震度に関する情報" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/gsiDamage/r8KumamotoGsiDamage.svg" title="国土地理院の被災後正射画像" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/road/r8KumamotoRoad.svg" title="国土交通省 通れるマップ" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/r8kumamoto/supportActivities/r8KumamotoSupport.svg" title="九州地方整備局 給水・入浴・トイレ・照明・復旧活動" opacity="0.75" class="R8熊本地震 clickable" visibility="hidden"/>
+  
 <!-- モビリティ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=toyama" title="CyclOcity（富山）" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/publicTransportation/shareCycleGbfs/shareCycleGbfs.svg#system=hellocycling" title="HELLO CYCLING" opacity="0.75" class="モビリティ clickable" visibility="hidden"/>
@@ -207,6 +214,7 @@
 <animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/mhlw_Kayoinoba/kayoinoba.svg"  class="POI"  title="厚労省 通いの場 マップ"  visibility="hidden"/>
 <animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/accessibility/accessibilityInformationJR/accessibilityInformationJR.svg"  class="POI"  title="鉄道施設に関するバリアフリー情報（JR）"  visibility="hidden"/>
 <animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/iot100WeatherBox/iot100WeatherBox.svg"  class="POI"  title="IoT百葉箱"  visibility="hidden"/>
+<animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/soramamekun/soramamekun.svg"  class="POI clickable"  title="大気汚染(そらまめくん) 環境省"  visibility="hidden"/>
 <animation  x="-30000"  y="-30000"  width="60000"  height="60000"  xlink:href="./appLayers/maff/maff.svg"  class="POI clickable"  title="eMAFF農地情報"  visibility="hidden"/>
 <animation xlink:href="./appLayers/multiCsvView/multiCsvView.svg" title="OpenStreetMap各種ポイント情報" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>
 <animation xlink:href="./appLayers/npaGoJp/ta.svg" title="警察庁_交通事故データ" x="-30000" y="-30000" width="60000" height="60000" class="POI" opacity="0.6" visibility="hidden"/>

@@ -1,0 +1,642 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Layer Specific UI for sub layers</title>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./dynamicWebTile.js"></script>
+<script src="./geoJsonTileExtension.js"></script>
+
+<style>
+    body { font-size: 11px; margin: 0; padding: 4px; font-family: sans-serif; background: #fff; line-height: 1.3; overflow-y: auto; height: 100vh; box-sizing: border-box; }
+    h3 { font-size: 12px; margin: 0 0 2px 0; background: #0066cc; color: #fff; padding: 4px; position: sticky; top: 0; z-index: 10; }
+    .source-info { font-size: 10px; margin-bottom: 6px; color: #555; }
+    .source-info a { color: #0066cc; text-decoration: none; }
+    .source-info a:hover { text-decoration: underline; }
+    
+    #loading { color: #0066cc; font-weight: bold; margin-bottom: 5px; }
+    #controls { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    #controls button { font-size: 10px; padding: 2px 4px; cursor: pointer; }
+    #layerCountSpan { font-weight: bold; color: #d33; }
+    #msgDiv { color: red; margin-top: 4px; font-weight: bold; }
+    
+    details { margin-left: 8px; }
+    summary { cursor: pointer; padding: 2px 0; font-weight: bold; color: #333; outline: none; }
+    summary:hover { background: #f0f0f0; }
+    .layer-group-content { margin-left: 8px; border-left: 1px dashed #ccc; padding-left: 4px; }
+    
+    .layer-item { display: flex; align-items: center; margin: 2px 0; }
+    .layer-item input[type="radio"] { margin: 0 4px 0 0; }
+    
+    .info-btn { display: none; margin-left: 6px; cursor: pointer; color: #0066cc; font-size: 14px; font-weight: bold; }
+    .info-btn.active { display: inline-block; }
+    .info-btn:hover { color: #ff9900; }
+
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fefefe; margin: 5% auto; padding: 16px 32px 16px 16px; border: 1px solid #888; width: 90%; max-width: 380px; max-height: 85%; overflow-y: auto; border-radius: 4px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .close-btn { color: #888; position: absolute; top: 4px; right: 8px; font-size: 24px; font-weight: bold; cursor: pointer; line-height: 24px; width: 24px; text-align: center; background: transparent; }
+    .close-btn:hover, .close-btn:focus { color: #000; text-decoration: none; }
+    #legendModalBody { overflow-x: auto; line-height: 1.5; }
+    #legendModalBody img { max-width: 100%; height: auto; }
+    #legendModalBody table { font-size: 10px; background: #fff; margin-bottom: 4px; border-collapse: collapse; }
+    #legendModalBody td { padding: 3px; border: 1px solid #ccc; }
+</style>
+<script>
+// Description:
+// 地理院地図レイヤーLaWA
+// 
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+const BASE_URL = "https://maps.gsi.go.jp/layers_txt/";
+const INDEX_URL = `${BASE_URL}layers.txt`;
+const BASEMAP_URL = `${BASE_URL}layers0.txt`;
+
+let totalLayerCount = 0;
+const uniqueLayers = new Set();
+const legendHtmlMap = new Map(); 
+const layerDataMap = new Map();
+
+// ★ 追加: 地理院GeoJSONの独自スタイルをMapbox拡張仕様に変換するプリプロセス関数 ★
+function convertGsiStyleToMapbox(geojson) {
+    if (!geojson || !geojson.features) return geojson;
+    for (let feature of geojson.features) {
+        if (feature.properties) {
+            const p = feature.properties;
+            if (p._color !== undefined) p['stroke'] = p._color;
+            if (p._opacity !== undefined) p['stroke-opacity'] = p._opacity;
+            if (p._weight !== undefined) p['stroke-width'] = p._weight;
+            if (p._fillColor !== undefined) p['fill'] = p._fillColor;
+            if (p._fillOpacity !== undefined) p['fill-opacity'] = p._fillOpacity;
+            if ( p['fill-opacity'] ==0){p['fill'] ="none"}
+            if ( p['stroke-opacity'] ==0){p['stroke'] ="none"}
+        }
+    }
+    return geojson;
+}
+
+// geoJsonTileExtension.js の機能を上書き
+window.setGeoJsonTiles = async function(tileSet) {
+    if ( window.geoJsonLoadStepCompleted ) {
+        window.geoJsonLoadStepCompleted = false;
+        return;
+    }
+    
+    var fetchPromises = [];
+    
+    for ( var tkey in tileSet ) {
+        if ( !tileSet[tkey].exist ) {
+            var tileUrl = dynamicWebTile.getTileURL( tileSet[tkey].x , tileSet[tkey].y , tileSet[tkey].level );
+            
+            var grp = svgImage.createElement("g");
+            grp.setAttribute("metadata", tileUrl.Key);
+            svgImage.documentElement.appendChild(grp);
+            
+            tileSet[tkey].exist = true; 
+
+            fetchPromises.push(
+                (async (url, targetGrp) => {
+                    try {
+                        var geojson = await fetchJson(url);
+                        if (geojson) {
+                            // ★ ここでスタイル変換プリプロセスを挟む ★
+                            geojson = convertGsiStyleToMapbox(geojson);
+
+                            if (!svgImage.documentElement.getAttribute("property")) {
+                                window.schema = buildSchema(geojson.features);
+                            }
+                            // 元の "purple" 等の固定色は一旦 null/空文字にして、JSON内のプロパティを優先させる
+                            svgMapGIStool.drawGeoJson(geojson, layerID, null, null, null, "p0", "title", "", targetGrp, window.schema);
+                        }
+                    } catch (e) {
+                        console.warn("GeoJSON Tile Fetch Error:", e);
+                    }
+                })(tileUrl.URL, grp)
+            );
+        }
+    }
+    
+    if (fetchPromises.length === 0) return;
+    
+    await Promise.all(fetchPromises);
+    
+    window.geoJsonLoadStepCompleted = true;
+    svgMap.refreshScreen();
+};
+
+// ユーティリティ: スキーマ構築
+function buildSchema(features) {
+    var metaSchema = {};
+    
+    // スキーマ（メタデータ）から除外するスタイル属性名のリスト
+    var excludeProps = [
+        "title", "description", "marker-size", "marker-symbol", "marker-color",
+        "stroke", "stroke-opacity", "stroke-width", "fill", "fill-opacity",
+        // 念のため地理院独自のスタイル属性も除外対象にしておきます
+//        "_color", "_opacity", "_weight", "_fillColor", "_fillOpacity"
+    ];
+
+    if (features && Array.isArray(features)) {
+        for (var feature of features) {
+            if (feature.properties) {
+                for (var propName in feature.properties) {
+                    // 除外リストに含まれていない場合のみスキーマに追加する
+                    if (excludeProps.indexOf(propName) === -1) {
+                        if (!metaSchema[propName]) {
+                            metaSchema[propName] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    metaSchema = Object.keys(metaSchema);
+    
+    // スキーマが空でなければプロパティを設定
+    if (metaSchema.length > 0) {
+        svgImage.documentElement.setAttribute("property", metaSchema.join(","));
+    } else {
+        svgImage.documentElement.removeAttribute("property");
+    }
+    
+    return metaSchema;
+}
+
+window.addEventListener("load", async function() {
+    if (typeof(svgMap) == "undefined") {
+        window.svgMap = {
+            getCORSURL: function(url) { return url; },
+            refreshScreen: function() {},
+            getGeoViewBox: function() { return {x: 130, y: 32, width: 1, height: 1}; }
+        };
+    }
+    
+    if (typeof dynamicWebTile !== "undefined") {
+        dynamicWebTile.init("");
+    }
+    
+    await initApp();
+    
+    if (typeof svgImageProps !== "undefined" && svgImageProps.hash) {
+        selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1));
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('legendModal');
+        if (event.target === modal) {
+            closeLegend();
+        }
+    };
+});
+
+function resolveUrl(url, currentBase = BASE_URL) {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    if (url.startsWith("./")) return currentBase + url.substring(2);
+    return currentBase + url;
+}
+
+async function fetchJson(url) {
+    const fetchUrl = `${url}${url.includes('?') ? '&' : '?'}_=${new Date().getTime()}`;
+    try {
+        const response = await fetch(fetchUrl);
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error(`Fetch failed for ${url}:`, error);
+        return null;
+    }
+}
+
+function toggleAllDetails(isOpen) {
+    const detailsElements = document.querySelectorAll('#tree-container details');
+    detailsElements.forEach(detail => detail.open = isOpen);
+}
+
+function toggleLevel1() {
+    const allDetails = document.querySelectorAll('#tree-container details');
+    allDetails.forEach(detail => {
+        if (detail.parentElement && detail.parentElement.id === 'tree-container') {
+            detail.open = true;
+        } else {
+            detail.open = false;
+        }
+    });
+}
+
+function showLegend(hashId) {
+    const layerData = layerDataMap.get(hashId);
+    const rawHtml = legendHtmlMap.get(hashId) || "";
+    const safeHtml = rawHtml.replace(/onclick="GSI\.GLOBALS\.map\.setView[^"]+"/g, 'onclick="alert(\'この環境では中心移動はサポートされていません\');"');
+    
+    const url = layerData ? (resolveUrl(layerData.url, BASE_URL) || "") : "";
+    let isSupported = false;
+    
+    if (url) {
+        const urlLower = url.toLowerCase();
+        if (urlLower.includes("{z}") || urlLower.endsWith(".geojson") || urlLower.endsWith(".json") || urlLower.endsWith(".kml")) {
+            isSupported = true;
+        }
+    }
+
+    let finalHtml = "";
+    if (!isSupported && layerData) {
+        finalHtml += `<div style="color:#d33; font-weight:bold; margin-bottom: 8px; border-bottom: 1px solid #d33; padding-bottom: 4px;">非対応レイヤー情報</div>`;
+        finalHtml += `<div style="word-break: break-all; margin-bottom: 4px;"><strong>URL:</strong> <a href="${url}" target="_blank">${url || 'なし（メタデータ等）'}</a></div>`;
+        finalHtml += `<div><strong>非対応理由:</strong> `;
+        if (!url) {
+            finalHtml += `エンドポイントURLが定義されていません。（親グループ等）`;
+        } else {
+            finalHtml += `LaWAエンジンが対応していない形式の可能性があります。`;
+        }
+        finalHtml += `</div>`;
+        finalHtml += `<div style="margin-top: 8px;"><strong>レイヤーJSON:</strong><pre style="background: #eee; padding: 4px; overflow-x: auto; font-size: 10px; border-radius: 2px;">${JSON.stringify(layerData, null, 2)}</pre></div>`;
+        
+        if (safeHtml) {
+            finalHtml += `<div style="margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 8px;"><strong>本来の凡例/HTML情報:</strong><br>${safeHtml}</div>`;
+        }
+    } else {
+        finalHtml = safeHtml;
+    }
+
+    if (!finalHtml) return;
+    
+    document.getElementById('legendModalBody').innerHTML = finalHtml;
+    document.getElementById('legendModal').style.display = 'block';
+}
+
+function closeLegend() {
+    document.getElementById('legendModal').style.display = 'none';
+}
+
+async function selectDat(event) {
+    const url = event.target.value;
+    const slHash = event.target.getAttribute("data-hash");
+    let minZ = parseInt(event.target.dataset.minz) || 5;
+    let maxZ = parseInt(event.target.dataset.maxz) || 18;
+    
+    if (minZ > maxZ) {
+        minZ = maxZ;
+    }
+    
+    if (typeof svgImageProps !== "undefined" && slHash) {
+        svgImageProps.hash = `#${slHash}`;
+    }
+    
+    const msgDiv = document.getElementById("msgDiv");
+    msgDiv.innerText = "";
+    clearSingleVectorData();
+    document.querySelectorAll('.info-btn').forEach(btn => btn.classList.remove('active'));
+
+    if (!url) {
+        if (typeof dynamicWebTile !== "undefined") {
+            dynamicWebTile.setServerParams(null, 15, 5);
+        }
+        return;
+    }
+
+    const layerData = layerDataMap.get(slHash);
+    if (layerData) {
+        console.log("=== 選択されたレイヤー情報 (JSON) ===");
+        console.log(layerData);
+    }
+
+    let isSupported = false;
+    if (url) {
+        const urlLower = url.toLowerCase();
+        if (urlLower.includes("{z}") || urlLower.endsWith(".geojson") || urlLower.endsWith(".json") || urlLower.endsWith(".kml")) {
+            isSupported = true;
+        }
+    }
+
+    if (slHash && (legendHtmlMap.has(slHash) || !isSupported)) {
+        const infoBtn = document.getElementById(`info_${slHash}`);
+        if (infoBtn) infoBtn.classList.add('active');
+    }
+
+    if (!isSupported) {
+        msgDiv.innerText = "※このレイヤーは現在非対応です。詳細は(i)を確認してください。";
+        if (typeof dynamicWebTile !== "undefined") {
+            dynamicWebTile.setServerParams(null, 15, 5);
+        }
+        showLegend(slHash); 
+        return;
+    }
+    
+    const urlLower = url.toLowerCase();
+    if (urlLower.includes("{z}")) {
+        if (typeof dynamicWebTile !== "undefined") {
+            const urlTmpl = url.replace("{x}", "[[tx]]").replace("{y}", "[[ty]]").replace("{z}", "[[zoom]]");
+            dynamicWebTile.setServerParams(urlTmpl, maxZ, minZ);
+        } else {
+            msgDiv.innerText = "dynamicWebTileライブラリが読み込まれていません。";
+        }
+    } else if (urlLower.endsWith(".geojson") || urlLower.endsWith(".json")) {
+        if (typeof dynamicWebTile !== "undefined") dynamicWebTile.setServerParams(null, 15, 5);
+        fetchSingleGeoJson(url, event.target.dataset.title);
+    } else if (urlLower.endsWith(".kml")) {
+        if (typeof dynamicWebTile !== "undefined") dynamicWebTile.setServerParams(null, 15, 5);
+        fetchSingleKml(url, event.target.dataset.title);
+    }
+}
+
+function clearSingleVectorData() {
+    if (typeof svgImage !== "undefined") {
+        let oldGrp = svgImage.getElementById("singleVectorGrp");
+        if (oldGrp) oldGrp.remove();
+    }
+}
+
+async function fetchSingleGeoJson(url, title) {
+    try {
+        document.getElementById("msgDiv").innerText = "単一GeoJSON読み込み中...";
+        const res = await fetch(svgMap.getCORSURL(url));
+        let json = await res.json();
+        document.getElementById("msgDiv").innerText = "";
+        
+        if (typeof svgImage === "undefined" || typeof svgMapGIStool === "undefined") return;
+        
+        const grp = svgImage.createElement("g");
+        grp.setAttribute("id", "singleVectorGrp");
+        svgImage.documentElement.appendChild(grp);
+        
+        // ★ ここでスタイル変換プリプロセスを挟む ★
+        json = convertGsiStyleToMapbox(json);
+
+        let schema = {};
+        for(let ft of json.features) {
+            if(ft.properties) {
+                for(let prop in ft.properties) schema[prop] = true;
+            }
+        }
+        schema = Object.keys(schema);
+        svgImage.documentElement.setAttribute("property", schema.join(","));
+        
+        // drawGeoJson の色引数は null にしてプロパティ側を優先
+        svgMapGIStool.drawGeoJson(json, layerID, null, null, null, "p0", "title", null, grp, schema);
+        svgMap.refreshScreen();
+        
+    } catch (e) {
+        console.error(e);
+        document.getElementById("msgDiv").innerText = "データの取得に失敗しました。";
+    }
+}
+
+async function fetchSingleKml(url, title) {
+    try {
+        document.getElementById("msgDiv").innerText = "単一KML読み込み中...";
+        const res = await fetch(svgMap.getCORSURL(url));
+        const kmlText = await res.text();
+        document.getElementById("msgDiv").innerText = "";
+        
+        if (typeof svgImage === "undefined" || typeof svgMapGIStool === "undefined") return;
+        
+        const grp = svgImage.createElement("g");
+        grp.setAttribute("id", "singleVectorGrp");
+        svgImage.documentElement.appendChild(grp);
+        
+        const parser = new DOMParser();
+        const kmlDom = parser.parseFromString(kmlText, "text/xml");
+        
+        svgMapGIStool.drawKml(kmlDom, layerID, "red", 2, "none", "p1", "title", null, grp, null);
+        svgMap.refreshScreen();
+        
+    } catch (e) {
+        console.error(e);
+        document.getElementById("msgDiv").innerText = "KMLデータの取得に失敗しました。";
+    }
+}
+
+async function buildTree(layers, parentContainer, currentBaseUrl) {
+    if (!layers || !Array.isArray(layers)) return;
+
+    const promises = layers.map(async (layer) => {
+        if (layer.type === "LayerGroup") {
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.textContent = layer.title || "名称不明グループ";
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'layer-group-content';
+            
+            if (layer.src) {
+                const srcUrl = resolveUrl(layer.src, currentBaseUrl);
+                const srcData = await fetchJson(srcUrl);
+                if (srcData && srcData.layers) {
+                    const newBaseUrl = srcUrl.substring(0, srcUrl.lastIndexOf('/') + 1);
+                    await buildTree(srcData.layers, contentDiv, newBaseUrl);
+                } else {
+                    contentDiv.innerHTML = "<div style='color:red;'>読込失敗</div>";
+                }
+            } else if (layer.entries && layer.entries.length > 0) {
+                await buildTree(layer.entries, contentDiv, currentBaseUrl);
+            }
+            
+            details.appendChild(summary);
+            details.appendChild(contentDiv);
+
+            details.addEventListener('toggle', function() {
+                if (details.open) {
+                    Array.from(contentDiv.children).forEach(child => {
+                        if (child.tagName === 'DETAILS') {
+                            const innerContent = child.querySelector('.layer-group-content');
+                            if (innerContent) {
+                                const hasSubGroups = innerContent.querySelector('details') !== null;
+                                const layerItemCount = Array.from(innerContent.children).filter(el => el.classList.contains('layer-item')).length;
+                                if (!hasSubGroups && layerItemCount > 0 && layerItemCount <= 3) {
+                                    child.open = true;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+
+            return details;
+            
+        } else if (layer.type === "Layer") {
+            const rawId = layer.id || layer.url || layer.title || "";
+            const cleanId = rawId.replace(/[^\w\sぁ-んァ-ヶ亜-熙]/gi, '');
+            const hashId = cyrb53(cleanId, true);
+            
+            layerDataMap.set(hashId, layer);
+
+            const layerUrl = resolveUrl(layer.url, currentBaseUrl) || "";
+            const radioId = `radio_${hashId}`;
+
+            uniqueLayers.add(layerUrl || hashId);
+
+            let dataTypeTag = "";
+            let isSupported = false;
+
+            if (layerUrl) {
+                const urlLower = layerUrl.toLowerCase();
+                if (urlLower.includes("{z}")) {
+                    isSupported = true;
+                    if (urlLower.endsWith(".geojson") || urlLower.endsWith(".json")) {
+                        dataTypeTag = " (geojsonTile)";
+                    } else if (urlLower.endsWith(".pbf") || urlLower.endsWith(".mvt")) {
+                        dataTypeTag = " (vectorTile)";
+                    } else {
+                        dataTypeTag = " (imageTile)";
+                    }
+                } else if (urlLower.endsWith(".geojson") || urlLower.endsWith(".json")) {
+                    dataTypeTag = " (geojson)";
+                    isSupported = true;
+                } else if (urlLower.endsWith(".kml")) {
+                    dataTypeTag = " (kml)";
+                    isSupported = true;
+                } else {
+                    dataTypeTag = " (other)";
+                }
+            } else {
+                dataTypeTag = " (no-url)";
+            }
+
+            let infoBtnHtml = "";
+            if (layer.html || !isSupported) {
+                if (layer.html) legendHtmlMap.set(hashId, layer.html);
+                infoBtnHtml = `<span class="info-btn" id="info_${hashId}" onclick="showLegend('${hashId}')" title="詳細情報を表示">ⓘ</span>`;
+            }
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'layer-item';
+            
+            let displayTitle = (layer.title || "名称不明") + dataTypeTag;
+            let labelStyle = "cursor: pointer; color: #004488; word-break: break-all;";
+            
+            if (!isSupported) {
+                displayTitle += " [現在非対応]";
+                labelStyle = "cursor: pointer; color: #999; word-break: break-all;";
+            }
+            
+            itemDiv.innerHTML = `
+                <input type="radio" name="layerSelect" id="${radioId}" value="${layerUrl}" 
+                    data-hash="${hashId}" data-title="${layer.title}"
+                    data-minz="${layer.minZoom || ''}" data-maxz="${layer.maxNativeZoom || layer.maxZoom || ''}" 
+                    onchange="selectDat(event)">
+                <label for="${radioId}" style="${labelStyle}">${displayTitle}</label>
+                ${infoBtnHtml}
+            `;
+            return itemDiv;
+        }
+    });
+
+    const nodes = await Promise.all(promises);
+    nodes.forEach(node => {
+        if (node) parentContainer.appendChild(node);
+    });
+}
+
+async function initApp() {
+    const container = document.getElementById('tree-container');
+    
+    const noneDiv = document.createElement('div');
+    noneDiv.className = 'layer-item';
+    noneDiv.innerHTML = `<input type="radio" name="layerSelect" id="dat_none" value="" onchange="selectDat(event)" checked><label for="dat_none" style="cursor: pointer; color: #004488;">非選択 (クリア)</label>`;
+    container.appendChild(noneDiv);
+
+    try {
+        const indexPromises = [];
+
+        const indexData = await fetchJson(INDEX_URL);
+        if (indexData && Array.isArray(indexData)) {
+            const promises = indexData.map(async (entry) => {
+                const wrapper = document.createElement('div');
+                if (entry.url) {
+                    const entryUrl = resolveUrl(entry.url, BASE_URL);
+                    const entryData = await fetchJson(entryUrl);
+                    if (entryData && entryData.layers) {
+                        const newBaseUrl = entryUrl.substring(0, entryUrl.lastIndexOf('/') + 1);
+                        await buildTree(entryData.layers, wrapper, newBaseUrl);
+                    }
+                }
+                return wrapper;
+            });
+            indexPromises.push(...promises);
+        }
+
+        const basemapPromise = fetchJson(BASEMAP_URL).then(async (basemapData) => {
+            const wrapper = document.createElement('div');
+            if (basemapData && basemapData.layers) {
+                await buildTree([{ type: "LayerGroup", title: "ベースマップ", entries: basemapData.layers }], wrapper, BASE_URL);
+            }
+            return wrapper;
+        });
+
+        const results = await Promise.all([...indexPromises, basemapPromise]);
+        
+        results.forEach(wrapper => {
+            while (wrapper.firstChild) {
+                container.appendChild(wrapper.firstChild);
+            }
+        });
+
+        document.getElementById('layerCountSpan').innerText = uniqueLayers.size;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('controls').style.display = 'flex';
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById('loading').innerText = 'データ読み込みエラー';
+    }
+}
+
+function selectLayerByHash(hs) {
+    const ipt = document.querySelector(`input[data-hash="${hs}"]`);
+    if (ipt) {
+        ipt.click();
+        let parent = ipt.parentElement;
+        while (parent && parent.id !== 'tree-container') {
+            if (parent.tagName === 'DETAILS') parent.open = true;
+            parent = parent.parentElement;
+        }
+    }
+}
+
+const cyrb53 = (str, byString, seed = 0) => {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for(let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    
+    if (byString) return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0');
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+</script>
+</head>
+<body>
+    <h3>地理院地図 レイヤー一覧</h3>
+    <div class="source-info">
+        出典：<a href="https://maps.gsi.go.jp/" target="_blank">国土地理院地理院地図</a>
+    </div>
+    <div id="loading">データを読み込んでいます...</div>
+    
+    <div id="controls" style="display: none;">
+        <button type="button" onclick="toggleAllDetails(true)">すべて展開</button>
+        <button type="button" onclick="toggleAllDetails(false)">すべて折りたたむ</button>
+        <button type="button" onclick="toggleLevel1()">1段目のみ展開</button>
+        <span style="margin-left: 4px; font-size: 11px;">総レイヤー数: <span id="layerCountSpan">0</span></span>
+    </div>
+    
+    <div id="tree-container"></div>
+    <div id="msgDiv"></div>
+
+    <!-- 凡例モーダル -->
+    <div id="legendModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeLegend()">&times;</span>
+            <div id="legendModalBody"></div>
+        </div>
+    </div>
+</body>
+</html>
