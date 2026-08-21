@@ -27,8 +27,8 @@
 </style>
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script type="module">
-import{KMLrenderer} from "./KMLrenderer.js";
-window.KMLrenderer = KMLrenderer;
+import{KMLParser} from "./KMLParser.js";
+window.KMLParser = KMLParser;
 </script>
 
 <script>
@@ -45,6 +45,8 @@ window.KMLrenderer = KMLrenderer;
 // History: 
 // 2025/02/20: 1st rev. ひとまずできたけど手抜きね・・　種別色分けとかメタデータとか設定できてると良いよね　引くと重すぎは何とかしたいねQTCT・・
 // 2025/06/19: 重すぎなので改善する・九州のポンコツデータの修正機能を拡充
+// 2026/08/21: 北海道に対応
+// 2026/08/21: KMLrenderer.jsをKMLParser.jsに置き換え、geoJSONに変換描画する形にした。このKMLParser.jsはsvgmapjsのKMLParser.jsの上位互換機能を持つ
 
 const prefBboxes = { // 国土数値情報の行政界ポリゴンから生成した県のバウンディングボックス
 	"01": {"minLat": 41.35164556,"minLng": 139.33396017,"maxLat": 45.55724341,"maxLng": 148.89440319,"prefectureName": "北海道"},
@@ -100,14 +102,15 @@ const minScale = 1000;
 const maxAreas = 8;
 
 const kmlURLs={
-//	北海道：ない
+//	北海道：
+	"01":"https://www.hkd.mlit.go.jp/ky/kn/dou_iji/splaat0000006cn3/kml/01_hokkaido_kinkyuuyusou_line.kml",
 //	東北：
-	"02":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/02_aomori_kinkyuuyusou_line.kml",
-	"03":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/03_iwate_kinkyuuyusou_line.kml",
-	"04":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/04_miyagi_kinkyuuyusou_line.kml",
-	"05":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/05_akita_kinkyuuyusou_line.kml",
-	"06":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/06_yamagata_kinkyuuyusou_line.kml",
-	"07":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/07_fukushima_kinkyuuyusou_line.kml",
+	"02":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/02_aomori_kinkyuuyusou_line_V2.kml",
+	"03":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/03_iwate_kinkyuuyusou_line_V2.kml",
+	"04":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/04_miyagi_kinkyuuyusou_line_V2.kml",
+	"05":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/05_akita_kinkyuuyusou_line_V2.kml",
+	"06":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/06_yamagata_kinkyuuyusou_line_V2.kml",
+	"07":"https://www.thr.mlit.go.jp/road/doro_bosaijoho_webmap/kml/07_fukushima_kinkyuuyusou_line_V2.kml",
 //	関東
 	"08":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/08_ibaraki_kinkyuuyusou_line.kml",
 	"09":"https://www.ktr.mlit.go.jp/honkyoku/road/doro_bosaijoho_webmap/kml/09_tochigi_kinkyuuyusou_line.kml",
@@ -162,7 +165,6 @@ let mapRootG;
 
 addEventListener("layerWebAppReady",function(){
 	mapRootG = svgImage.getElementById("data");
-	window.kmlRenderer = new KMLrenderer(svgMap);
 	checkAndPrepareRequiredMaps();
 });
 
@@ -236,7 +238,9 @@ async function getXMLandDrawMap( pcode){
 		}
 		
 		
-		kmlRenderer.drawKml(kmlDom,layerID,undefined,undefined,undefined,undefined,undefined,undefined,parentG);
+		// KMLParserでGeoJSONに変換してから、svgmapjs本体の機能で描画する
+		const geojson = KMLParser.kmlToGeoJson(kmlDom);
+		svgMapGIStool.drawGeoJson(geojson, layerID, undefined, undefined, undefined, undefined, undefined, undefined, parentG);
 		svgDomCache[pcode] = parentG.cloneNode(true);
 	}
 	++ loadedCount;
@@ -341,6 +345,10 @@ function repairQsrLineStyle(kml){
 			var colors = st.getElementsByTagName("color");
 			for ( colorE of colors){
 				colorE.textContent = convertARGBtoABGR(colorE.textContent);
+			}
+			var widths = st.getElementsByTagName("width");
+			for ( var widthE of widths){
+				widthE.textContent = "3"; // デフォルトの太さ（3）に統一
 			}
 		}
 	}
