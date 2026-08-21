@@ -49,7 +49,7 @@ const defaultIndexes = {
 
 let searchURL = defaultIndexes.m2p5_day;
 
-onload = async function () {
+addEventListener("layerWebAppReady", async function () {
 	addEventListener("zoomPanMap", zpmFunc);
 	svgMap.setShowPoiProperty(eqShowProperty, layerID);
 	changeTimeSpanSelect.addEventListener("change", tsSel);
@@ -58,7 +58,7 @@ onload = async function () {
 	detailOnlyCk.addEventListener("click",changeDetailListMode);
 	await tsSel();
 	zpmFunc();
-};
+});
 
 async function tsSel() {
 	console.log(

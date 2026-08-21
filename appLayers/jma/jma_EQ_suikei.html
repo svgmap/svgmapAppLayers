@@ -33,9 +33,9 @@ table tr:nth-child(even){
 var suikeiImgBase = "https://www.jma.go.jp/bosai/estimated_intensity_map/data/";
 var proxyPath="https://www.jma.go.jp/bosai/";
 var suikeiSubPath = "estimated_intensity_map/data/";
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	updateIndex();
-}
+});
 
 function updateIndex(){
 	loadJSON(showData,svgMap.getCORSURL(proxyPath+suikeiSubPath+"list.json?t="+((new Date()).getTime())));

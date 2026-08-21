@@ -51,7 +51,7 @@ const currentBaseURL = "https://www.jma.go.jp/";
 let baseURL = currentBaseURL;
 
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	showHanrei();
 	svgImage.documentElement.setAttribute("property",metaDict.join(","));
 	areaStruct = await loadAreaStruct();
@@ -60,7 +60,7 @@ onload=async function(){
 	//svgMapGIStool.drawGeoJson(mapJson,layerID,"blue",5,"blue");
 	console.log(mapJson);
 	await changeCat();
-}
+});
 
 function changeBaseURL(url){
 	if ( url ){

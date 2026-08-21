@@ -36,7 +36,7 @@ var mainSrcData, catDict, mapData, areaStruct, areaNames;
 
 var mainData;
 
-addEventListener("load", init);
+addEventListener("layerWebAppReady", init);
 
 async function init() {
 	if (location.hash.indexOf("hasDatOnly") >= 0) {

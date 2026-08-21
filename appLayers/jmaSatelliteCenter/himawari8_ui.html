@@ -19,10 +19,10 @@
 
 var cat=-1; // 地図のカテゴリ
 
-window.onload = function(){
+addEventListener("layerWebAppReady",  function(){
 	// 少し後でないと設定されない。
 	setTimeout(initUI,200);
-}
+});
 
 function initUI(){
 //	console.log("iframe's svgMap:",svgMap,"  id:",layerID," svgImageProps:",svgImageProps," svgImage:",svgImage);

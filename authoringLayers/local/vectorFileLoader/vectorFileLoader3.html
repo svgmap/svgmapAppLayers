@@ -47,7 +47,7 @@ window.LocalDBFileManager = LocalDBFileManager;
 
 _targetSvgContentGrpId = "mapContents";
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	console.log("ONLOAD: vectorFileLoader2");
 	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
 	frameTitle.style.visibility="visible";
@@ -67,7 +67,7 @@ onload=async function(){
 		console.log("Load Saved File : ", hashStr);
 		loadByFileName(hashStr.substring(6));
 	}
-}
+});
 
 async function loadVectorFile(event){
 	document.getElementById("zipContentSelectDiv").style.display="none";

@@ -23,7 +23,7 @@
 // PDFを解凍して抜きだす的な？
 // https://stackoverflow.com/questions/18680261/extract-images-from-pdf-file-with-javascript
 
-window.addEventListener('load', function(){
+window.addEventListener('layerWebAppReady', function(){
 	
 	document.getElementById("programming").addEventListener("click",initAuthoring);
 	window.addEventListener('closeFrame', function(){

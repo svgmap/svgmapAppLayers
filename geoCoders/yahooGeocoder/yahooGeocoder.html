@@ -24,7 +24,7 @@ import { YahooGeocoder, parseYahooCoords } from "./yahooGeocodeViaProxy.js";
 
 let cg;
 
-window.onload = function () {
+addEventListener("layerWebAppReady",  function () {
 	console.log("ONLOAD");
 	// hashからプロキシURLを取得可能にする設定
 	var proxyUrl="./yahooGeocoderProxy.php";
@@ -40,7 +40,7 @@ window.onload = function () {
 		}
 	});
 	window.setCenter = setCenter;
-}
+});
 
 async function searchAddress(){
 	const msg = document.getElementById("messageDiv");

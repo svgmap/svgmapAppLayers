@@ -138,7 +138,7 @@ var appearedWarnings; // 現況・直近含め現在現出しているワーニ�
 
 var movieValuesMeta={"00":"None","10":"Low","30":"High"};
 
-addEventListener("load",initLoad); // このソフトウェアの入り口
+addEventListener("layerWebAppReady",initLoad); // このソフトウェアの入り口
 
 async function initLoad(){
 	await loadLsMaps(); // これはbaseURLが変わっても常に同じなのだと思う

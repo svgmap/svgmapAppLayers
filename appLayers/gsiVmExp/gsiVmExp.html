@@ -33,10 +33,10 @@ var levelOffsetTrim = 0;
 //var filterObj={layers:null,ftCodes:{8103:true}}; // 発電所フィルタ
 var filterObj={layers:null,ftCodes:null, enabled:false};
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(zoomPanMapFunction,20);
 	loadDatSpecs();
-}
+});
 
 addEventListener("zoomPanMap",zoomPanMapFunction);
 

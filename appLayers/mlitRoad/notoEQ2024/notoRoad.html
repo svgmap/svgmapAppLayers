@@ -36,7 +36,7 @@ var rootPage="https://www.mlit.go.jp/road/r6noto/map/index.html";
 var indexPage = "https://www.mlit.go.jp/road/r6noto/index2.html";
 var tlss = "var targetLayers";
 var layers={};
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	console.log("notoRoad onload");
 	console.log("svgMap:",svgMap);
 	msgDiv.innerText="初期化中";
@@ -51,7 +51,7 @@ onload=async function(){
 	if ( hashq?.date ){
 		setPastData( hashq?.date );
 	}
-}
+});
 
 function buildLGroup(){
 	var lo = [];

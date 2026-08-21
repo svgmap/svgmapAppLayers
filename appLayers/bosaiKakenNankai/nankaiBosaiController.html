@@ -110,7 +110,7 @@ var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回�
 
 var defaultCat = 5;
 
-onload=function(){
+addEventListener("layerWebAppReady",function(){
 	setTimeout(changeMap,100);
 	setTimeout(function(){
 		setDefaultParams();
@@ -118,7 +118,7 @@ onload=function(){
 		addEventListener("zoomPanMap",showMessage);
 	},20);
 	setTimeout(showMessage,1000);
-}
+});
 
 function showMessage(){ //無理やり過ぎか・・・
 	var msg = svgImageProps.script.getMessage().message;

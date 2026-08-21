@@ -38,12 +38,12 @@
 //
 // event zoomPanMap
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	layerLister.listVisiblePoiCoverLayers("targetLayer0","targetLayer1");
 	document.addEventListener("screenRefreshed", layerLister.listVisiblePoiCoverLayers , false);
 	
 	completed=true;
-}
+});
 
 function halt(){
 	svgMapGIStool.haltComputing();

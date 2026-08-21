@@ -66,7 +66,7 @@ window.preRenderFunction = () => kmlPreRenderFunc();
 
 let currentCsvData, postDisplayUI, complexFeatureGroup;
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
 	frameTitle.style.visibility="visible";
 	

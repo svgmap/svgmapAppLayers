@@ -76,13 +76,13 @@ let detailRequest = null;
 let detailRequestSerial = 0;
 let readyStatus = "";
 
-onload = function(){
+addEventListener("layerWebAppReady", function(){
   initPoiDialog();
   document.getElementById("refreshButton").addEventListener("click", refreshPublicData);
   document.getElementById("nodeSearch").addEventListener("input", drawFilteredNodes);
   document.getElementById("deviceTypeFilter").addEventListener("change", drawFilteredNodes);
   void refreshPublicData();
-};
+});
 window.addEventListener("beforeunload", shutdownIot100WeatherBox);
 
 function initPoiDialog(){

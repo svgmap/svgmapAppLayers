@@ -27,7 +27,7 @@
 var idoc;
 var selectedTileKey="std";
 var srcContent="https://maps.gsi.go.jp/development/ichiran.html"
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	console.log("dynamicWebTile:",dynamicWebTile);
 	dynamicWebTile.init(""); // dynamicWebTileの初期表示を抑止する
 	var srcTxt = await getText(srcContent);

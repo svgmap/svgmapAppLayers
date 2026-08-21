@@ -33,10 +33,10 @@ var proxyPath="https://www.jma.go.jp/bosai/";
 var tenkizuInfoSubPath="weather_map/data/list.json";
 var tenkizuPngSubPath="weather_map/data/png/";
 
-onload=function(){
-	console.log("tenkizuController:onload: caller:",onload.caller);
+addEventListener("layerWebAppReady", function(){
+	console.log("tenkizuController:layerWebAppReady: ");
 	loadJSON(showTenkizu, proxyPath + tenkizuInfoSubPath);
-}
+});
 
 var tenkiInfo;
 function showTenkizu(json){

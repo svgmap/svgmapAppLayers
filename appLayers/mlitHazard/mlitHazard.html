@@ -64,7 +64,7 @@ var linearLayerList = []; // 多階層レイヤーリストに対して、一次
 
 var disableSpecialRightsContent = false;
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	console.log(svgImageProps.hash);
 	if ( svgImageProps.hash){
 		subLayerCategory.selectedIndex = Number(decodeURIComponent(svgImageProps.hash)[1]);
@@ -80,7 +80,7 @@ onload=async function(){
 	} else {
 		showCatList();
 	}
-}
+});
 
 async function initList(event){
 	linearLayerList=[];

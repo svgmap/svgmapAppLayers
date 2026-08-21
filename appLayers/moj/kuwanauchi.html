@@ -25,7 +25,7 @@ import {initKuwanauchiIndex, showKuwanauchiIndex, customShowPoiPropertyKuwanauch
 
 import {getMOJindex, drawIndexData, showMojMap, openBitImagePanel, initEvent, removeChildren} from "./mojDataViewer.js";
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	await initKuwanauchiIndex();
 	await showKuwanauchiIndex();
 	initEvent(openImageBtn);
@@ -40,7 +40,7 @@ onload=async function(){
 		msgDiv.innerText=`エリアを選択してください`;
 		areaSelectMenuBtn.addEventListener("click",gotoAreaSelect);
 	},100);
-}
+});
 
 function gotoAreaSelect(){
 	svgImage.getElementById("areas").setAttribute("display","");

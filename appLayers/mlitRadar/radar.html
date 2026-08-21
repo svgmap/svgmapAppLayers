@@ -53,7 +53,7 @@ var band = "x";
 var latestTime;
 var targetDateTimePath;
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	console.log("ONLOAD");
 	showLegend();
 	await getMeshIndex();
@@ -68,7 +68,7 @@ onload=async function(){
 	}
 	setTimeout(refreshTime, updateIntervalMin * 60 * 1000);
 	window.refreshTime=refreshTime;
-}
+});
 
 function initSel(){
 	document.getElementById("bandSel").addEventListener("change",changeBand);

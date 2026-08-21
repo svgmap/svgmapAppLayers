@@ -54,7 +54,7 @@ var API_BASE = "https://www.kyoshin.bosai.go.jp/ja/eqdownload/";
 var API_SEARCH = API_BASE + "api/eqsearch/";
 var API_REPORT = API_BASE + "api/eqreportsearch/";
 
-onload=function(){
+addEventListener("layerWebAppReady",function(){
 	if ( svgImageProps.hash.indexOf("proxy=")>0){
 		PROXY_URL = svgImageProps.hash.substring(svgImageProps.hash.indexOf("proxy=")+6);
 	}
@@ -63,7 +63,7 @@ onload=function(){
 	
 	initEqYMsel();
 	init();
-}
+});
 
 
 var debug=false;

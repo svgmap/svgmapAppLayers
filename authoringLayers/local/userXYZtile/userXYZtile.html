@@ -35,12 +35,12 @@ window.LocalDBFileManager = LocalDBFileManager;
 //=========================================================================================
 //=========================================================================================
 
-window.onload = function(){
+addEventListener("layerWebAppReady", function(){
 	console.log("userXYZtile onload");
 	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
 	frameTitle.style.visibility="visible";
 	initUI();
-}
+});
 
 async function initUI(){
 	console.log("OPEN subWindow : csvInputUI_r18.html");

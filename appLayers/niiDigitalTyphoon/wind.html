@@ -19,14 +19,14 @@
 windStrColor=[]; // 0...7
 windStrColorVal=[];
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	initModel();
 //	loadJson("data.json",makeMap);
 	makeWindStrColor();
 //	console.log("windStrColor:",windStrColor);
 	document.addEventListener("zoomPanMap", zoomPanMapFunc,false);
 	document.addEventListener("screenRefreshed", screenRefreshedFunc,false);
-}
+});
 
 
 var geoViewBox;

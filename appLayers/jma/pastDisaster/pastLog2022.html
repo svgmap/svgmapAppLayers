@@ -55,7 +55,7 @@ let selectedCats0={};
 const indexEndPoint = "https://www.data.jma.go.jp/review/case.txt";
 let cases, simus;
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	setInterval(buildCat0SelectUI,1000);
 	cases = await(await fetch(indexEndPoint)).text();
 	cases = (new DOMParser()).parseFromString(cases, "text/html");

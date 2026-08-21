@@ -4,7 +4,7 @@
 <meta charset="utf-8"></meta>
 <title>Google Static WebMercator Tile Layer</title>
 </head>
-
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script type="module">
 // yr.noのビットイメージタイルを表示するレイヤー
 // Programmed by Satoru Takagi
@@ -37,7 +37,7 @@ import {DynamicWebTile} from "./DynamicWebTileModule.js";
 
 let dynamicWebMercatorTileLayer;
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	console.log("yr.no Tile layer load");
 	initLayer();
 	buildDataSetSelect();

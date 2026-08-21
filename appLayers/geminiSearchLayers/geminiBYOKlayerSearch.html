@@ -104,7 +104,7 @@
 			searchLayers 
 		} from './gemini-layer-search.js';
 
-		window.onload = checkState;
+		addEventListener("layerWebAppReady", checkState);
 
 		function checkState() {
 			// BYOK用UIの表示制御

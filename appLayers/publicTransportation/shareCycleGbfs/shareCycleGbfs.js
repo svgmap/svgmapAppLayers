@@ -58,7 +58,7 @@ let statusTimer = null;
 let activeController = null;
 let refreshPromise = null;
 
-window.addEventListener("load", initializeLayer);
+window.addEventListener("layerWebAppReady", initializeLayer);
 window.addEventListener("beforeunload", shutdownLayer);
 
 window.preRenderFunction = function () {

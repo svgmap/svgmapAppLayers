@@ -11,7 +11,7 @@
 // History:
 // 2022/02/08 : 1st rev.
 
-onload = async function(){
+addEventListener("layerWebAppReady", async function(){
 	initPOIUI();
 
 	await buildData();
@@ -42,7 +42,7 @@ onload = async function(){
 	**/
 	
 	showGridImage();
-}
+});
 
 var geoidGrid=[];
 var dataProps;

@@ -165,7 +165,7 @@ function buildSchema(features) {
     return metaSchema;
 }
 
-window.addEventListener("load", async function() {
+window.addEventListener("layerWebAppReady", async function() {
     if (typeof(svgMap) == "undefined") {
         window.svgMap = {
             getCORSURL: function(url) { return url; },

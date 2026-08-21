@@ -53,7 +53,7 @@ function checkUpdate(){
 var japanMeshDbName={dbName:"japanMeshDB",tableName:"japanMeshRawData"};
 
 var isReady;
-addEventListener("load", function(){
+addEventListener("layerWebAppReady", function(){
 	isReady = initApp();
 });
 

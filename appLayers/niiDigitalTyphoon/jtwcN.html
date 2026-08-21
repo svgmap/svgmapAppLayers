@@ -35,7 +35,7 @@
 	
 		var img, canvas;
 		var corsPxy = "ProxieForNonSvgMapEnv";
-		onload = function () {
+		addEventListener("layerWebAppReady", function () {
 			getMapRefernces(function(ri){
 				var gTop =  (0  + ri.lat0 / (ri.lat10span/10));
 				var gBtm = (0 - (ri.imageHeight - ri.lat0)/ (ri.lat10span/10));
@@ -48,7 +48,7 @@
 					svgMap.refreshScreen();
 				}
 			})
-		}
+		});
 		
 		function getMapRefernces(cbf){
 			canvas = document.getElementById("wcanvas");

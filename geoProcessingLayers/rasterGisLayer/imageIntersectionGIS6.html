@@ -64,7 +64,7 @@ var contSearchBtn;
 var apTriggerEvent="zoomPanMapCompleted"; // 2021/6/22 layerUIの新設イベントを使用
 //var apTriggerEvent="zoomPanMap"; // 確認用デバッグ
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	console.log("onload:");
 	setTimeout(initColorPicker,10);
 	setTimeout(initSvgMapGIStool,10);
@@ -73,7 +73,7 @@ onload=function(){
 	document.addEventListener("closeFrame", closeFrameProcess , false);
 	document.addEventListener("appearFrame", appearFrameProcess , false);
 	contSearchBtn = document.getElementById("contSearchBtn");
-}
+});
 
 function closeFrameProcess(){
 	console.log("closeFrameProcess");

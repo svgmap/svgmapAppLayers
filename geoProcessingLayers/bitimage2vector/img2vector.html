@@ -46,7 +46,7 @@
 
 const targetGroupId="tracedPath";
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	layerLister.listVisiblePoiCoverLayers("targetCoverLayer","targetCoverLayer2");
 	document.addEventListener("screenRefreshed", layerLister.listVisiblePoiCoverLayers , false);
 	rasterColorPicker.initColorPicker("colorPicker");

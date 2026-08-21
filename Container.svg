@@ -102,7 +102,7 @@
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
 
 <!-- 国土地理院 -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiMap/map.svg" title="地理院タイル：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiMap/map.svg" title="地理院地図：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiBosai/gsiBosai.svg" title="地理院防災・災害データ：サブレイヤーあり" data-cross-origin-proxy-required="true" class="国土地理院 clickable" visibility="hidden" opacity="0.8"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/gsiTiles/gsiTilesListLayer.svg" title="地理院タイル：サブレイヤーあり" class="国土地理院 clickable" visibility="hidden" opacity="0.6"/>
 

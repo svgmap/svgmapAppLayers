@@ -39,14 +39,14 @@ var svgImages,svgImagesProps;
 //var sourceCoverId,sourcePoiId;
 var contSearchBtn;
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	console.log("onload:");
 	setTimeout(listVisiblePoiCoverLayers,10);
 	document.addEventListener("screenRefreshed", listVisiblePoiCoverLayers , false);
 	contSearchBtn = document.getElementById("contSearchBtn");
 	setTimeout(initAuthoringTool,10);
 //	document.addEventListener("screenRefreshed",testScreenRefreshedListener,false);
-}
+});
 
 function initAuthoringTool(){
 	console.log("initAuthoringTool",svgImage,svgImageProps,layerID);

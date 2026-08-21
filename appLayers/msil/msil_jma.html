@@ -114,13 +114,13 @@ var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回�
 
 var defaultCat = 1;
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(changeMap,100);
 	setTimeout(function(){
 		setDefaultParams();
 		prepCatSel();
 	},20);
-}
+});
 
 function setDefaultParams(){
 	var hashs;

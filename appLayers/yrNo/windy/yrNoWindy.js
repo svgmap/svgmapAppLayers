@@ -16,7 +16,7 @@
 const timeIndexURL = "https://tiles.yr.no/api/wind/available.json";
 let timeIndex;
 let noforecast=false;
-addEventListener("load", async function () {
+addEventListener("layerWebAppReady", async function () {
 	noMask = true;
 	showLegend("legendDiv");
 	if (svgImageProps.hash.toLowerCase().indexOf("noforecast")>0){

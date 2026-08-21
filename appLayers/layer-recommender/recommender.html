@@ -28,6 +28,7 @@
   .score { font-size: 0.75rem; color: var(--subtext); background: #f3f4f6; padding: 4px 8px; border-radius: 6px; }
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script type="module">
     // License: (MPL v2)
     // This Source Code Form is subject to the terms of the Mozilla Public
@@ -40,7 +41,7 @@
   let currentRecs = [];
 
   // 初期化
-  window.onload = async function() {
+  addEventListener("layerWebAppReady",  async function() {
     if (typeof svgMap !== 'undefined' && typeof layerID !== 'undefined') {
         document.getElementById("titleH").innerText = svgMap.getLayer(layerID).getAttribute("title");
         
@@ -56,7 +57,7 @@
         // ローディング非表示
         loading.style.display = 'none';
     }
-  };
+  });
 
   // 検索クエリに基づいて推奨レイヤーを取得し、表示する関数
   window.onSearchInput = async function(query) {

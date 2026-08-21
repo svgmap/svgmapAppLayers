@@ -28,11 +28,11 @@ var defaultVisibleLayers=["power_line","power_substation_point","power_plant_poi
 
 var oimInfo;
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	await initOIM();
 	addEventListener("zoomPanMap",zoomPanMapFunction);
 	setTimeout(changeLayer,20);
-}
+});
 
 var metaArray=['subLayer', 'area', 'circuits', 'construction', 'diameter', 'electrical_output', 'frequency', 'is_node', 'line', 'location', 'method', 'name', 'name_de', 'name_en', 'name_es', 'name_fr', 'name_ja', 'name_ru', 'name_zh', 'operator', 'osm_id', 'output', 'ref', 'ref_len', 'source', 'start_date', 'substance', 'substation', 'tunnel', 'type', 'url', 'usage', 'voltage', 'voltage_2', 'voltage_3', 'wikidata', 'wikipedia'];
 

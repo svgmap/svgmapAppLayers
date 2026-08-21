@@ -183,13 +183,13 @@ var updateCheckInterval = 60 * 1000; // 自動更新ONの場合、1分に一回�
 var svType = 0;
 var defaultCat = 0;
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(changeMap,100);
 	setTimeout(function(){
 		setDefaultParams();
 		prepCatSel();
 	},20);
-}
+});
 
 function changeBaseURL(url){ // 過去の情報表示を行う機能
 	if ( !pastDataArchive){return}; // window.pastDataArchiveがある場合のみこの機能を有効にする

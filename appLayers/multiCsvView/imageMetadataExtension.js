@@ -26,7 +26,7 @@ class ImageMetadata{
 	#imageCache=null; // zipを読むときは使わない。登録時にblobが入っている
 	
 	init(){
-		window.addEventListener("load",function(){
+		window.addEventListener("layerWebAppReady",function(){
 			console.log("imageMetadataExt. Load event:");
 			
 			this.svgMap = window.svgMap;

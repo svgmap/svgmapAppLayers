@@ -33,7 +33,7 @@ var rootPage="https://www.gsi.go.jp/bousai.html";
 
 var rootIndex;
 
-onload=async function(){
+addEventListener("layerWebAppReady",async function(){
 	if ( typeof(svgMap)=="undefined"){
 		window.svgMap={
 			getCORSURL:function(url){
@@ -52,7 +52,7 @@ onload=async function(){
 	if ( svgImageProps.hash){
 		selectLayerByHash(decodeURIComponent(svgImageProps.hash).substring(1))
 	}
-}
+});
 
 //var styleProps={"_fillColor":"fill","_fillOpacity":"none","_color":"stroke","_opacity":"none","_weight":"none"};
 var styleProps={"_fillColor":"fill","_fillOpacity":"opacity","_color":"stroke","_opacity":"none","_weight":"none"};

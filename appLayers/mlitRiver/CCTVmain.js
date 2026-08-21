@@ -28,7 +28,7 @@ var qtctMapData
 
 let cctvPreRenderFunc;
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	svgMap = window.svgMap;
 	svgImage = window.svgImage;
 	svgImageProps = window.svgImageProps;

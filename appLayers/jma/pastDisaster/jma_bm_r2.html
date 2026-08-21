@@ -187,14 +187,14 @@ var defaultCat = 1;
 var svType = 0;
 var noforecast = false;
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(changeMap,100);
 	setTimeout(function(){
 		setDefaultParams();
 		prepCatSel();
 		initSlmcs();
 	},20);
-}
+});
 
 function setDefaultParams(){
 	var hashs;

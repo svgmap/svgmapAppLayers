@@ -57,7 +57,7 @@ function initParams(){
 	}
 }
 
-addEventListener("load",function(){
+addEventListener("layerWebAppReady",function(){
 	initParams();
 //	setTimeout(initParams,100);
 //	setTimeout(zoomPanMapFunction,110);

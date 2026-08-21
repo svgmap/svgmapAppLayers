@@ -39,7 +39,7 @@ var showAllListInfo=false; // 地震のID+発表IDをIDということにして�
 	
 var updateTimerId;
 
-window.addEventListener("load",async function(){
+window.addEventListener("layerWebAppReady",async function(){
 	var sel = document.getElementById("eqSel");
 	sel.addEventListener("change",showEq);
 	

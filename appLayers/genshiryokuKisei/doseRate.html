@@ -25,7 +25,7 @@ var radRawData={};
 var reqLen;
 
 
-onload=async function(){
+addEventListener("layerWebAppReady",async function(){
 	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
 	await getAllRadData();
 	generateIcons();
@@ -34,7 +34,7 @@ onload=async function(){
 	svgMapGIStool.drawGeoJson(radData,layerID, "purple", 2, "purple", "p0",undefined,undefined,tgrp,radData.regProps);
 	svgImage.documentElement.setAttribute("property", radData.regProps.join(","));
 	svgMap.refreshScreen();
-}
+});
 
 async function getAllRadData(){ // 2026/05 update
 	var ps = [];

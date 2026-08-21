@@ -34,10 +34,10 @@ const displayColumns = [
   "場所情報コード"
 ];
 
-onload = function(){
+addEventListener("layerWebAppReady", function(){
   initPoiDialog();
   void loadAndDrawAccessibilityInformationJR();
-};
+});
 
 function initPoiDialog(){
   if (typeof svgMap !== "undefined" && typeof layerID !== "undefined") {

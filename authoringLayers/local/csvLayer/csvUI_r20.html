@@ -60,7 +60,7 @@ window.csvMapper = null;
 let layerPreRenderFunc = () => {};
 window.preRenderFunction = () => layerPreRenderFunc();
 
-window.onload = function(){
+addEventListener("layerWebAppReady", function(){
 	console.log("R20 onload");
 	frameTitle.innerText = `${svgMap.getLayer(layerID).getAttribute("title")}レイヤー`;
 	frameTitle.style.visibility="visible";
@@ -79,7 +79,7 @@ window.onload = function(){
 	initUI();
 	
 	window.csvMapper.setInitCsvCallback(initCsvCbf);
-}
+});
 
 function getFraeTitle(iref){
 	var txt=iref.split("/");

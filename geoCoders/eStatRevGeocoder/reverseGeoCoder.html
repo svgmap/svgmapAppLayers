@@ -60,11 +60,11 @@ var meshDB, gaikuDB;
 var featureReader = new jsts.io.GeoJSONReader(); // featureReader.read(geometry);
 var featureWriter = new jsts.io.GeoJSONWriter(); // featureWriter.write(feature);
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	estatSchema = await buildEstatSchema();
 	await initGaikuDB();
 	await initJpMesh();
-}
+});
 
 async function initGaikuDB(){
 	gaikuDB=getDB(japanGaikuDbName);

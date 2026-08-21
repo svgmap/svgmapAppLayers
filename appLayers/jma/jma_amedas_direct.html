@@ -43,7 +43,7 @@ var palette={
 	"win" :["#b40068","#ff2800","#ff9900","#faf500","#0041ff","#f2f2ff"],
 }
 
-onload=function(){
+addEventListener("layerWebAppReady",function(){
 	setTimeout(function(){
 		generateColorScale();
 		generateMetaSchemaL0();
@@ -51,7 +51,7 @@ onload=function(){
 		generateDirIcons();
 		loadJson("https://www.jma.go.jp/bosai/amedas/const/amedastable.json",initAmedas);
 	},100);
-}
+});
 
 function initAmedas(json){
 	// 自動更新する起点もここです(json無しケース)

@@ -56,7 +56,7 @@ let selectedVehicleHighlightElement = null;
 // バスの軌跡履歴オブジェクト { vehicleId: { coords: [ [lon, lat], ... ] } }
 let busHistory = {};
 
-window.addEventListener("load", initializeLayer);
+window.addEventListener("layerWebAppReady", initializeLayer);
 window.addEventListener("beforeunload", shutdownLayer);
 
 async function initializeLayer() {

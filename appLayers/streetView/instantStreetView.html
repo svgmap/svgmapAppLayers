@@ -36,7 +36,7 @@ var targetService=instantstreetviewURL;
 
 var oscIntegrated=false;
 var closingFrame=false;
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	console.log("onLoad airPortAuthringToolsFrame:");
 	setServices();
 	changeTargetService();
@@ -45,7 +45,7 @@ onload=function(){
 		console.log("CLOSE WINDOW");
 		closingFrame=true;
 	});
-}
+});
 
 function setServices(){
 	const svcList = document.getElementById("changeSvc");

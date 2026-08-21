@@ -122,7 +122,7 @@ var targetGroup,targetPathGroup; // POI,pathを入れるSVGのグループ
 var progressInfo={total:jpMesh1.length*2, current:0};
 var svgHash;
 let usedKiseiIcons={}; // 2025/06/23 規制情報表示で現在使用しているアイコン
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
 	svgHash = new URL(svgImageProps.Path,location.href).hash;
 	console.log(svgHash);
@@ -131,7 +131,7 @@ onload=async function(){
 	registIcons();
 	await showMap();
 	
-}
+});
 
 async function showMap(){
 	progressInfo.current=0;

@@ -80,7 +80,7 @@ https://xml.kishou.go.jp/20120615_jmaxml_info_old.pdf 【シート14】
 73　津波予報（若干の海面変動）大津波警報または津波警報の解除、津波予報（若干の海面変動）への切替
 **/
 	
-onload = async function(){
+addEventListener("layerWebAppReady", async function(){
 	selInfo = await getJson(selInfoURL);
 	geojson = await getJson(geojsonURL);
 
@@ -108,7 +108,7 @@ onload = async function(){
 
 	showInfo(0,'warn')
 	buildLegend(document.getElementById("legend"));
-}
+});
 
 
 async function showInfo(catIdx, cat){

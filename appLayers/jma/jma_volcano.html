@@ -44,7 +44,7 @@ let afIndex={}; // 降灰(ashfall)火山リスト
 let afVolcanos={}; // 降灰火山の詳細情報
 let startTimes; // 降灰予報の時間に対し、各火山の該当する情報へのリンク情報
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	volcanos = await loadJSON(proxyPath+volcanoSubPath);
 	afIndex = await loadJSON(proxyPath+ashFallSubPath+"japan.json");
 	const ps=[];
@@ -58,7 +58,7 @@ onload=async function(){
 	checkTimes();
 	
 	showAshFalls();
-}
+});
 
 function selectTime(){
 //	const st = timeSel.options[timeSel.selectedIndex].value;

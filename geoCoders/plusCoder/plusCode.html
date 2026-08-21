@@ -23,14 +23,14 @@ import {decode , encode} from "./plusCoder.js";
 var cg;
 var messageDiv;
 
-window.onload = function () {
+addEventListener("layerWebAppReady",  function () {
 	console.log("ONLOAD");
 	document.getElementById("posSearchButton").addEventListener("click",geocode);
 	document.getElementById("codeSearchButton").addEventListener("click",revGeocode);
 	window.addEventListener("zoomPanMap", revGeocode);
 	messageDiv = document.getElementById("messageDiv");
 	revGeocode();
-}
+});
 
 var geocodeForcePan=false;
 async function geocode(event){

@@ -28,10 +28,10 @@ var jireiSelectUI, catSelectUI, timeSel;
 
 var selectedJirei, selectedCat;
 
-window.onload = async function(){
+addEventListener("layerWebAppReady",  async function(){
 	subLayersInfo = await ( await fetch("jmaPastDisasterOldSys.json")).json();
 	initUI();
-}
+});
 
 function initUI(){
 	timeSel = document.getElementById("time");

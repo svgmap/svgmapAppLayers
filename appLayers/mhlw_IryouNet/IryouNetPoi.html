@@ -52,7 +52,7 @@ var myCsvMapper;
 let layerPreRenderFunc = () => {};
 window.preRenderFunction = () => layerPreRenderFunc();
 
-addEventListener("load",  function(){
+addEventListener("layerWebAppReady",  function(){
 	myCsvMapper = new window.CsvMapperClass({
 		svgMap: window.svgMap,
 		svgImage: window.svgImage,

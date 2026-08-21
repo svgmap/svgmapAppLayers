@@ -25,7 +25,7 @@
     
 }
 </style>
-
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script type="module">
 import{KMLrenderer} from "./KMLrenderer.js";
 window.KMLrenderer = KMLrenderer;
@@ -160,7 +160,7 @@ const kmlURLs={
 
 let mapRootG;
 
-addEventListener("load",function(){
+addEventListener("layerWebAppReady",function(){
 	mapRootG = svgImage.getElementById("data");
 	window.kmlRenderer = new KMLrenderer(svgMap);
 	checkAndPrepareRequiredMaps();

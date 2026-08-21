@@ -27,10 +27,10 @@ var bmCatsExp=["1350m mesh/UTM53","450m mesh/UTM53","150m mesh/UTM53","50m mesh/
 
 
 
-onload=function(){
+addEventListener("layerWebAppReady",function(){
 	setTimeout(test,100);
 	prepCatSel();
-}
+});
 
 function test(){
 	console.log("svgImage:",svgImage,"  svgImageProps:",svgImageProps," controllerSrc :",controllerSrc ,"  location:",this.location);

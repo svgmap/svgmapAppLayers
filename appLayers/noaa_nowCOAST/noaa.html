@@ -75,7 +75,7 @@ var _baseURL;
 
 // 現在の日時（分を切り捨てた時刻）を設定
 var _cat =cats[0];
-window.addEventListener("load", function() {
+window.addEventListener("layerWebAppReady", function() {
 	var hash = new URL(svgImageProps.Path, location).hash;
 	console.log(hash);
 	if ( hash.length>1){

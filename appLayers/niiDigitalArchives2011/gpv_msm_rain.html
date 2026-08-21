@@ -18,12 +18,12 @@ var baseURL = "http://agora.ex.nii.ac.jp/cgi-bin/tile/msmr.pl?z=[[zoom]]&x=[[tx]
 
 let noforecast=false; // 予想情報の表示を行うかどうか
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(setTimeSel,30);
 	if ( location.hash.indexOf("noforecast")>0){
 		noforecast = true;
 	}
-}
+});
 
 var timeData;
 

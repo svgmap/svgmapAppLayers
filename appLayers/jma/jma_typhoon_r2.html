@@ -26,9 +26,9 @@ var tBase="bosai/typhoon/data/";
 
 var tt="prob50kt/targetTimes.json";
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	drawTyphoonMap();
-}
+});
 
 async function drawTyphoonMap(){
 	removeChildren("pastTracks");

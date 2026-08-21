@@ -30,11 +30,11 @@ URL：https://cyberjapandata.gsi.go.jp/xyz/dem/{z}/{x}/{y}.txt（DEM10B テキ�
 URL：https://cyberjapandata.gsi.go.jp/xyz/demgm/{z}/{x}/{y}.txt （テキスト形式）
 **/
 
-onload = function(){
+addEventListener("layerWebAppReady", function(){
 	window.addEventListener("zoomPanMap", testZoom);
 	
 	setTimeout(initPOIUI,100);
-}
+});
 
 async function testZoom(){
 	var vb = svgMap.getGeoViewBox();

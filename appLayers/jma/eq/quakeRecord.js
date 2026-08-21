@@ -16,7 +16,7 @@ var APIURI = "https://www.data.jma.go.jp/eqdb/data/shindo/api/"; // update 2025/
 var yearSel , monthSel, eqSel, maxiSel;
 
 
-onload = function () {
+addEventListener("layerWebAppReady",  function () {
 	initUI();
 	drawHanrei();
 	//await getIndexData();
@@ -24,7 +24,7 @@ onload = function () {
 	if ( typeof svgMap == "object"){
 		svgMap.setShowPoiProperty(customDialog, layerID);
 	}
-};
+});
 
 var selectedEventId;
 function customDialog(target){

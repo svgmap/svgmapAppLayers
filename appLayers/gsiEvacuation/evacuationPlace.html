@@ -48,7 +48,7 @@ var myCsvMapper;
 let layerPreRenderFunc = () => {};
 window.preRenderFunction = () => layerPreRenderFunc();
 
-addEventListener("load", async function(){
+addEventListener("layerWebAppReady", async function(){
 	dataCat = svgImage.documentElement.getAttribute("data-title");
 	frameTitle.innerText=dataCat;
 	console.log("gsi evacuation place or shelter layer onload :", svgImageProps.hash,"  cat:",dataCat);
@@ -298,7 +298,7 @@ function processHash(){
 <script type="module">
 import {gsiHinanCsv2GJS} from "./gsiHinanCsv2GJS.js"; // 地理院避難所/施設 CSVからGeoJSONをつくる関数。手抜きですが・・
 // GeoJSON/CSV保存ボタン実装
-window.addEventListener("load",function(){
+window.addEventListener("layerWebAppReady",function(){
 	setupSaveGJS();
 	setupSaveCSV();
 });

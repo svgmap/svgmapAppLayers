@@ -18,11 +18,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 var zoneList;
-onload = function(){
+addEventListener("layerWebAppReady",  function(){
 	window.addEventListener("zoomPanMap", testZoom);
 	initPOIUI();
 	testZoom();
-}
+});
 
 var poiUI;
 

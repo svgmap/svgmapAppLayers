@@ -22,11 +22,11 @@
 
 var utmg;
 
-onload = function(){
+addEventListener("layerWebAppReady", function(){
 	window.addEventListener("zoomPanMap", testZoom);
 	utmg=new UTMGrid(); 
 	setTimeout(initPOIUI,100);
-}
+});
 
 var poiUI;
 

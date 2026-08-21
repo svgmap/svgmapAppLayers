@@ -21,7 +21,7 @@ let proxyUrl = "./maff_proxy.php";
 
 let polyDataG;
 
-onload = function(){
+addEventListener("layerWebAppReady",  function(){
 	if ( svgImageProps.hash.indexOf("proxy=")>0){
 		proxyUrl = svgImageProps.hash.substring(svgImageProps.hash.indexOf("proxy=")+6);
 	}
@@ -29,7 +29,7 @@ onload = function(){
 	svgMap.setShowPoiProperty(showMaffProperty, layerID);
 	polyDataG = svgImage.getElementById("data");
 	testZoom();
-}
+});
 
 async function testZoom(){
 	const vb = svgMap.getGeoViewBox();

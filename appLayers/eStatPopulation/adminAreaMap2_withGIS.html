@@ -54,7 +54,7 @@ var japanMeshDbName={dbName:"estatMeshDB",tableName:"japanMeshRawData"};
 var japanGaikuDbName={dbName:"estatGaikuDB",tableName:"lgGeojson"};
 var meshDB, gaikuDB;
 
-onload=async function(){
+addEventListener("layerWebAppReady",async function(){
 	var ihash = getSvgImageHash();
 	if ( ihash.complexGisLayer){
 		vectorGISlayerName =  decodeURIComponent(ihash.complexGisLayer);
@@ -63,7 +63,7 @@ onload=async function(){
 	estatSchema = await buildEstatSchema();
 	await initJpMesh();
 	await initGaikuDB();
-}
+});
 
 function getSvgImageHash(){
 	var ans = {};

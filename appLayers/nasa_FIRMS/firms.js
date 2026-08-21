@@ -18,7 +18,7 @@ const basicURL="https://firms.modaps.eosdis.nasa.gov/mapserver/wmts/";
 let timeSpan ="24hrs";
 let scale ="fires";
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	addEventListener("zoomPanMap",zpmFunc);
 	addEventListener("screenRefreshed",screenRefreshedFunc);
 	changeScaleSelect.addEventListener("change",scaleSel);
@@ -27,7 +27,7 @@ onload=function(){
 	toDatePicker.addEventListener("change",customSpanBtnSet);
 	customSpanSetButton.addEventListener("click",customSpanSel);
 	zpmFunc();
-}
+});
 
 function screenRefreshedFunc(){
 	msgDiv.innerText="";

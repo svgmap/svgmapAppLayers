@@ -12,7 +12,7 @@
 import {CsisGeocoder} from "./csisGeocoder.js";
 
 var cg, OpenLocationCode;
-addEventListener("load", function(){
+addEventListener("layerWebAppReady", function(){
 	cg = new CsisGeocoder();
 	OpenLocationCode = window.OpenLocationCode;
 });

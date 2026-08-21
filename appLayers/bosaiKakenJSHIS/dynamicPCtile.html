@@ -23,7 +23,7 @@
 
 	var baseURL = "";
 	// このファイルの読み込み時に実行する
-	onload = function(){
+	addEventListener("layerWebAppReady", function(){
 		var hash = getHashParams(svgImageProps.Path);
 		if ( hash.server){
 			baseURL = decodeURIComponent(hash.server);
@@ -50,7 +50,7 @@
 		titleH.innerText=svgMap.getLayer(layerID).getAttribute("title");
 		console.log("hash:",hash);
 		svgMap.refreshScreen();
-	}
+	});
 	
 	function getHashParams( path ){
 		if ( path.indexOf("#")<0){

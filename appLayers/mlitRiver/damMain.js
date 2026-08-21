@@ -33,7 +33,7 @@ var damJsonBaseURL;
 var tilePoints = 100;
 var colorEvaluatorCol;
 
-addEventListener("load",async function(){
+addEventListener("layerWebAppReady",async function(){
 	svgMap = window.svgMap;
 	svgImage = window.svgImage;
 	svgImageProps = window.svgImageProps;

@@ -20,10 +20,10 @@
 // History
 // 2025/06/17 subLayersControllerKSJ.html(customShowPoiPropertyKSJ)を統合化
 
-onload=function(){
+addEventListener("layerWebAppReady", function(){
 	setTimeout(initUI,200);
 	addEventListener("screenRefreshed",showIcons);
-}
+});
 
 let propertyDictionary=null; //2025/06/17
 

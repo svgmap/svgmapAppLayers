@@ -104,7 +104,7 @@ GSMaP_NOW:{
 }
 
 
-onload=async function(){
+addEventListener("layerWebAppReady",async function(){
 	var hashOpts=getHashOpts();
 	console.log("hashOpts:",hashOpts);
 	for ( var catId in contentCats){
@@ -120,7 +120,7 @@ onload=async function(){
 	catSel.addEventListener("change",changeCat);
 	timeSel.addEventListener("change",changeTime);
 	changeCat();
-}
+});
 
 function getHashOpts(){
 	var nhash=svgImageProps.controller.split("#");

@@ -146,7 +146,7 @@ input[name="tab_item"] {
 // 他の参考情報(古いと思う):// https://www.graphhopper.com/blog/2020/05/31/examples-for-customizable-routing/
 
 
-onload=async function(){
+addEventListener("layerWebAppReady", async function(){
 	if ( !RountingService && svgImageProps.hash.indexOf("graphhopperurl")>0){
 		RountingService = (parseHash(svgImageProps.hash))["graphhopperurl"];
 		console.log("Set graphhopper RountingService endpoint by hash : ", RountingService);
@@ -157,7 +157,7 @@ onload=async function(){
 	reqJsonTemplate = await ( await fetch("ghQueryTemplate.json")).json();
 	routingResultGroup = svgImage.getElementById("routingResultGroup");
 	// console.log("onLoad airPortAuthringToolsFrame: template:",reqJsonTemplate);
-}
+});
 
 var reqJsonTemplate;
 var routingResultGroup;

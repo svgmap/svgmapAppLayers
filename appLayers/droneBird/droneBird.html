@@ -72,7 +72,7 @@ var indexData;
 
 var targetLayer ; // 選択中のレイヤーのメタデータ
 
-onload=async function(){
+addEventListener("layerWebAppReady",async function(){
 	dynamicWebTile.init("");
 	selectLayer(null,"ALL_DATA");
 	addEventListener("zoomPanMap",allDataTileMarker);
@@ -88,7 +88,7 @@ onload=async function(){
 	buildLayerTable(layerList);
 	setCenterPin();
 	initUI();
-}
+});
 
 
 async function buildlayerList(indexData){

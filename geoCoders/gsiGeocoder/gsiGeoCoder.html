@@ -27,11 +27,11 @@ https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=35.65864
 var geoCodeUrl="https://msearch.gsi.go.jp/address-search/AddressSearch?q=[ADDR]";
 var revCodeUrl="https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=[LAT]&lon=[LON]";
 
-onload = function(){
+addEventListener("layerWebAppReady",  function(){
 	window.addEventListener("zoomPanMap", testZoom);
 	
 	initPOIUI();
-}
+});
 
 async function geoCode(address){
 	var url = geoCodeUrl.replace("[ADDR]",encodeURIComponent(address));
