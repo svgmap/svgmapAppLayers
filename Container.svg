@@ -5,10 +5,10 @@
 
 <!-- Basemap Layers -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicWMTS.svg" title="sentinel2_2018_WMTS" class="basemap switch" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=seamlessphoto" title="DenshiKokudo:orthoPhoto" class="basemap switch" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=pale" title="DenshiKokudo:淡色" class="basemap switch" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=relief" title="DenshiKokudo:relief" class="basemap switch" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg" title="DenshiKokudo" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=seamlessphoto" title="DenshiKokudo:orthoPhoto" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=pale" title="DenshiKokudo:淡色" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=relief" title="DenshiKokudo:relief" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg" title="DenshiKokudo" class="basemap switch" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/osmTileProviders/osmtp.svg" title="OpenStreetMap Etc" class="basemap switch" visibility="hidden"/>
 <animation x="-300" y="-300" width="600" height="600" xlink:href="./basemaps/dynamicOSM_r11.svg" title="OpenStreetMap(Global)" class="basemap switch" visibility="visible"/>
 
@@ -59,8 +59,8 @@
 
 
 <!-- 海洋情報系 -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=ccm2" title="沿岸海域土地条件図:昭和63年以前" class="MARINE" visibility="hidden"/>
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=ccm1" title="沿岸海域土地条件図:平成元年以降" class="MARINE" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=ccm2" title="沿岸海域土地条件図:昭和63年以前" class="MARINE" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=ccm1" title="沿岸海域土地条件図:平成元年以降" class="MARINE" visibility="hidden"/>
 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/openSeaMap/dynamicOpenSeaMap.svg" title="dynamicOpenSeaMap seamark" class="MARINE" visibility="hidden"/>
 
@@ -78,7 +78,7 @@
 
 <!-- others gov layers -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/genshiryokuKisei/doseRate.svg" title="空間線量率(モニタリングポスト:原子力規制委員会)" class="GOV_LAYERS clickable" visibility="hidden" opacity="0.6" />
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo2016.svg#map=did2015" title="人口集中地区(DID)H27(総務省統計局/地理院地図)" class="GOV_LAYERS" visibility="hidden" opacity="0.6" />
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=did2015" title="人口集中地区(DID)H27(総務省統計局/地理院地図)" class="GOV_LAYERS" visibility="hidden" opacity="0.6" />
 
 <!-- その他 ハザードマップ -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/bosaiKakenNankai/dynamic_WMS_general.svg#server=null" title="防災科研　南海トラフ広域地震防災研究PF" class="ハザードマップ" data-controller="./nankaiBosaiController.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=12" visibility="hidden" opacity="0.8"/> 
