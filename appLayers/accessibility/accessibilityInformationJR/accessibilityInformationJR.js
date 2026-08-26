@@ -35,18 +35,8 @@ const displayColumns = [
 ];
 
 addEventListener("layerWebAppReady", function(){
-  initPoiDialog();
   void loadAndDrawAccessibilityInformationJR();
 });
-
-function initPoiDialog(){
-  if (typeof svgMap !== "undefined" && typeof layerID !== "undefined") {
-    svgMap.setShowPoiProperty(showStationDialog, layerID);
-  }
-  if (typeof svgImageProps !== "undefined") {
-    svgImageProps.isClickable = { value: true, hilightStrokeStyle: {} };
-  }
-}
 
 async function loadAndDrawAccessibilityInformationJR(){
   setMessage("CSVを読み込み中...");
@@ -153,40 +143,22 @@ function drawStations(rows){
       continue;
     }
 
+    const stationTitle = getStationTitle(row, stationNameCol, lineNameCol, lineUnitCol);
+    const content = getContentValue(getDisplayRow(row, header, propertyColumns));
     const useElement = svgImage.createElement("use");
     useElement.setAttribute("xlink:href", getSymbolId(row[stepFreeCol]));
-    useElement.setAttribute("content", getContentValue(getDisplayRow(row, header, propertyColumns)));
+    useElement.setAttribute("content", content);
     useElement.setAttribute("x", 0);
     useElement.setAttribute("y", 0);
     useElement.setAttribute("transform", "ref(svg," + lng + "," + (-lat) + ")");
-    useElement.setAttribute("xlink:title", getStationTitle(row, stationNameCol, lineNameCol, lineUnitCol));
+    useElement.setAttribute("data-title", stationTitle);
+    useElement.setAttribute("xlink:title", stationTitle);
     parentElement.appendChild(useElement);
     drawnCount++;
   }
 
   setCount(drawnCount + "件");
   svgMap.refreshScreen();
-}
-
-function showStationDialog(target){
-  const schemaText = target.ownerDocument.documentElement.getAttribute("property") || "";
-  const metaSchema = schemaText ? schemaText.split(",") : [];
-  const metaData = target.getAttribute("content") ? svgMap.parseEscapedCsvLine(target.getAttribute("content")) : [];
-  const title = target.getAttribute("data-title") || target.getAttribute("xlink:title") || "JR駅";
-  let message = "<table border='1' style='word-break: break-all;table-layout:fixed;width:100%;border-collapse: collapse;font-size:12px'>";
-  message += "<tr><th style='width:40%'>項目</th><th>値</th></tr>";
-  message += "<tr><td>名称</td><td>" + escapeHtml(title) + "</td></tr>";
-
-  for (let i = 0; i < metaSchema.length; i++) {
-    const value = metaData[i] || "";
-    if (value === "") {
-      continue;
-    }
-    message += "<tr><td>" + escapeHtml(metaSchema[i]) + "</td><td>" + escapeHtml(value) + "</td></tr>";
-  }
-
-  message += "</table>";
-  svgMap.showModal(message, 400, 600);
 }
 
 function getContentValue(values){
@@ -199,18 +171,6 @@ function escapeCsvField(value){
     return '"' + value.replace(/"/g, '""') + '"';
   }
   return value;
-}
-
-function escapeHtml(value){
-  return String(value).replace(/[&<>"']/g, function(char){
-    return {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[char];
-  });
 }
 
 function getExistingDisplayColumns(header){
