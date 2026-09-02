@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dynamic WMTS Layer (Sentinel-2 / EOX)</title>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+	// Dynamic WMTS (web mercator based) Layer for SVGMap
+	
+	// License: (MPL v2)
+	// This Source Code Form is subject to the terms of the Mozilla Public
+	// License, v. 2.0. If a copy of the MPL was not distributed with this
+	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+	
+	// 2013/01/24 : 1st ver.
+	// 2026/8/26: Modernized to S-LaWA architecture
+	
+	
+	var maxLevel = 18;
+	var minLevel = 3;
+	var tilePix = 256;
+	
+	// WMTSエンドポイントのリスト
+	var svAddrs = [
+		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2018_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/osm_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/terrain_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/graticules/default/WGS84/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/streets_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2017_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/blackmarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/hydrography_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/terrain-light_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/bluemarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
+		"https://tiles.maps.eox.at/wmts/1.0.0/coastline_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png"
+	];
+	var svAddr = svAddrs[0];
+
+	// SVGMapのレイヤーとして読み込まれた際の初期化処理
+	addEventListener("layerWebAppReady", function() {
+		// URLフラグメントからレイヤー設定を引き継ぐ
+		if (svgImageProps && svgImageProps.hash) {
+			var hParams = getHashParams(svgImageProps.hash);
+			
+			if (hParams.map && typeof(hParams.map) !== "function") {
+				if (!isNaN(hParams.map)) {
+					// インデックス指定の場合
+					var idx = Number(hParams.map);
+					if (idx >= 0 && idx < svAddrs.length) {
+						svAddr = svAddrs[idx];
+					}
+				} else {
+					// 文字列による部分一致指定の場合
+					for (var i = 0; i < svAddrs.length; i++) {
+						if (svAddrs[i].indexOf(hParams.map) >= 0) {
+							svAddr = svAddrs[i];
+							break;
+						}
+					}
+				}
+			}
+		}
+		
+		// 初回レンダリング
+		svgMap.refreshScreen();
+		putGlobalMessage("© Sentinel-2 cloudless  by EOX IT Services GmbH");
+	});
+
+	// ハッシュパラメータの解析関数
+	function getHashParams(hash) {
+		if (hash.indexOf("#") === 0) {
+			hash = hash.substring(1);
+		}
+		var params = {};
+		var parts = hash.split("&");
+		for (var i = 0; i < parts.length; i++) {
+			var pair = parts[i].split("=");
+			if (pair[1] !== undefined) {
+				params[pair[0]] = pair[1];
+			} else {
+				params[pair[0]] = true;
+			}
+		}
+		return params;
+	}
+
+	// ズーム/スクロール等、再描画の直前に呼ばれるコールバック
+	function preRenderFunction() {
+		var level = Math.floor(Math.LOG2E * Math.log(svgImageProps.scale) + 7.5);
+		if (level > maxLevel) {
+			level = maxLevel;
+		} else if (level < minLevel) {
+			level = minLevel;
+		}
+		
+		var tileSet = getTileSet(svgMap.getGeoViewBox(), level);
+		
+		var currentTiles = svgImage.getElementsByTagName("image");
+		
+		for (var i = currentTiles.length - 1; i >= 0; i--) {
+			var oneTile = currentTiles[i];
+			var qkey = oneTile.getAttribute("metadata");
+			if (tileSet[qkey]) {
+				tileSet[qkey].exist = true;
+			} else {
+				oneTile.parentNode.removeChild(oneTile);
+			}
+		}
+		
+		for (var tkey in tileSet) {
+			if (!tileSet[tkey].exist) {
+				var addTile = getTile(tileSet[tkey].x, tileSet[tkey].y, level, this.CRS);
+				svgImage.getElementsByTagName("svg")[0].appendChild(addTile);
+			}
+		}
+	}
+
+	function getTile(tileX, tileY, level, crs) {
+		var tileURL = getWMTSURL(tileX, tileY, level);
+		
+		var tLatLng = XY2latLng(tileX * tilePix, tileY * tilePix, level);
+		var tSvg = svgMap.transform(tLatLng.lng, tLatLng.lat, crs);
+		var tLatLngBR = XY2latLng(tileX * tilePix + tilePix, tileY * tilePix + tilePix, level);
+		var tSvgBR = svgMap.transform(tLatLngBR.lng, tLatLngBR.lat, crs);
+		
+		tSvg.width  = tSvgBR.x - tSvg.x;
+		tSvg.height = tSvgBR.y - tSvg.y;
+		
+		var cl = svgImage.createElement("image");
+		cl.setAttribute("x", tSvg.x);
+		cl.setAttribute("y", tSvg.y);
+		cl.setAttribute("width", tSvg.width);
+		cl.setAttribute("height", tSvg.height);
+		cl.setAttribute("xlink:href", tileURL.URL);
+		cl.setAttribute("metadata", tileURL.Key);
+		cl.setAttribute("data-mercator-tile", "true");
+		
+		return cl;
+	}
+
+	function getTileSet(geoViewBox, level) {
+		var TileSet = new Object();
+		
+		// Webメルカトルの緯度限界クリッピング
+		if (geoViewBox.y + geoViewBox.height > 85.05113) {
+			geoViewBox.height = 85.05113 - geoViewBox.y;
+		}
+		if (geoViewBox.y < -85.05113) {
+			geoViewBox.y = -85.05113;
+		}
+		
+		var tlxy = latLng2XY(geoViewBox.y + geoViewBox.height, geoViewBox.x, level);
+		var tileTLxy = XY2TileXY(tlxy);
+		var brxy = latLng2XY(geoViewBox.y, geoViewBox.x + geoViewBox.width, level);
+		var tileBRxy = XY2TileXY(brxy);
+		
+		for (var i = tileTLxy.y; i <= tileBRxy.y; i++) {
+			for (var j = tileTLxy.x; j <= tileBRxy.x; j++) {
+				var qkey = getKey(j, i, level);
+				TileSet[qkey] = new Object();
+				TileSet[qkey].x = j;
+				TileSet[qkey].y = i;
+			}
+		}
+		return TileSet;
+	}
+
+	function latLng2XY(lat, lng, lvl) {
+		var size = lvl2Res(lvl);
+		var sinLat = Math.sin(lat * Math.PI / 180.0);
+		var pixelX = ((lng + 180.0) / 360.0) * size;
+		var pixelY = (0.5 - Math.log((1 + sinLat) / (1.0 - sinLat)) / (4 * Math.PI)) * size;
+		return { x: pixelX, y: pixelY };
+	}
+
+	function XY2TileXY(xy) {
+		var tileX = Math.floor(xy.x / tilePix);
+		var tileY = Math.floor(xy.y / tilePix);
+		return { x: tileX, y: tileY };
+	}
+
+	function lvl2Res(lvl) {
+		var j = 1;
+		for (var i = 0; i < lvl; i++) {
+			j = j * 2;
+		}
+		return (j * tilePix);
+	}
+
+	function XY2latLng(px, py, lvl) {
+		var size = lvl2Res(lvl);
+		var x = (px / size) - 0.5;
+		var y = 0.5 - (py / size);
+		var lat = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
+		var lng = 360 * x;
+		return { lat: lat, lng: lng };
+	}
+
+	function getWMTSURL(tx, ty, lvl) {
+		var tile_ans = getKey(tx, ty, lvl);
+		var mapServerURL = svAddr.replace("{TileMatrix}", lvl);
+		mapServerURL = mapServerURL.replace("{TileRow}", ty);
+		mapServerURL = mapServerURL.replace("{TileCol}", tx);
+		return {
+			URL: mapServerURL,
+			Key: tile_ans
+		}
+	}
+	
+	// ObsoleteされたgetURLは削除し、getWMTSURLに一本化しています
+	
+	function getKey(tx, ty, lvl) {
+		return (tx + "_" + ty + "_" + lvl);
+	}
+</script>
+</head>
+<body>
+<h3>Dynamic WMTS Layer (Sentinel-2 / EOX)</h3>
+<ul>
+	<li>Source: <a href="https://s2maps.eu/" target="_blank">Sentinel-2 cloudless WMTS</a></li>
+	<li>© <a href="https://eox.at/" target="_blank">EOX IT Services GmbH</a></li>
+</ul>
+</body>
+</html>
