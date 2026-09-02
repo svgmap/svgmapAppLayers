@@ -11,72 +11,65 @@ const IOT100_ENDPOINTS = {
   weather: IOT100_API_BASE + "getweather/",
   scene: IOT100_API_BASE + "getscene/"
 };
-const NODE_PROPERTIES = [
-  "NodeID",
-  "名称",
-  "緯度",
-  "経度",
-  "最新気温",
-  "モデル",
-  "センサー設置方法",
-  "カメラ撮影方位",
-  "景観"
-];
-const DATA_LABELS_JA = {
-  Temperature: "気温",
-  Humidity: "湿度",
-  AtmosphericPressure: "気圧",
-  WindDirection: "風向",
-  WindSpeed: "風速",
-  WindSpeedMaximumMoment: "最大瞬間風速",
-  RainFall: "雨量",
-  WindDirectionMaximumMoment: "最大瞬間風向",
-  Humidity_test: "湿度（テスト）",
-  Battery: "バッテリー電圧",
-  BatteryStatus: "バッテリー状態",
-  RainFallHour: "1時間雨量",
-  RainFallDay: "日雨量",
-  Rssi: "受信信号強度",
-  Luminosity: "照度"
+const MEASUREMENT_DEFINITIONS = {
+  Temperature: { label: "気温", unit: "℃", showInSummary: true, showRange: true },
+  Humidity: { label: "湿度", unit: "%", showInSummary: true, showRange: true },
+  AtmosphericPressure: { label: "気圧", unit: "hPa", showInSummary: true, showRange: true },
+  WindDirection: { label: "風向", unit: "deg" },
+  WindSpeed: { label: "風速", unit: "m/s", showInSummary: true, showRange: true },
+  WindSpeedMaximumMoment: { label: "最大瞬間風速", unit: "m/s", showRange: true },
+  RainFall: { label: "雨量", unit: "mm" },
+  WindDirectionMaximumMoment: { label: "最大瞬間風向", unit: "deg" },
+  Humidity_test: { label: "湿度（テスト）", unit: "%" },
+  Battery: { label: "バッテリー電圧", unit: "mv" },
+  BatteryStatus: { label: "バッテリー状態", unit: "bool" },
+  RainFallHour: { label: "1時間雨量", unit: "mm", showInSummary: true, showRange: true },
+  RainFallDay: { label: "日雨量", unit: "mm", showRange: true },
+  Rssi: { label: "受信信号強度", unit: "dBm" },
+  Luminosity: { label: "照度", unit: "lx", showRange: true }
 };
-const FALLBACK_UNITS = {
-  Temperature: "℃",
-  Humidity: "%",
-  AtmosphericPressure: "hPa",
-  WindDirection: "deg",
-  WindSpeed: "m/s",
-  WindSpeedMaximumMoment: "m/s",
-  RainFall: "mm",
-  WindDirectionMaximumMoment: "deg",
-  Humidity_test: "%",
-  Battery: "mv",
-  BatteryStatus: "bool",
-  RainFallHour: "mm",
-  RainFallDay: "mm",
-  Rssi: "dBm",
-  Luminosity: "lx"
-};
-const DETAIL_FIELD_ORDER = Object.keys(DATA_LABELS_JA);
-const RANGE_FIELDS = [
-  "Temperature",
-  "Humidity",
-  "AtmosphericPressure",
-  "WindSpeed",
-  "WindSpeedMaximumMoment",
-  "RainFallHour",
-  "RainFallDay",
-  "Luminosity"
+const DETAIL_FIELD_ORDER = Object.keys(MEASUREMENT_DEFINITIONS);
+const RANGE_FIELDS = DETAIL_FIELD_ORDER.filter(function(key){
+  return MEASUREMENT_DEFINITIONS[key].showRange;
+});
+const SUMMARY_FIELDS = DETAIL_FIELD_ORDER.filter(function(key){
+  return MEASUREMENT_DEFINITIONS[key].showInSummary;
+});
+const TEMPERATURE_BANDS = [
+  { maximum: 10, color: "#1976d2" },
+  { maximum: 20, color: "#2e7d32" },
+  { maximum: 30, color: "#f9a825" },
+  { maximum: 35, color: "#ef6c00" },
+  { maximum: Infinity, color: "#c62828" }
 ];
-
-let allNodes = [];
-let dataTypes = [];
-let unitsByLabel = Object.assign({}, FALLBACK_UNITS);
-let listRequest = null;
-let detailRequest = null;
-let detailRequestSerial = 0;
-let readyStatus = "";
+const NODE_METADATA_FIELDS = [
+  { name: "NodeID", getValue: function(node){ return node.NodeID; } },
+  { name: "名称", getValue: function(node){ return node.NodeName; } },
+  { name: "緯度", getValue: function(node){ return node.Latitude; } },
+  { name: "経度", getValue: function(node){ return node.Longitude; } },
+  { name: "最新気温", getValue: function(node){ return formatMeasurementValue("Temperature", node.NewestTemperature); } },
+  { name: "モデル", getValue: function(node){ return getDeviceTypeLabel(node.DeviceType); } },
+  { name: "センサー設置方法", getValue: getMeasurementMethodLabel },
+  { name: "カメラ撮影方位", getValue: function(node){ return node.CameraOrientation; } },
+  { name: "景観", getValue: function(node){ return formatLandscape(node.LandscapeTexts); } }
+];
+const NODE_PROPERTIES = NODE_METADATA_FIELDS.map(function(field){
+  return field.name;
+});
+const state = {
+  nodes: [],
+  unitsByLabel: createFallbackUnits(),
+  listRequest: null,
+  detailRequest: null,
+  readyStatus: ""
+};
+let initialized = false;
 
 addEventListener("layerWebAppReady", function(){
+  if (initialized) {
+    return;
+  }
+  initialized = true;
   initPoiDialog();
   document.getElementById("refreshButton").addEventListener("click", refreshPublicData);
   document.getElementById("nodeSearch").addEventListener("input", drawFilteredNodes);
@@ -95,63 +88,81 @@ function initPoiDialog(){
 }
 
 async function refreshPublicData(){
-  abortRequest(listRequest);
-  listRequest = new AbortController();
+  abortRequest(state.listRequest);
+  const request = new AbortController();
+  state.listRequest = request;
   setRefreshDisabled(true);
   setStatus("地点一覧とデータ種別を取得中…", false);
 
-  const results = await Promise.allSettled([
-    fetchPublicJson(IOT100_ENDPOINTS.dataTypes, listRequest.signal),
-    fetchPublicJson(IOT100_ENDPOINTS.nodes, listRequest.signal)
-  ]);
-
-  const errors = [];
-  const typeResult = results[0];
-  const nodeResult = results[1];
-
-  if (typeResult.status === "fulfilled") {
-    try {
-      dataTypes = normalizeDataTypes(typeResult.value);
-      unitsByLabel = buildUnitsMap(dataTypes);
-      renderDataTypes(dataTypes);
-    } catch (error) {
-      console.error(error);
-      errors.push("データ種別: " + error.message);
-      renderDataTypes([]);
+  try {
+    const results = await Promise.allSettled([
+      fetchPublicJson(IOT100_ENDPOINTS.dataTypes, request.signal),
+      fetchPublicJson(IOT100_ENDPOINTS.nodes, request.signal)
+    ]);
+    if (state.listRequest !== request || request.signal.aborted) {
+      return;
     }
-  } else if (typeResult.reason && typeResult.reason.name !== "AbortError") {
-    console.error(typeResult.reason);
-    errors.push("データ種別: " + typeResult.reason.message);
-    renderDataTypes([]);
-  }
 
-  if (nodeResult.status === "fulfilled") {
-    try {
-      allNodes = normalizeNodes(nodeResult.value);
-      drawFilteredNodes();
-    } catch (error) {
-      console.error(error);
-      errors.push("地点一覧: " + error.message);
-      allNodes = [];
-      drawFilteredNodes();
+    const errors = [];
+    applySettledResult(results[0], {
+      label: "データ種別",
+      normalize: normalizeDataTypes,
+      onSuccess: function(items){
+        state.unitsByLabel = buildUnitsMap(items);
+        renderDataTypes(items);
+      },
+      onError: function(){
+        state.unitsByLabel = createFallbackUnits();
+        renderDataTypes([]);
+      }
+    }, errors);
+    applySettledResult(results[1], {
+      label: "地点一覧",
+      normalize: normalizeNodes,
+      onSuccess: function(nodes){
+        state.nodes = nodes;
+        drawFilteredNodes();
+      },
+      onError: function(){
+        state.nodes = [];
+        drawFilteredNodes();
+      }
+    }, errors);
+
+    state.readyStatus = errors.length ?
+      errors.join(" / ") :
+      "公開データを更新しました（" + formatLocalTime(new Date()) + "）";
+    setStatus(state.readyStatus, errors.length > 0);
+  } finally {
+    if (state.listRequest === request) {
+      state.listRequest = null;
+      setRefreshDisabled(false);
     }
-  } else if (nodeResult.reason && nodeResult.reason.name !== "AbortError") {
-    console.error(nodeResult.reason);
-    errors.push("地点一覧: " + nodeResult.reason.message);
-    allNodes = [];
-    drawFilteredNodes();
   }
+}
 
-  if (errors.length) {
-    readyStatus = errors.join(" / ");
-    setStatus(readyStatus, true);
-  } else {
-    readyStatus = "公開データを更新しました（" + formatLocalTime(new Date()) + "）";
-    setStatus(readyStatus, false);
+function applySettledResult(result, options, errors){
+  if (result.status === "rejected") {
+    if (!isAbortError(result.reason)) {
+      reportResultError(options, result.reason, errors);
+    }
+    return;
   }
+  try {
+    options.onSuccess(options.normalize(result.value));
+  } catch (error) {
+    reportResultError(options, error, errors);
+  }
+}
 
-  listRequest = null;
-  setRefreshDisabled(false);
+function reportResultError(options, error, errors){
+  console.error(error);
+  errors.push(options.label + ": " + getErrorMessage(error));
+  options.onError();
+}
+
+function getErrorMessage(error){
+  return error && error.message ? error.message : String(error);
 }
 
 async function fetchPublicJson(url, signal){
@@ -160,7 +171,7 @@ async function fetchPublicJson(url, signal){
   try {
     response = await fetch(requestUrl, { cache: "no-store", signal: signal });
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       throw error;
     }
     const message = requestUrl === url ?
@@ -209,9 +220,17 @@ function normalizeDataTypes(value){
 }
 
 function buildUnitsMap(items){
-  const result = Object.assign({}, FALLBACK_UNITS);
+  const result = createFallbackUnits();
   for (const item of items) {
     result[item.Label] = item.Data;
+  }
+  return result;
+}
+
+function createFallbackUnits(){
+  const result = {};
+  for (const key of DETAIL_FIELD_ORDER) {
+    result[key] = MEASUREMENT_DEFINITIONS[key].unit;
   }
   return result;
 }
@@ -245,13 +264,9 @@ function renderDataTypes(items){
 function drawFilteredNodes(){
   const query = document.getElementById("nodeSearch").value.trim().toLowerCase();
   const deviceType = document.getElementById("deviceTypeFilter").value;
-  const filteredNodes = allNodes.filter(function(node){
-    const matchesQuery = !query || String(node.NodeName || "").toLowerCase().includes(query);
-    const matchesType = deviceType === "all" || String(node.DeviceType) === deviceType;
-    return matchesQuery && matchesType;
-  });
+  const filteredNodes = filterNodes(state.nodes, query, deviceType);
 
-  document.getElementById("nodeCount").textContent = "表示 " + filteredNodes.length + " / 全 " + allNodes.length + "地点";
+  document.getElementById("nodeCount").textContent = "表示 " + filteredNodes.length + " / 全 " + state.nodes.length + "地点";
   if (typeof svgImage === "undefined" || typeof svgMap === "undefined") {
     return;
   }
@@ -261,60 +276,68 @@ function drawFilteredNodes(){
   svgImage.documentElement.setAttribute("property", NODE_PROPERTIES.join(","));
 
   for (const node of filteredNodes) {
-    const marker = svgImage.createElement("use");
-    const latitude = Number(node.Latitude);
-    const longitude = Number(node.Longitude);
-    marker.setAttribute("xlink:href", getTemperatureSymbol(node.NewestTemperature));
-    marker.setAttribute("x", 0);
-    marker.setAttribute("y", 0);
-    marker.setAttribute("transform", "ref(svg," + longitude + "," + (-latitude) + ")");
-    marker.setAttribute("data-node-id", String(node.NodeID));
-    marker.setAttribute("data-title", getNodeTitle(node));
-    marker.setAttribute("xlink:title", getNodeTitle(node));
-    marker.setAttribute("content", getCsvContent(getNodeProperties(node)));
-    mapContents.appendChild(marker);
+    mapContents.appendChild(createNodeMarker(node));
   }
 
   svgMap.refreshScreen();
 }
 
-function getTemperatureSymbol(value){
-  if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) {
-    return "#temperatureUnavailable";
+function filterNodes(nodes, query, deviceType){
+  return nodes.filter(function(node){
+    const matchesQuery = !query || String(node.NodeName || "").toLowerCase().includes(query);
+    const matchesType = deviceType === "all" || String(node.DeviceType) === deviceType;
+    return matchesQuery && matchesType;
+  });
+}
+
+function createNodeMarker(node){
+  const marker = svgImage.createElement("circle");
+  const title = getNodeTitle(node);
+  setAttributes(marker, {
+    cx: 0,
+    cy: 0,
+    r: 6,
+    fill: getTemperatureColor(node.NewestTemperature),
+    stroke: "#ffffff",
+    "stroke-width": 2,
+    transform: "ref(svg," + Number(node.Longitude) + "," + (-Number(node.Latitude)) + ")",
+    class: "clickable",
+    "data-node-id": String(node.NodeID),
+    "data-title": title,
+    "xlink:title": title,
+    content: getCsvContent(getNodeProperties(node))
+  });
+  return marker;
+}
+
+function setAttributes(element, attributes){
+  for (const name of Object.keys(attributes)) {
+    element.setAttribute(name, attributes[name]);
+  }
+}
+
+function getTemperatureColor(value){
+  if (isMissingValue(value) || !Number.isFinite(Number(value))) {
+    return "#757575";
   }
   const temperature = Number(value);
-  if (temperature < 10) {
-    return "#temperatureCold";
+  for (const band of TEMPERATURE_BANDS) {
+    if (temperature < band.maximum) {
+      return band.color;
+    }
   }
-  if (temperature < 20) {
-    return "#temperatureCool";
-  }
-  if (temperature < 30) {
-    return "#temperatureWarm";
-  }
-  if (temperature < 35) {
-    return "#temperatureHot";
-  }
-  return "#temperatureVeryHot";
+  return TEMPERATURE_BANDS[TEMPERATURE_BANDS.length - 1].color;
 }
 
 function getNodeTitle(node){
-  const temperature = formatMeasurementValue("Temperature", node.NewestTemperature, true);
+  const temperature = formatMeasurementValue("Temperature", node.NewestTemperature);
   return temperature ? String(node.NodeName || "名称未設定") + "（" + temperature + "）" : String(node.NodeName || "名称未設定");
 }
 
 function getNodeProperties(node){
-  return [
-    node.NodeID,
-    node.NodeName,
-    node.Latitude,
-    node.Longitude,
-    formatMeasurementValue("Temperature", node.NewestTemperature, true),
-    getDeviceTypeLabel(node.DeviceType),
-    getMeasurementMethodLabel(node),
-    node.CameraOrientation,
-    formatLandscape(node.LandscapeTexts)
-  ];
+  return NODE_METADATA_FIELDS.map(function(field){
+    return field.getValue(node);
+  });
 }
 
 function showWeatherBoxDialog(target){
@@ -334,32 +357,32 @@ function showWeatherBoxDialog(target){
 }
 
 async function loadAndShowWeatherBoxDetail(nodeId, node){
-
-  abortRequest(detailRequest);
-  detailRequest = new AbortController();
-  const requestId = ++detailRequestSerial;
+  abortRequest(state.detailRequest);
+  const request = new AbortController();
+  state.detailRequest = request;
 
   try {
-    const weather = await fetchPublicJson(IOT100_ENDPOINTS.weather + encodeURIComponent(nodeId), detailRequest.signal);
-    if (requestId !== detailRequestSerial) {
+    const weather = await fetchPublicJson(IOT100_ENDPOINTS.weather + encodeURIComponent(nodeId), request.signal);
+    if (state.detailRequest !== request) {
       return;
     }
     const records = normalizeWeatherRecords(weather);
     const latest = getLatestRecord(records);
     renderSelectedSummary(node, latest);
     svgMap.showModal(buildWeatherDetailDialog(node, weather, records, latest), 500, 680);
-    setStatus(readyStatus || "観測詳細を取得しました", false);
+    setStatus(state.readyStatus || "観測詳細を取得しました", false);
   } catch (error) {
-    if (error.name === "AbortError" || requestId !== detailRequestSerial) {
+    if (isAbortError(error) || state.detailRequest !== request) {
       return;
     }
+    const message = getErrorMessage(error);
     console.error(error);
-    renderSelectedSummaryError(node, error.message);
-    svgMap.showModal(buildWeatherErrorDialog(node.NodeName || "IoT百葉箱", error.message), 420, 340);
-    setStatus("観測詳細: " + error.message, true);
+    renderSelectedSummaryError(node, message);
+    svgMap.showModal(buildWeatherErrorDialog(node.NodeName || "IoT百葉箱", message), 420, 340);
+    setStatus("観測詳細: " + message, true);
   } finally {
-    if (requestId === detailRequestSerial) {
-      detailRequest = null;
+    if (state.detailRequest === request) {
+      state.detailRequest = null;
     }
   }
 }
@@ -367,7 +390,7 @@ async function loadAndShowWeatherBoxDetail(nodeId, node){
 function getSelectedNode(target){
   const metadata = getTargetMetadata(target);
   const nodeId = getTargetAttribute(target, "data-node-id") || metadata.NodeID || "";
-  const node = allNodes.find(function(item){
+  const node = state.nodes.find(function(item){
     return String(item.NodeID) === String(nodeId);
   });
 
@@ -385,8 +408,8 @@ function getSelectedNode(target){
       Latitude: metadata["緯度"] || "",
       Longitude: metadata["経度"] || "",
       NewestTemperature: "",
-      DeviceType: "",
-      MeasurementMethod: "",
+      DeviceType: parseDeviceType(metadata["モデル"]),
+      MeasurementMethod: parseMeasurementMethod(metadata["センサー設置方法"]),
       CameraOrientation: metadata["カメラ撮影方位"] || "",
       LandscapeTexts: metadata["景観"] || ""
     }
@@ -398,13 +421,37 @@ function getTargetMetadata(target){
   if (!content) {
     return {};
   }
-  const values = typeof svgMap.parseEscapedCsvLine === "function" ?
-    svgMap.parseEscapedCsvLine(content) : content.split(",");
+  const values = typeof svgMap !== "undefined" && typeof svgMap.parseEscapedCsvLine === "function" ?
+    svgMap.parseEscapedCsvLine(content) : parseCsvLine(content);
   const metadata = {};
   for (let i = 0; i < NODE_PROPERTIES.length; i++) {
     metadata[NODE_PROPERTIES[i]] = values[i] || "";
   }
   return metadata;
+}
+
+function parseCsvLine(content){
+  const values = [];
+  let value = "";
+  let quoted = false;
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    if (char === '"') {
+      if (quoted && content[i + 1] === '"') {
+        value += '"';
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      values.push(value);
+      value = "";
+    } else {
+      value += char;
+    }
+  }
+  values.push(value);
+  return values;
 }
 
 function getTargetAttribute(target, name){
@@ -414,17 +461,43 @@ function getTargetAttribute(target, name){
   return target.getAttribute(name) || "";
 }
 
+function parseDeviceType(label){
+  if (label === "基本気象観測モデル") {
+    return 0;
+  }
+  if (label === "総合気象観測モデル") {
+    return 1;
+  }
+  return "";
+}
+
+function parseMeasurementMethod(label){
+  if (label === "百葉箱に入っている") {
+    return "true";
+  }
+  if (label === "百葉箱に入っていない") {
+    return "false";
+  }
+  return "";
+}
+
 function buildWeatherLoadingDialog(node){
-  return '<div style="font-family:sans-serif;font-size:13px;line-height:1.5">' +
-    '<h3 style="margin:0 0 8px">' + escapeHtml(node.NodeName || "IoT百葉箱") + "</h3>" +
-    '<p style="margin:0">NodeID ' + escapeHtml(node.NodeID) + " の観測詳細を取得中です…</p></div>";
+  return buildDialog(
+    node.NodeName || "IoT百葉箱",
+    '<p style="margin:0">NodeID ' + escapeHtml(node.NodeID) + " の観測詳細を取得中です…</p>"
+  );
 }
 
 function buildWeatherErrorDialog(title, message){
-  return '<div style="font-family:sans-serif;font-size:13px;line-height:1.5">' +
-    '<h3 style="margin:0 0 8px">' + escapeHtml(title) + "</h3>" +
+  return buildDialog(title,
     '<p style="margin:0 0 8px;color:#b00020">観測詳細を取得できませんでした。</p>' +
-    '<p style="margin:0">' + escapeHtml(message) + "</p></div>";
+    '<p style="margin:0">' + escapeHtml(message) + "</p>"
+  );
+}
+
+function buildDialog(title, body){
+  return '<div style="font-family:sans-serif;font-size:13px;line-height:1.5">' +
+    '<h3 style="margin:0 0 8px">' + escapeHtml(title) + "</h3>" + body + "</div>";
 }
 
 function normalizeWeatherRecords(weather){
@@ -449,23 +522,21 @@ function getLatestRecord(records){
 }
 
 function buildWeatherDetailDialog(node, weather, records, latest){
-  let html = '<div style="font-family:sans-serif;font-size:13px;line-height:1.45">';
-  html += '<h3 style="margin:0 0 7px">' + escapeHtml(weather.NodeName || node.NodeName || "IoT百葉箱") + "</h3>";
-  html += buildNodeInformationTable(node);
+  let body = buildNodeInformationTable(node);
 
   if (!latest) {
-    html += '<p style="padding:8px;background:#f5f5f5">観測データがありません。</p>';
+    body += '<p style="padding:8px;background:#f5f5f5">観測データがありません。</p>';
   } else {
-    html += buildSceneImage(node, latest);
-    html += '<h4 style="margin:10px 0 5px">最新の観測値</h4>';
-    html += '<p style="margin:0 0 5px">観測時刻: ' + escapeHtml(latest.RecordedTime || "不明") + "</p>";
-    html += buildLatestValuesTable(latest);
-    html += buildRangeTable(records);
+    body += buildSceneImage(node, latest);
+    body += '<h4 style="margin:10px 0 5px">最新の観測値</h4>';
+    body += '<p style="margin:0 0 5px">観測時刻: ' + escapeHtml(latest.RecordedTime || "不明") + "</p>";
+    body += buildLatestValuesTable(latest);
+    body += buildRangeTable(records);
   }
 
-  html += '<p style="margin:9px 0 0;font-size:12px">出典: <a target="_blank" rel="noopener" href="https://iot100.uchida.co.jp/">内田洋行 IoT百葉箱</a>（公開データを加工して表示）</p>';
-  html += '<p style="margin:5px 0 0;font-size:11px;color:#555">本データは教育研究向けです。防災目的の気象観測値としては使用できません。</p></div>';
-  return html;
+  body += '<p style="margin:9px 0 0;font-size:12px">出典: <a target="_blank" rel="noopener" href="https://iot100.uchida.co.jp/">内田洋行 IoT百葉箱</a>（公開データを加工して表示）</p>';
+  body += '<p style="margin:5px 0 0;font-size:11px;color:#555">本データは教育研究向けです。防災目的の気象観測値としては使用できません。</p>';
+  return buildDialog(weather.NodeName || node.NodeName || "IoT百葉箱", body);
 }
 
 function buildSceneImage(node, latest){
@@ -518,11 +589,11 @@ function buildLatestValuesTable(latest){
   const availableFields = DETAIL_FIELD_ORDER.concat(Object.keys(latest).filter(function(key){
     return key !== "RecordedTime" && DETAIL_FIELD_ORDER.indexOf(key) < 0;
   })).filter(function(key, index, array){
-    return array.indexOf(key) === index && latest[key] !== null && latest[key] !== undefined && latest[key] !== "";
+    return array.indexOf(key) === index && !isMissingValue(latest[key]);
   });
 
   const rows = availableFields.map(function(key){
-    return [getJapaneseDataLabel(key), formatMeasurementValue(key, latest[key], true)];
+    return [getJapaneseDataLabel(key), formatMeasurementValue(key, latest[key])];
   });
   return buildTwoColumnTable(rows, "");
 }
@@ -531,7 +602,7 @@ function buildRangeTable(records){
   const rows = [];
   for (const key of RANGE_FIELDS) {
     const values = records.filter(function(record){
-      return record[key] !== null && record[key] !== undefined && record[key] !== "";
+      return !isMissingValue(record[key]);
     }).map(function(record){
       return Number(record[key]);
     }).filter(Number.isFinite);
@@ -542,7 +613,7 @@ function buildRangeTable(records){
     const maximum = Math.max.apply(null, values);
     rows.push([
       getJapaneseDataLabel(key),
-      formatMeasurementValue(key, minimum, true) + " ～ " + formatMeasurementValue(key, maximum, true)
+      formatMeasurementValue(key, minimum) + " ～ " + formatMeasurementValue(key, maximum)
     ]);
   }
   if (!rows.length) {
@@ -553,7 +624,7 @@ function buildRangeTable(records){
 
 function buildTwoColumnTable(rows, caption){
   const visibleRows = rows.filter(function(row){
-    return row[1] !== null && row[1] !== undefined && row[1] !== "";
+    return !isMissingValue(row[1]);
   });
   if (!visibleRows.length) {
     return "";
@@ -570,44 +641,43 @@ function buildTwoColumnTable(rows, caption){
 }
 
 function setSelectedSummaryLoading(node){
-  const summary = document.getElementById("selectedSummary");
-  summary.className = "summary";
-  summary.innerHTML = '<div class="summary-title">' + escapeHtml(node.NodeName || "名称未設定") + "</div>観測詳細を取得中…";
+  updateSelectedSummary(node, "観測詳細を取得中…", false);
 }
 
 function renderSelectedSummary(node, latest){
-  const summary = document.getElementById("selectedSummary");
-  summary.className = "summary";
-  let html = '<div class="summary-title">' + escapeHtml(node.NodeName || "名称未設定") + "</div>";
   if (!latest) {
-    summary.innerHTML = html + "観測データがありません。";
+    updateSelectedSummary(node, "観測データがありません。", false);
     return;
   }
-  html += '<div class="metrics">';
-  for (const key of ["Temperature", "Humidity", "AtmosphericPressure", "WindSpeed", "RainFallHour"]) {
-    if (latest[key] !== null && latest[key] !== undefined && latest[key] !== "") {
-      html += '<span class="metric">' + escapeHtml(getJapaneseDataLabel(key)) + " " + escapeHtml(formatMeasurementValue(key, latest[key], true)) + "</span>";
+  let content = '<div class="metrics">';
+  for (const key of SUMMARY_FIELDS) {
+    if (!isMissingValue(latest[key])) {
+      content += '<span class="metric">' + escapeHtml(getJapaneseDataLabel(key)) + " " + escapeHtml(formatMeasurementValue(key, latest[key])) + "</span>";
     }
   }
-  html += "</div><div>観測時刻: " + escapeHtml(latest.RecordedTime || "不明") + "</div>";
-  summary.innerHTML = html;
+  content += "</div><div>観測時刻: " + escapeHtml(latest.RecordedTime || "不明") + "</div>";
+  updateSelectedSummary(node, content, false);
 }
 
 function renderSelectedSummaryError(node, message){
-  const summary = document.getElementById("selectedSummary");
-  summary.className = "summary empty";
-  summary.innerHTML = '<div class="summary-title">' + escapeHtml(node.NodeName || "名称未設定") + "</div>" + escapeHtml(message);
+  updateSelectedSummary(node, escapeHtml(message), true);
 }
 
-function formatMeasurementValue(key, value, includeUnit){
-  if (value === null || value === undefined || value === "") {
+function updateSelectedSummary(node, content, isEmpty){
+  const summary = document.getElementById("selectedSummary");
+  summary.className = isEmpty ? "summary empty" : "summary";
+  summary.innerHTML = '<div class="summary-title">' + escapeHtml(node.NodeName || "名称未設定") + "</div>" + content;
+}
+
+function formatMeasurementValue(key, value){
+  if (isMissingValue(value)) {
     return "";
   }
   let formatted = value;
   if (typeof value === "number" && Number.isFinite(value)) {
     formatted = value.toLocaleString("ja-JP", { maximumFractionDigits: 3 });
   }
-  const unit = includeUnit ? unitsByLabel[key] || "" : "";
+  const unit = state.unitsByLabel[key] || "";
   if (!unit || ((key === "WindDirection" || key === "WindDirectionMaximumMoment") && !Number.isFinite(Number(value)))) {
     return String(formatted);
   }
@@ -615,7 +685,7 @@ function formatMeasurementValue(key, value, includeUnit){
 }
 
 function getJapaneseDataLabel(label){
-  return DATA_LABELS_JA[label] || label;
+  return MEASUREMENT_DEFINITIONS[label] ? MEASUREMENT_DEFINITIONS[label].label : label;
 }
 
 function getDeviceTypeLabel(value){
@@ -625,14 +695,20 @@ function getDeviceTypeLabel(value){
   if (Number(value) === 1) {
     return "総合気象観測モデル";
   }
-  return value === null || value === undefined || value === "" ? "不明" : "種別 " + value;
+  return isMissingValue(value) ? "不明" : "種別 " + value;
 }
 
 function getMeasurementMethodLabel(node){
-  if (Number(node.DeviceType) !== 0 || node.MeasurementMethod === null || node.MeasurementMethod === undefined || node.MeasurementMethod === "") {
+  if (Number(node.DeviceType) !== 0 || isMissingValue(node.MeasurementMethod)) {
     return "";
   }
-  return String(node.MeasurementMethod) === "true" ? "百葉箱に入っている" : "百葉箱に入っていない";
+  if (String(node.MeasurementMethod) === "true") {
+    return "百葉箱に入っている";
+  }
+  if (String(node.MeasurementMethod) === "false") {
+    return "百葉箱に入っていない";
+  }
+  return "";
 }
 
 function formatLandscape(value){
@@ -686,9 +762,17 @@ function abortRequest(controller){
   }
 }
 
+function isAbortError(error){
+  return Boolean(error && error.name === "AbortError");
+}
+
+function isMissingValue(value){
+  return value === null || value === undefined || value === "";
+}
+
 function shutdownIot100WeatherBox(){
-  abortRequest(listRequest);
-  abortRequest(detailRequest);
+  abortRequest(state.listRequest);
+  abortRequest(state.detailRequest);
 }
 
 function escapeHtml(value){
