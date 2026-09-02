@@ -37,7 +37,7 @@ CSVファイルはレイヤーの読み込み時に取得するため、この�
   height="60000"
   xlink:href="./appLayers/accessibility/accessibilityInformationJR/accessibilityInformationJR.svg"
   data-cross-origin-proxy-required="true"
-  class="バリアフリー"
+  class="バリアフリー clickable"
   title="鉄道施設に関するバリアフリー情報（JR）"
   visibility="hidden"/>
 ```

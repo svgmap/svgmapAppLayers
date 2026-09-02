@@ -11,11 +11,17 @@
 
 地点一覧はレイヤー表示時に取得し、地点別データと最新観測時刻に対応する撮影画像はピンをクリックした時だけ取得します。
 
+各ピンは地点固有の`NodeID`を持つ`circle.clickable`として描画しています。これは、`svgImageProps.isClickable`が親側へ共有されず、`use`要素の参照先がクリック対象になるS-LaWAでも、選択地点の観測詳細表示を有効にするためです。
+
 ## CORS
 
 2026年7月22日の確認時点で、APIレスポンスに`Access-Control-Allow-Origin`がなく、ブラウザからの直接取得はCORSで失敗します。
 
-このLaWAはJSON APIの取得に`svgMap.getCORSURL()`を使用します。撮影画像は`img`要素で表示します。親SVGMapにCORSプロキシを設定し、プロキシ側で`iot100.uchida.co.jp`を許可してください。`Container.svg`のレイヤー定義にも`data-cross-origin-proxy-required="true"`を設定しています。
+このLaWAはJSON APIの取得に`svgMap.getCORSURL()`を使用します。撮影画像は`img`要素で表示します。通常LaWAでは親SVGMapのCORSプロキシを、S-LaWAではコントローラー相対またはオリジンルートの`slawa-config.json`を使用します。どちらの場合も、プロキシ側で`iot100.uchida.co.jp`を許可してください。
+
+## テスト
+
+ルートディレクトリで`npm test -- --runInBand`を実行します。地点マーカーのS-LaWA互換性、絞り込み、メタデータ解析、通常LaWA／S-LaWA共通のPOI登録、連続リクエスト時の競合を確認します。
 
 ## 利用上の注意
 
