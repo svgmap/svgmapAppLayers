@@ -1,5 +1,3 @@
-import test from "node:test";
-import assert from "node:assert/strict";
 import {
   STATUS_CATEGORY,
   findSystemInCatalog,
@@ -20,8 +18,8 @@ test("CSVの引用符と日本のSystem IDを解釈する", () => {
     "US,Other,Elsewhere,other,https://other.example,https://other.example/gbfs.json"
   ].join("\r\n");
 
-  assert.equal(parseCsv(csv)[1][1], "Example, Bike");
-  assert.deepEqual(findSystemInCatalog(csv, "example"), {
+  expect(parseCsv(csv)[1][1]).toBe("Example, Bike");
+  expect(findSystemInCatalog(csv, "example")).toEqual({
     countryCode: "JP",
     systemId: "example",
     name: "Example, Bike",
@@ -44,60 +42,45 @@ test("GBFS 2.3と3.0のDiscoveryからフィードURLを得る", () => {
     }
   };
 
-  assert.equal(getFeedUrls(v23).station_status, "https://example.com/v2/status");
-  assert.equal(
-    getFeedUrls(v30).station_information,
-    "https://example.com/v3/info"
-  );
+  expect(getFeedUrls(v23).station_status).toBe("https://example.com/v2/status");
+  expect(getFeedUrls(v30).station_information).toBe("https://example.com/v3/info");
 });
 
 test("GBFS 3.0の多言語文字列を日本語優先で得る", () => {
-  assert.equal(
+  expect(
     localizeText([
       { text: "Toyama", language: "en" },
       { text: "富山", language: "ja" }
-    ]),
-    "富山"
-  );
+    ])
+  ).toBe("富山");
 });
 
 test("GBFS 2.3/3.0の利用可能車両数を正規化する", () => {
-  assert.equal(
-    normalizeStatus({ station_id: "1", num_bikes_available: 4 }).available,
-    4
-  );
-  assert.equal(
-    normalizeStatus({ station_id: "2", num_vehicles_available: 5 }).available,
-    5
-  );
-  assert.equal(
+  expect(normalizeStatus({ station_id: "1", num_bikes_available: 4 }).available).toBe(4);
+  expect(normalizeStatus({ station_id: "2", num_vehicles_available: 5 }).available).toBe(5);
+  expect(
     normalizeStatus({
       station_id: "3",
       vehicle_types_available: [{ count: 2 }, { count: 3 }]
-    }).available,
-    5
-  );
+    }).available
+  ).toBe(5);
 });
 
 test("空き状況を5分類する", () => {
   const station = { capacity: 10 };
-  assert.equal(getStatusCategory(null, station), STATUS_CATEGORY.UNKNOWN);
-  assert.equal(
-    getStatusCategory({ installed: false, renting: false, available: 5 }, station),
-    STATUS_CATEGORY.UNAVAILABLE
-  );
-  assert.equal(
-    getStatusCategory({ installed: true, renting: true, available: 0 }, station),
-    STATUS_CATEGORY.EMPTY
-  );
-  assert.equal(
-    getStatusCategory({ installed: true, renting: true, available: 2 }, station),
-    STATUS_CATEGORY.LOW
-  );
-  assert.equal(
-    getStatusCategory({ installed: true, renting: true, available: 6 }, station),
-    STATUS_CATEGORY.AVAILABLE
-  );
+  expect(getStatusCategory(null, station)).toBe(STATUS_CATEGORY.UNKNOWN);
+  expect(
+    getStatusCategory({ installed: false, renting: false, available: 5 }, station)
+  ).toBe(STATUS_CATEGORY.UNAVAILABLE);
+  expect(
+    getStatusCategory({ installed: true, renting: true, available: 0 }, station)
+  ).toBe(STATUS_CATEGORY.EMPTY);
+  expect(
+    getStatusCategory({ installed: true, renting: true, available: 2 }, station)
+  ).toBe(STATUS_CATEGORY.LOW);
+  expect(
+    getStatusCategory({ installed: true, renting: true, available: 6 }, station)
+  ).toBe(STATUS_CATEGORY.AVAILABLE);
 });
 
 test("集計値と更新間隔を計算する", () => {
@@ -113,20 +96,18 @@ test("集計値と更新間隔を計算する", () => {
   ]);
   const summary = summarizeStatuses(stations, statuses);
 
-  assert.equal(summary.vehicles, 7);
-  assert.equal(summary.docks, 23);
-  assert.equal(summary.available, 1);
-  assert.equal(summary.low, 1);
-  assert.equal(summary.empty, 1);
-  assert.equal(getRefreshIntervalMilliseconds(1), 60000);
-  assert.equal(getRefreshIntervalMilliseconds(900), 300000);
+  expect(summary.vehicles).toBe(7);
+  expect(summary.docks).toBe(23);
+  expect(summary.available).toBe(1);
+  expect(summary.low).toBe(1);
+  expect(summary.empty).toBe(1);
+  expect(getRefreshIntervalMilliseconds(1)).toBe(60000);
+  expect(getRefreshIntervalMilliseconds(900)).toBe(300000);
 });
 
 test("Unix秒とISO 8601の更新時刻を解釈する", () => {
-  assert.equal(parseGbfsTimestamp(1700000000)?.getTime(), 1700000000000);
-  assert.equal(
-    parseGbfsTimestamp("2026-07-28T01:31:40.942Z")?.toISOString(),
+  expect(parseGbfsTimestamp(1700000000)?.getTime()).toBe(1700000000000);
+  expect(parseGbfsTimestamp("2026-07-28T01:31:40.942Z")?.toISOString()).toBe(
     "2026-07-28T01:31:40.942Z"
   );
 });
-
