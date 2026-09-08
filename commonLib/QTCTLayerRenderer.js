@@ -16,7 +16,9 @@
 //
 // 2026/04/20 : [Refactor 2026]: ESM Class化。旧 QTCTrendererClass_r1.js + QTCTrenderer.js を統合し、
 // windowオブジェクトへの依存を排除してDI（依存性注入）設計に変更。
+// 2026/09/03 : 生成済みQTCTzipアーカイブによる即時レンダリングに対応(ZIPアーカイブからの非同期タイリングと遅延レンダリングを統合)
 
+import { unzip, HTTPRangeReader } from './unzipit.module.js';
 import { ClientSideQTCT } from './ClientSideQTCT.js';
 
 export class QTCTLayerRenderer {
@@ -48,6 +50,12 @@ export class QTCTLayerRenderer {
 		// このcolorはPOIのビットイメージの実際の色に対応させている。csvXhr_r*.svgのdefs #p?で定義
 		// (png読んで色を統計し自動設定すと良いけど面倒なのでひとまずハードコード・・)
 		this.colors = [[0x1d,0x64,0xbb],[0x1a,0xb9,0xb7],[0x71,0xf0,0x49],[0xf0,0xea,0x4a],[0xf0,0x49,0x49],[0xf5,0x4f,0xf7]];
+		// 2026/09/03
+		this.isZipMode = false;
+		this.loadingTiles = {};
+		this.toBeRemovedTiles = [];
+		this.zipArchive = null;
+		this.zipArchivePath = null;
 	}
 
 	// initCsvでこちらを呼ぶ
@@ -101,6 +109,10 @@ export class QTCTLayerRenderer {
 
 	// window.preRenderFunction に直接代入されるなど、外部からコールバックとして呼ばれても this のコンテキストが失われないようにバインド。
 	preRenderFunction = () => {
+		if (this.isZipMode) {
+			this.asyncPreRenderFunction();
+			return;
+		}
 		// [Refactor 2026]: window.useQTCT のチェックは廃止。レンダラーを呼ぶかどうかの判断は上位クラス(CsvMapper)に委ねる
 		if (!this.qtctMapData) return; 
 		
@@ -150,6 +162,10 @@ export class QTCTLayerRenderer {
 						titleStr = ts2;
 					}
 				}
+			}
+			// 2026/09/04: titleが空または "undefined" の場合、URI表示回避のために "-" をセット
+			if (!titleStr || titleStr === "undefined" || titleStr.trim() === "") {
+				titleStr = "-";
 			}
 			let poi = this.svgImage.createElement("use");
 			poi.setAttribute("xlink:href", "#" + iconId);
@@ -232,8 +248,25 @@ export class QTCTLayerRenderer {
 		return csvArray;
 	}
 
-	getQtctMapData() {
-		return this.qtctMapData;
+	getQtctMapData(completenessCheck) {
+		if (completenessCheck) {
+			let completeness = true;
+			if (!this.qtctMapData || !this.qtctMapData.tileIndex) return null;
+			
+			for (let key in this.qtctMapData.tileIndex) {
+				if (!this.qtctMapData[key]) {
+					completeness = false;
+					break;
+				}
+			}
+			if (completeness) {
+				return this.qtctMapData;
+			} else {
+				return null;
+			}
+		} else {
+			return this.qtctMapData;
+		}
 	}
 	
 	setQtctMapData(qtctMapDataSrc) {
@@ -290,5 +323,150 @@ export class QTCTLayerRenderer {
 				ngCallback(e);
 			}
 		});
+	}
+
+	// ==========================================
+	// ZIP Range Request 非同期描画用 新設メソッド群
+	// ==========================================
+	async initZippedTile(path) {
+		this.isZipMode = true;
+		this.zipArchivePath = path;
+		const reader = new HTTPRangeReader(path);
+		this.zipArchive = await unzip(reader);
+		
+		this.qtctMapData = {};
+		this.qtctMapData.tileIndex = await this.zipArchive.entries["tileIndex"].json();
+		this.csvSchema = await this.zipArchive.entries["csvSchema"].json();
+		this.qtctMapData.csvSchema = this.csvSchema;
+		
+		this.svgImage.firstChild.setAttribute("property", this.csvSchema.property?.join(","));
+		this.clientSideQTCT.init(this.qtctMapData, (col) => {
+			let x = col[this.csvSchema.lngCol];
+			let y = col[this.csvSchema.latCol];
+			return [x, y, col];
+		});
+		
+		this.svgMap.refreshScreen();
+	}
+
+	asyncPreRenderFunction() {
+		if (!this.qtctMapData) return;
+		if (Object.keys(this.loadingTiles).length > 0) return; // パン操作の競合ロック
+		
+		let level = Math.floor(Math.LOG2E * Math.log(this.svgImageProps.scale) + 7.25);
+		let gvb = this.svgMap.getGeoViewBox();
+		let tileSet = this.clientSideQTCT.getTileSet(gvb, level, true);
+		
+		// 即座に消さず、消去候補としてリストアップ（チラつき防止）
+		this.toBeRemovedTiles = [];  
+		for (const group of this.#getTileGroups()) {  
+			const tkey = group.getAttribute("id").slice(1);  
+			if (tileSet[tkey]) {  
+				delete tileSet[tkey];  
+			} else {  
+				this.toBeRemovedTiles.push(group);  
+			}  
+		}
+		
+		let asyncLoad = false;
+		for (let tkey in tileSet) {
+			if (this.qtctMapData[tkey]) {
+				let tileG = this.svgImage.createElement("g");
+				tileG.setAttribute("id", "T" + tkey);
+				this.svgImage.documentElement.appendChild(tileG);
+				let tileData = this.qtctMapData[tkey];
+				if (tileData instanceof Array) this.#setPoiTile(tileData, tileG);
+				else this.#setImageTile(tileData, this.clientSideQTCT.getGeoBound(tkey), tileG);
+			} else {
+				this.renderAsyncTile(tkey);
+				asyncLoad = true;
+			}
+		}
+		
+		if (!asyncLoad) {
+			for (let i = this.toBeRemovedTiles.length - 1; i >= 0; i--) this.toBeRemovedTiles[i].remove();
+		}
+	}
+
+	async renderAsyncTile(tkey) {
+		if (this.loadingTiles[tkey]) return;
+		this.loadingTiles[tkey] = true;
+		if (!this.zipArchive || !this.qtctMapData?.tileIndex) return;
+		
+		let tileData;
+		try{
+			if (this.qtctMapData.tileIndex[tkey] === true) {
+				tileData = await this.zipArchive.entries[tkey].json();
+			} else if (this.qtctMapData.tileIndex[tkey] === false) {
+				tileData = await this.zipArchive.entries[tkey].text();
+			}
+		} catch ( e ){
+			// キャッシュエラーや通信エラーをスルーし、ロックを解除してクラッシュを防ぐ
+			console.warn(`[QTCT] タイル ${tkey} の取得をスキップしました (Range Request Error):`, e);
+			delete this.loadingTiles[tkey];
+			return;
+		}
+		
+		this.clientSideQTCT.setTileData(tkey, tileData);
+		this.qtctMapData[tkey] = tileData;
+		
+		let tileG = this.svgImage.createElement("g");
+		tileG.setAttribute("id", "T" + tkey);
+		this.svgImage.documentElement.appendChild(tileG);
+		
+		if (tileData instanceof Array) this.#setPoiTile(tileData, tileG);
+		else this.#setImageTile(tileData, this.clientSideQTCT.getGeoBound(tkey), tileG);
+		
+		delete this.loadingTiles[tkey];
+		
+		if (Object.keys(this.loadingTiles).length === 0) {
+			for (let i = this.toBeRemovedTiles.length - 1; i >= 0; i--) this.toBeRemovedTiles[i].remove();
+			this.svgMap.refreshScreen();
+		} else {
+			this.svgMap.refreshScreen(true);
+		}
+	}
+
+	async restoreCsvDataFromZipFile(progressCBF) {
+		let pms = [];
+		let tlen = Object.keys(this.qtctMapData.tileIndex).length;
+		let tc = 0;
+		const response = await fetch(this.zipArchivePath);
+		const contentLength = response.headers.get('content-length');
+		let loaded = 0;
+		
+		const res = new Response(new ReadableStream({
+			async start(controller) {
+				const reader = response.body.getReader();
+				for (;;) {
+					const {done, value} = await reader.read();
+					if (done) break;
+					loaded += value.byteLength;
+					if (typeof progressCBF === 'function') progressCBF({loaded, total: parseInt(contentLength, 10)});
+					controller.enqueue(value);
+				}
+				controller.close();
+			},
+		}));
+		
+		const blob = await res.blob();
+		const zipArchiveFull = await unzip(blob);
+		
+		for (let tkey in this.qtctMapData.tileIndex) {
+			if (!this.qtctMapData[tkey]) {
+				let p = (this.qtctMapData.tileIndex[tkey] === true) ? 
+					zipArchiveFull.entries[tkey].json() : zipArchiveFull.entries[tkey].text();
+				pms.push(p.then(data => { this.qtctMapData[tkey] = data; }));
+			}
+			if (pms.length >= 8) {
+				if (typeof progressCBF === 'function') progressCBF(tc / tlen);
+				await Promise.all(pms);
+				pms = [];
+			}
+			tc++;
+		}
+		await Promise.all(pms);
+		this.clientSideQTCT.restoreQuadTreeCompositeTileAndLowResImages();
+		return this.restoreCsvData();
 	}
 }

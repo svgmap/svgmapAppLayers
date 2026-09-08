@@ -38,6 +38,7 @@
 // 2024/08/01 : 複数のcsvのサブレイヤーでの同時表示をサポートできるよう、インスタンスを複数立ち上げ、ターゲットのドキュメントも個別に指定できる機能を追加する
 // 2025/06/13 : editCsv
 // 2026/04/20 : [Refactor 2026]: ESM Class化。windowオブジェクトへの依存をなくし、内部にQTCTLayerRendererをカプセル化
+// 2026/09/03 : 生成済みQTCTzipアーカイブによる即時レンダリングに対応
 
 // Issues:
 //    iconCol系の実装(9/11の)が、未検証多々あります！
@@ -139,6 +140,15 @@ export class CsvMapper {
 		if (!this.csv && this.useQTCT) {
 			// [Refactor 2026]: globalObj への依存をなくし、内包する qtctRenderer から直接データを復元
 			if (this.qtctRenderer) {
+				// --- パッチ追加: ZIPモード時はPromiseを返す (旧csvMapper_r2.jsの挙動を再現) ---
+				if (this.qtctRenderer.isZipMode) {
+					return this.qtctRenderer.restoreCsvDataFromZipFile(progressCallBack).then(csvdat => {
+						for (let i = 0; i < csvdat.length; i++) {
+							csvdat[i] = csvdat[i].join(",");
+						}
+						return csvdat;
+					});
+				}
 				let csvdat = this.qtctRenderer.restoreCsvData();
 				if (csvdat) {
 					for (let i = 0; i < csvdat.length; i++) {
@@ -682,6 +692,31 @@ export class CsvMapper {
 				httpObj.overrideMimeType('text/plain; charset=' + charset);
 			}
 			httpObj.send(null);
+		}
+	}
+
+	// 2026/9/3 zipped QTCT動的ロードに対応
+	async loadZip(zipPath) {
+		console.log("loadZip:", zipPath);
+		this.useQTCT = true;
+		
+		if (!this.qtctRenderer) {
+			this.qtctRenderer = new QTCTLayerRenderer({
+				svgMap: this.svgMap,
+				svgImage: this.svgImage,
+				svgImageProps: this.svgImageProps,
+				layerID: this.layerID,
+				iconIdEvaluator: (rawData) => this.getIconId(rawData, this.currentSchema || { defaultIconNumber: 0 }, false),
+				colorIndexEvaluator: (rawData) => this.getIconId(rawData, this.currentSchema || { defaultIconNumber: 0 }, true)
+			});
+		}
+		
+		await this.qtctRenderer.initZippedTile(zipPath);
+		this.currentSchema = this.qtctRenderer.csvSchema;
+		
+		// 【修正追加】ZIP展開後、カスタムアイコン（データURL）が含まれていればDOMに復元する
+		if (typeof this.currentSchema.defaultIconNumber === "string") {
+			this.buildCustomIconDefs(this.currentSchema.defaultIconNumber);
 		}
 	}
 	
