@@ -188,23 +188,24 @@ export class QTCTLayerRenderer {
 
 	// 前のステップで表示していた要素のうち、不要なものを削除＆今のステップでも使うものは流用する処理
 	removePrevTiles(tileSet) {
-		let gs = this.svgImage.getElementsByTagName("g");
-		for (let i = gs.length - 1; i > 0; i--) {
-			if (gs[i].parentElement.nodeName === "defs") continue;
-			if (gs[i].getAttribute("data-preserve") === "qtct-exclude") continue; // 2026/02/20 QTCT実装レイヤでも制御外のグループを入れられるように
-			
-			if (tileSet) {
-				let tkey = gs[i].getAttribute("id").substring(1);
-				if (!tileSet[tkey]) { // 必要なタイルのセットの中にないものは消去
-					gs[i].remove();
-				} else { // あったものについてはタイルセットのほうを消去
-					delete tileSet[tkey];
-				}
+		for (const group of this.#getTileGroups()) {
+			const tileKey = group.getAttribute("id").slice(1);
+			if (tileSet?.[tileKey]) {
+				delete tileSet[tileKey];
 			} else {
-				// console.log("remove ",gs[i]);
-				gs[i].remove();
+				group.remove();
 			}
 		}
+	}
+
+	// ルート直下のQTCTタイルだけを対象とし、defsや補助図形は保持する。
+	#getTileGroups() {
+		return Array.from(this.svgImage.documentElement.children).filter(
+			(element) =>
+				element.nodeName === "g" &&
+				element.getAttribute("id")?.startsWith("T") &&
+				element.getAttribute("data-preserve") !== "qtct-exclude"
+		);
 	}
 
 	// this.qtctMapDataからCSVデータを生成する 2024/6/21-

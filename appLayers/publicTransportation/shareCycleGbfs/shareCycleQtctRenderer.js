@@ -6,7 +6,7 @@
 import { QTCTLayerRenderer } from "../../../commonLib/QTCTLayerRenderer.js";
 import { createStationPoi } from "./shareCyclePresentation.js";
 
-// QTCTデータ構築は共通実装を再利用し、SVG描画だけをシェアサイクル用に定義する。
+// QTCTデータ構築とタイル管理は共通実装を再利用し、SVG描画だけをシェアサイクル用に定義する。
 export class ShareCycleQtctRenderer extends QTCTLayerRenderer {
   preRenderFunction = () => {
     if (!this.qtctMapData) {
@@ -29,18 +29,6 @@ export class ShareCycleQtctRenderer extends QTCTLayerRenderer {
       }
     }
   };
-
-  removePrevTiles(tileSet) {
-    // 共通実装は先頭のgを処理しないため、このレイヤーの描画タイルをすべて扱う。
-    for (const group of this.#getTileGroups()) {
-      const tileKey = group.getAttribute("id").slice(1);
-      if (tileSet?.[tileKey]) {
-        delete tileSet[tileKey];
-      } else {
-        group.remove();
-      }
-    }
-  }
 
   #appendStationMarkers(group, tileData) {
     for (const [longitude, latitude, metadata] of tileData) {
@@ -69,14 +57,5 @@ export class ShareCycleQtctRenderer extends QTCTLayerRenderer {
     image.setAttribute("width", bounds.width * 100);
     image.setAttribute("height", bounds.height * 100);
     group.appendChild(image);
-  }
-
-  #getTileGroups() {
-    return Array.from(this.svgImage.documentElement.children).filter(
-      (element) =>
-        element.nodeName === "g" &&
-        element.getAttribute("id")?.startsWith("T") &&
-        element.getAttribute("data-preserve") !== "qtct-exclude"
-    );
   }
 }
