@@ -65,13 +65,13 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/openSeaMap/dynamicOpenSeaMap.svg" title="dynamicOpenSeaMap seamark" class="MARINE" visibility="hidden"/>
 
 <!-- 海しる系 -->
-<animation class="MARINE" title="衛星画像(海しる)" xlink:href="./appLayers/msil/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="msil_jma.html#exec=appearOnLayerLoad&amp;requiredWidth=400" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.4"/> 
-<animation class="MARINE" title="海底ケーブル(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Infrastructure&amp;layerName1=show:3" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="漁港(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=Maritime&amp;layerName1=show:32" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="等深線(海しる)" xlink:href="./appLayers/msil/msilLayer.svg#layerName0=TopographyAndGeology&amp;layerName1=show:1" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図４８時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg10&amp;time=false" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図２４時間予想(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg#layerName=WeatherImg9&amp;time=false" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
-<animation class="MARINE" title="天気図現況(海しる)" xlink:href="./appLayers/msil/msilImageLayer.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="MARINE clickable" title="海底ケーブル(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#海底ケーブル_line" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="漁港(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#漁港" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="等深線(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#等深線" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="天気図４８時間予想(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#天気図（48時間予想図）" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="天気図２４時間予想(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#天気図（24時間予想図）" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="天気図現況(海しる)" xlink:href="./appLayers/msil/msilAllLayers.svg#天気図（地上実況図）" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75" />
+<animation class="MARINE clickable" title="海しる-各種データセット" xlink:href="./appLayers/msil/msilAllLayers.svg"  x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.75"/> 
 
 <animation class="インフラ情報" title="starlinkUnofficialGS" xlink:href="./appLayers/starlinkUnofficialGS/test.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" data-controller="../info.html" />
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/openinframap/openinframap.svg" title="Open Infrastructure Map" class="インフラ情報 clickable" visibility="hidden"/>

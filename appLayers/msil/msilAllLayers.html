@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<!--
+ msilAllLayers.html
+ 海しる全レイヤー（ベクター/画像）の階層表示・検索・メタデータ表示および描画制御を行うメインWebアプリ
+-->
+<style>
+    body { font-family: sans-serif; font-size: 11px; margin: 0; padding: 0; background: #fff; height: 100vh; display: flex; flex-direction: column; position: relative; }
+    
+    /* ヘッダー・検索・操作エリア */
+    .header { padding: 6px 8px; background: #2c3e50; color: #fff; font-size: 12px; font-weight: bold; }
+    .status { padding: 4px 8px; background: #ecf0f1; color: #666; font-size: 10px; border-bottom: 1px solid #ccc; }
+    .toolbar { padding: 4px 8px; background: #f2f4f4; border-bottom: 1px solid #ddd; display: flex; gap: 4px; align-items: center; }
+    .search-input { flex: 1; padding: 3px 6px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px; }
+    .btn { padding: 3px 6px; font-size: 10px; background: #7f8c8d; color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+    .btn:hover { background: #95a5a6; }
+    
+    /* コンテンツエリア */
+    .content-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* 1. ツリー構造 */
+    .tree-container { flex: 1; overflow-y: auto; padding: 5px; outline: none; }
+    .tree-node { margin-left: 10px; }
+    .tree-group { font-weight: bold; cursor: pointer; padding: 3px 5px; user-select: none; color: #333; border-radius: 3px; }
+    .tree-group::before { content: "▶ "; font-size: 9px; display: inline-block; width: 12px; }
+    .tree-group.open::before { content: "▼ "; }
+    .tree-children { display: none; margin-left: 8px; border-left: 1px dotted #ccc; padding-left: 4px; }
+    .tree-children.open { display: block; }
+    .tree-item { cursor: pointer; padding: 3px 5px; margin: 1px 0; border-radius: 3px; color: #444; }
+    .tree-item:hover, .tree-group:hover { background: #e8f4f8; }
+    
+    /* フォーカス・アクティブ状態 */
+    .tree-item.active, .tree-group.active { background: #3498db !important; color: #fff !important; font-weight: bold; }
+    .tree-item.hidden, .tree-group.hidden { display: none; }
+    .badge { font-size: 9px; background: #7f8c8d; color: #fff; padding: 1px 4px; border-radius: 3px; margin-right: 3px; }
+    
+    /* 2. 説明欄エリア */
+    .description-container { height: 160px; border-top: 2px solid #bdc3c7; background: #fafafa; padding: 6px 8px; overflow-y: auto; }
+    .desc-title { font-weight: bold; margin-bottom: 4px; color: #2c3e50; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+    .desc-meta-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 10px; background: #fff; }
+    .desc-meta-table td, .desc-meta-table th { border: 1px solid #ccc; padding: 3px 6px; overflow-wrap: break-word; }
+    .desc-meta-label { width: 110px; background-color: #f0f0f0; color: #333; font-weight: bold; }
+
+    /* 3. クレジット */
+    .attribution-overlay {
+        position: fixed;
+        bottom: 2px;
+        right: 4px;
+        background: rgba(255, 255, 255, 0.85);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        color: #333;
+        box-shadow: 0 0 3px rgba(0,0,0,0.2);
+        z-index: 9999;
+    }
+    .attribution-overlay a { color: #2980b9; text-decoration: none; font-weight: bold; }
+    .attribution-overlay a:hover { text-decoration: underline; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="./EsriPbfParser.js"></script>
+<script type="module">
+// 海しる全レイヤー（ベクター/画像）の階層表示・検索・メタデータ表示および描画制御を行うメインWebアプリ
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+import { getLevel, mercator2LatLng, getTileSet } from "./mercatorTile.js";
+import { geojsonTransform } from "./geojsonTransform.js";
+import { EsriQuery } from "./EsriQuery.js";
+import { TileExistence } from "./TileExistence.js";
+import { DynamicWebTile } from "./DynamicWebTileModule.js";
+
+class ArcGISDynamicImageTile extends DynamicWebTile {
+    getURL(tx, ty, lvl) {
+        var key = this.getKey(tx, ty, lvl);
+        var tl = this.XY2latLng(tx * this.tilePix, ty * this.tilePix, lvl);
+        var br = this.XY2latLng((tx + 1) * this.tilePix, (ty + 1) * this.tilePix, lvl);
+        var minMerc = latLng2Mercator(br.lat, tl.lng);
+        var maxMerc = latLng2Mercator(tl.lat, br.lng);
+        var bbox = `${minMerc.x},${minMerc.y},${maxMerc.x},${maxMerc.y}`;
+        
+        var baseUrl = this.tileInfo.baseURL || this.tileInfo.serviceUrl;
+        var rawUrl = `${baseUrl}/exportImage?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image`;
+        return { URL: rawUrl, Key: key };
+    }
+}
+
+function latLng2Mercator(lat, lng) {
+    var x = lng * 20037508.34 / 180;
+    var y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
+    y = y * 20037508.34 / 180;
+    return { x: x, y: y };
+}
+
+var configURL = "https://www.msil.go.jp/map/ja/cdn/6/config.json";
+var portalBaseURL = "https://www.msil.go.jp/portal/sharing/rest/content/items/";
+
+var activeLayerInfo = null;
+var voidTileChecker = new TileExistence();
+var areaCont;
+var metaNames = ["objectid", "subLayer"];
+var rasterTileHandler = null;
+
+addEventListener("layerWebAppReady", async function() {
+    addEventListener("zoomPanMap", zoomPanMapFunction);
+    areaCont = svgImage.getElementById("areas");
+    svgImage.documentElement.setAttribute("property", metaNames.join(","));
+    
+    setupUIEvents();
+    setupKeyboardNavigation();
+    await fetchServicesCatalog();
+});
+
+function setupUIEvents() {
+    document.getElementById("btnExpandAll").onclick = function() {
+        document.querySelectorAll('.tree-group, .tree-children').forEach(el => el.classList.add('open'));
+    };
+    document.getElementById("btnCollapseAll").onclick = function() {
+        document.querySelectorAll('.tree-group, .tree-children').forEach(el => el.classList.remove('open'));
+    };
+    
+    document.getElementById("searchInput").oninput = function(e) {
+        var query = e.target.value.trim().toLowerCase();
+        var items = document.querySelectorAll('.tree-item');
+        
+        if (!query) {
+            items.forEach(el => el.classList.remove('hidden'));
+            return;
+        }
+        
+        items.forEach(el => {
+            var text = el.textContent.toLowerCase();
+            if (text.includes(query)) {
+                el.classList.remove('hidden');
+                var parent = el.parentElement;
+                while (parent && !parent.classList.contains('tree-container')) {
+                    if (parent.classList.contains('tree-children')) {
+                        parent.classList.add('open');
+                        if (parent.previousElementSibling) {
+                            parent.previousElementSibling.classList.add('open');
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+    };
+}
+
+function setupKeyboardNavigation() {
+    var container = document.getElementById("treeContainer");
+    
+    container.addEventListener("keydown", function(e) {
+        if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " "].includes(e.key)) return;
+        
+        var visibleNodes = Array.from(container.querySelectorAll('.tree-group, .tree-item')).filter(el => {
+            if (el.classList.contains('hidden')) return false;
+            var parent = el.parentElement;
+            while (parent && parent !== container) {
+                if (parent.classList.contains('tree-children') && !parent.classList.contains('open')) {
+                    return false;
+                }
+                parent = parent.parentElement;
+            }
+            return true;
+        });
+        
+        if (visibleNodes.length === 0) return;
+        
+        var currentActive = container.querySelector('.active');
+        var currentIndex = visibleNodes.indexOf(currentActive);
+        
+        e.preventDefault();
+        
+        if (e.key === "ArrowDown") {
+            var nextIndex = currentIndex < visibleNodes.length - 1 ? currentIndex + 1 : 0;
+            focusNode(visibleNodes[nextIndex]);
+        } else if (e.key === "ArrowUp") {
+            var prevIndex = currentIndex > 0 ? currentIndex - 1 : visibleNodes.length - 1;
+            focusNode(visibleNodes[prevIndex]);
+        } else if (e.key === "ArrowRight") {
+            if (currentActive && currentActive.classList.contains('tree-group')) {
+                currentActive.classList.add('open');
+                if (currentActive.nextElementSibling) {
+                    currentActive.nextElementSibling.classList.add('open');
+                }
+            }
+        } else if (e.key === "ArrowLeft") {
+            if (currentActive && currentActive.classList.contains('tree-group')) {
+                currentActive.classList.remove('open');
+                if (currentActive.nextElementSibling) {
+                    currentActive.nextElementSibling.classList.remove('open');
+                }
+            }
+        } else if (e.key === "Enter" || e.key === " ") {
+            if (currentActive) {
+                currentActive.click();
+            }
+        }
+    });
+}
+
+function focusNode(el) {
+    if (!el) return;
+    document.querySelectorAll('.tree-group, .tree-item').forEach(node => node.classList.remove('active'));
+    el.classList.add('active');
+    el.scrollIntoView({ block: 'nearest' });
+    
+    if (el.classList.contains('tree-item') && el.layerObj) {
+        selectLayer(el.layerObj);
+    }
+}
+
+async function fetchServicesCatalog() {
+    var statusEl = document.getElementById("status");
+    var treeContainer = document.getElementById("treeContainer");
+    
+    try {
+        statusEl.textContent = "1/2: システム設定取得中...";
+        var corsConfigUrl = svgMap.getCORSURL(configURL);
+        var configRes = await fetch(corsConfigUrl);
+        var configJson = await configRes.json();
+        var itemId = configJson.dataSources?.dataSource_1?.itemId;
+
+        statusEl.textContent = "2/2: マスター定義解析中...";
+        var webMapDataURL = `${portalBaseURL}${itemId}/data`;
+        var corsDataUrl = svgMap.getCORSURL(webMapDataURL);
+        var dataRes = await fetch(corsDataUrl);
+        var webMapJson = await dataRes.json();
+        
+        treeContainer.innerHTML = "";
+        window.layerHashCountMap = {};
+        
+        if (webMapJson.operationalLayers) {
+            buildTreeUI(webMapJson.operationalLayers, treeContainer);
+        }
+        
+        await processHash();
+        statusEl.textContent = "全レイヤー構造ロード完了（↑↓矢印キーで移動可能）";
+                
+    } catch(e) {
+        console.error(e);
+        statusEl.textContent = "データ取得失敗";
+    }
+}
+
+function buildTreeUI(layers, parentElement) {
+    layers.forEach(layer => {
+        var node = document.createElement("div");
+        node.className = "tree-node";
+        
+        if (layer.layers && layer.layers.length > 0) {
+            var groupEl = document.createElement("div");
+            groupEl.className = "tree-group";
+            groupEl.textContent = layer.title;
+            
+            var childrenEl = document.createElement("div");
+            childrenEl.className = "tree-children";
+            
+            groupEl.onclick = function(e) {
+                e.stopPropagation();
+                groupEl.classList.toggle("open");
+                childrenEl.classList.toggle("open");
+                focusNode(groupEl);
+            };
+            
+            node.appendChild(groupEl);
+            node.appendChild(childrenEl);
+            buildTreeUI(layer.layers, childrenEl);
+            
+        } else if (layer.url) {
+            var type = "vector";
+            if (layer.layerType === "ArcGISImageServiceLayer" || layer.layerType === "ArcGISMapServiceLayer" || layer.url.includes("/ImageServer") || layer.url.includes("/MapServer")) {
+                type = "image";
+            }
+            
+            var hashId = generateReadableHashId(layer.title, window.layerHashCountMap);
+            
+            var itemEl = document.createElement("div");
+            itemEl.className = "tree-item";
+            itemEl.innerHTML = `<span class="badge">${type === "image" ? "画像" : "PBF"}</span>${layer.title}`;
+            
+            var layerObj = { 
+                itemId: layer.itemId || null,
+                url: layer.url, 
+                title: layer.title, 
+                type: type,
+                description: layer.description || layer.popupInfo?.description || null,
+                hashId: hashId
+            };
+            
+            itemEl.layerObj = layerObj;
+            
+            itemEl.onclick = function(e) {
+                e.stopPropagation();
+                focusNode(itemEl);
+            };
+            
+            node.appendChild(itemEl);
+        }
+        
+        parentElement.appendChild(node);
+    });
+}
+
+function selectLayer(layerObj) {
+    activeLayerInfo = layerObj;
+    if (window.svgImageProps && layerObj.hashId) {
+        window.svgImageProps.hash = "#" + layerObj.hashId;
+    }
+    voidTileChecker = new TileExistence();
+    clearScreen();
+    
+    if (activeLayerInfo.type === "image") {
+        rasterTileHandler = new ArcGISDynamicImageTile(svgImage, svgImageProps, {
+            baseURL: activeLayerInfo.url,
+            serviceUrl: activeLayerInfo.url,
+            minLevel: 3,
+            maxLevel: 18
+        });
+    } else {
+        rasterTileHandler = null;
+    }
+    
+    zoomPanMapFunction();
+    svgMap.refreshScreen();
+    loadMetaTable(activeLayerInfo);
+}
+
+async function loadMetaTable(layerObj) {
+    var descContainer = document.getElementById("descriptionContainer");
+    descContainer.innerHTML = `<div class="desc-title">説明欄: ${layerObj.title}</div><div>情報取得中...</div>`;
+    
+    var itemId = layerObj.itemId;
+    var rowsHtml = "";
+
+    if (itemId) {
+        try {
+            var apiUrl = `https://www.msil.go.jp/portal/sharing/rest/content/items/${itemId}?f=json`;
+            var corsUrl = svgMap.getCORSURL(apiUrl);
+            var res = await fetch(corsUrl);
+            var metaData = await res.json();
+            
+            if (metaData && metaData.attInfoList && metaData.attInfoList.length > 0) {
+                metaData.attInfoList.forEach(item => {
+                    rowsHtml += `<tr><td class="desc-meta-label">${item.attTitle}</td><td>${item.attValue}</td></tr>`;
+                });
+            }
+        } catch(e) {
+            console.log("ポータルAPIからの取得をスキップ");
+        }
+    }
+
+    if (!rowsHtml) {
+        try {
+            var srvUrl = svgMap.getCORSURL(`${layerObj.url}?f=json`);
+            var srvRes = await fetch(srvUrl);
+            var srvJson = await srvRes.json();
+            
+            var desc = layerObj.description || srvJson.serviceDescription || srvJson.description || "説明なし";
+            var credit = srvJson.copyrightText || srvJson.documentInfo?.Author || "海上保安庁 / 関係機関";
+            
+            rowsHtml += `<tr><td class="desc-meta-label">説明</td><td>${desc}</td></tr>`;
+            rowsHtml += `<tr><td class="desc-meta-label">提供機関・権利</td><td>${credit}</td></tr>`;
+        } catch(e) {
+            rowsHtml = `<tr><td class="desc-meta-label">説明</td><td>${layerObj.description || '説明情報なし'}</td></tr>`;
+        }
+    }
+
+    var html = `<div class="desc-title">説明欄: ${layerObj.title}</div>`;
+    html += `<table class="desc-meta-table"><tbody>${rowsHtml}</tbody></table>`;
+    
+    descContainer.innerHTML = html;
+}
+
+function clearScreen() {
+    while (areaCont.firstChild) {
+        areaCont.removeChild(areaCont.firstChild);
+    }
+    if (rasterTileHandler) {
+        rasterTileHandler.clearTiles();
+    }
+    svgMap.refreshScreen();
+}
+
+window.preRenderFunction = function(){
+    if (activeLayerInfo && activeLayerInfo.type === "image" && rasterTileHandler) {
+        rasterTileHandler.preRenderFunction();
+    }
+};
+
+function zoomPanMapFunction(options) {
+    if (!activeLayerInfo) return;
+    if (activeLayerInfo.type === "image" && rasterTileHandler) return;
+    
+    var subPath = activeLayerInfo.url.split("/services/")[1];
+    var queryBaseURL = activeLayerInfo.url + "/query";
+    var lvl = getLevel(svgImageProps.scale);
+    var ts = getTileSet(svgMap.getGeoViewBox(), lvl, subPath);
+    var eqy = new EsriQuery(queryBaseURL, "1=1", "objectid", "*");
+    
+    var prevTiles = getPrevTiles();
+    var toBeRemovedTiles = [];
+    
+    for (var tileKey in prevTiles) {
+        if (!ts[tileKey]) {
+            toBeRemovedTiles.push(prevTiles[tileKey]);
+            delete(prevTiles[tileKey]);
+        }
+    }
+    
+    var toBeLoadedTs = {};
+    for (var tileKey in ts) {
+        if (!prevTiles[tileKey]) {
+            toBeLoadedTs[tileKey] = ts[tileKey];
+        }
+    }
+    
+    var tilesRenderPromise = [];
+    for (var tileKey in toBeLoadedTs) {
+        var ti = toBeLoadedTs[tileKey];
+        var turl = eqy.getURL(ti.mecratorExtent);
+        
+        if (!voidTileChecker.isVoidTile(tileKey.split("~")[1])) {
+            tilesRenderPromise.push(drawTile(turl, tileKey, areaCont));
+        }
+    }
+    
+    Promise.all(tilesRenderPromise).then(function() {
+        for (var rt of toBeRemovedTiles) {
+            if (rt.parentNode) {
+                rt.parentNode.removeChild(rt);
+            }
+        }
+        
+        // 全タイル削除完了後に、パーツ番号つきで重複排除を実行
+        updateDuplicateVisibility();
+
+        svgMap.refreshScreen();
+    });
+}
+
+function getPrevTiles() {
+    var tiles = areaCont.getElementsByTagName("g");
+    var prevTiles = {};
+    for (var tile of tiles) {
+        prevTiles[tile.getAttribute("id")] = tile;
+    }
+    return prevTiles;
+}
+
+// OBJECTID + タイル内パーツ順番（0, 1, 2...）でキーを作成しマルチ要素を壊さず重複排除する関数
+function updateDuplicateVisibility() {
+    var seenSubPartKeys = new Set();
+    
+    // タイル（<g id="xxx">）ごとに独立して走査してパーツ番号（インデックス）を付与
+    var tiles = areaCont.querySelectorAll('g[id]');
+    
+    tiles.forEach(tileG => {
+        var tileElements = tileG.querySelectorAll('[content]');
+        var localObjIdCounter = new Map();
+        
+        tileElements.forEach(el => {
+            var contentVal = el.getAttribute('content');
+            if (!contentVal) return;
+            
+            var realObjId = contentVal.split(',')[0];
+            if (!realObjId) return;
+            
+            // タイル内で同じ OBJECTID が何回登場したかをカウント（例: 0, 1, 2...）
+            var partIdx = localObjIdCounter.get(realObjId) || 0;
+            localObjIdCounter.set(realObjId, partIdx + 1);
+            
+            // 一意キー: "1459_part0", "1459_part1"
+            var subPartKey = `${realObjId}_part${partIdx}`;
+            
+            if (seenSubPartKeys.has(subPartKey)) {
+                // 他のタイルですでに「1459の0番パーツ」が表示されているなら隠す
+                el.setAttribute('display', 'none');
+                if (el.style) el.style.display = 'none';
+            } else {
+                // 画面全体で一番最初に見つかった「1459の0番パーツ」は表示する
+                seenSubPartKeys.add(subPartKey);
+                el.removeAttribute('display');
+                if (el.style) el.style.display = '';
+            }
+        });
+    });
+}
+
+async function drawTile(url, key, container) {
+    var tileG = svgImage.createElement("g");
+    tileG.setAttribute("id", key);
+    
+    var bufferRes;
+    try {
+        var corsUrl = svgMap.getCORSURL(url);
+        var response = await fetch(corsUrl);
+        bufferRes = await response.arrayBuffer();
+    } catch(e) {
+        return;
+    }
+    
+    var ab = new Uint8Array(bufferRes);
+    var fc;
+    try {
+        fc = arcgisPbfDecode(ab);
+    } catch(e) {
+        return;
+    }
+    
+    if (!fc || !fc.featureCollection) return;
+    
+    if (fc.featureCollection.features.length > 0) {
+        var sampleProps = fc.featureCollection.features[0].properties;
+        
+        var keys = Object.keys(sampleProps).filter(k => k !== "stroke-width");
+        var objIdKey = keys.find(k => k.toLowerCase() === "objectid");
+        if (objIdKey) {
+            keys = [objIdKey].concat(keys.filter(k => k !== objIdKey));
+        }
+        metaNames = keys;
+        
+        svgImage.documentElement.setAttribute("property", metaNames.join(","));
+    }
+
+    geojsonTransform(fc, function(crd) {
+        var pos = mercator2LatLng(crd[0], crd[1]);
+        return [pos.longitude, pos.latitude];
+    });
+    
+    container.appendChild(tileG);
+    
+    if (fc.featureCollection.features.length > 0) {
+        for (var ft of fc.featureCollection.features) {
+            ft.properties["stroke-width"] = 2;
+        }
+        
+        svgMapGIStool.drawGeoJson(
+            fc.featureCollection, layerID, "#0088ff", 2, "#0088ff", 
+            "p0", "", "", tileG, metaNames
+        );
+        
+        updateDuplicateVisibility();
+    } else {
+        voidTileChecker.addVoidTile(key.split("~")[1]);
+    }
+}
+
+function generateReadableHashId(title, countMap) {
+    var safeTitle = (title || "layer").replace(/[#\?\/\\&=%<>\s ]/g, '_');
+    if (countMap[safeTitle]) {
+        countMap[safeTitle]++;
+        return safeTitle + "_" + countMap[safeTitle];
+    } else {
+        countMap[safeTitle] = 1;
+        return safeTitle;
+    }
+}
+
+async function processHash() {
+    if (!window.svgImageProps || !window.svgImageProps.hash) return;
+    var hs = window.svgImageProps.hash;
+    if (!hs.startsWith("#")) return;
+    
+    var targetHash;
+    try {
+        targetHash = decodeURIComponent(hs.substring(1));
+    } catch(e) {
+        targetHash = hs.substring(1);
+    }
+
+    var items = document.querySelectorAll('.tree-item');
+    for (var i = 0; i < items.length; i++) {
+        var el = items[i];
+        if (el.layerObj && el.layerObj.hashId === targetHash) {
+            var parent = el.parentElement;
+            while (parent && !parent.classList.contains('tree-container')) {
+                if (parent.classList.contains('tree-children')) {
+                    parent.classList.add('open');
+                    if (parent.previousElementSibling) {
+                        parent.previousElementSibling.classList.add('open');
+                    }
+                }
+                parent = parent.parentElement;
+            }
+            focusNode(el);
+            break;
+        }
+    }
+}
+</script>
+</head>
+<body>
+<div class="header">海しる 全データセットビューア</div>
+<div id="status" class="status">初期化中...</div>
+
+<!-- 検索・全展開ツールバー -->
+<div class="toolbar">
+    <input type="text" id="searchInput" class="search-input" placeholder="レイヤー名を検索 (例: 漁港, 避難...)" />
+    <button id="btnExpandAll" class="btn">全展開</button>
+    <button id="btnCollapseAll" class="btn">全折りたたみ</button>
+</div>
+
+<div class="content-container">
+    <!-- 1. スクロール可能な階層ツリー構造 -->
+    <div id="treeContainer" class="tree-container" tabindex="0"></div>
+    
+    <!-- 2. 説明欄エリア -->
+    <div id="descriptionContainer" class="description-container">
+        <div class="desc-title">説明欄</div>
+        <div style="color: #999;">レイヤーを選択するとここに詳細情報が表示されます</div>
+    </div>
+</div>
+
+<!-- 3. 出典表示 -->
+<div class="attribution-overlay">
+    出典：<a href="https://www.msil.go.jp/portal/apps/sites/#/msil-o-top" target="_blank">海上保安庁 海しる（海洋状況表示システム）</a>
+</div>
+</body>
+</html>
