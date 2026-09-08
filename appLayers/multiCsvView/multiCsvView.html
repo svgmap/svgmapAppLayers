@@ -55,6 +55,7 @@ const im = new ImageMetadata(undefined, undefined, imageWorkDir);
 // 2025/07/15 サブレイヤー固定モードを追加
 // 2026/04/21 [Refactor 2026] CsvMapperのクラス化・DI対応に伴い、疑似GlobalObjectを作成するハックを廃止
 // 2026/07/31 データ格納先を レイヤルートsvg(multiCsvView.svg)のdata-controllerのhashのdatasrcパートで指定可能に(指定パス(URL)下にcontents, uploadedImagesZip等の必要なディレクトリやファイルがあること前提)
+// 2026/09/04 zippedQTCTアーカイブ読み込みモードに対応。対応するCsvMapper.js(及びこれを参照するQTCTLayerRenderer.jsが必要
 
 import {FetchTextProgress} from "./FetchTextProgress.js";
 
@@ -81,12 +82,6 @@ class MultiCsvView{
 			var subImg = await this.addSubImae();
 			var imageId = subImg.documentElement.getAttribute("about");
 			console.log("imageId:",imageId);
-			var srcJson;
-			if ( typeof fnameOrJson == "string" ){
-				srcJson = await this.fetchData(fnameOrJson,progMsg);
-			} else {
-				srcJson = fnameOrJson;
-			}
 			
 			// ★[Refactor 2026] 疑似GlobalObjハックをやめ、素直に新しい CsvMapper を new するだけ！
 			var mapper = new window.CsvMapperClass({
@@ -101,7 +96,21 @@ class MultiCsvView{
 			this.csvMappers[imageId] = mapper;
 			mapper.onload(); // 初期設定等を実行
 			
-			await this.displayData(srcJson, subImg, mapper);
+			if ( typeof fnameOrJson == "string" ){
+				// --- パッチ追加: ZIPモード(rev21)と従来モードの分岐 ---
+				if (fnameOrJson.endsWith(".zip")) {
+					let zipUrl = new URL(fnameOrJson, this.contentDirPath).href;
+					progMsg(`インデックス取得中...`);
+					await mapper.loadZip(zipUrl);
+					progMsg("");
+				} else {
+					let srcJson = await this.fetchData(fnameOrJson, progMsg);
+					await this.displayData(srcJson, subImg, mapper);
+				}
+				// ----------------------------------------------------
+			} else {
+				await this.displayData(fnameOrJson, subImg, mapper);
+			}
 			
 		} catch(e){
 			console.error(e);
@@ -361,7 +370,11 @@ async function processHash(){
 }
 
 function progMsg(pg){
-	messageDiv.innerText=`${(pg/(1024*1024)).toFixed(1)} MB downloaded`;
+	if (typeof pg === "string") {
+		messageDiv.innerText = pg;
+	} else {
+		messageDiv.innerText = `${(pg/(1024*1024)).toFixed(1)} MB downloaded`;
+	}
 }
 
 </script>
