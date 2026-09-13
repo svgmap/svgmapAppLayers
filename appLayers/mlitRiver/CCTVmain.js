@@ -45,7 +45,8 @@ addEventListener("layerWebAppReady",async function(){
 	
 	// OBS_Blist_20220405.csv  CCTV_Blist_20220405.csv  CCTVlist_20220405.csv
 	document.getElementById("poiInfoDiv").innerText="データ読み込み中";
-	var csv = await csvFetcher.fetchCsv("./CCTV.csv")
+//	var csv = await csvFetcher.fetchCsv("./CCTV.csv");
+	var csv = await csvFetcher.fetchCsv("https://cdn.jsdelivr.net/gh/svgmap/mlit-river-cctv-data@main/cctv_list.csv");
 	var schemaCol = csv.shift();
 	document.getElementById("poiInfoDiv").innerText=csv.length+"レコードのデータがあります";
 	var schema=csvFetcher.getCsvSchema(schemaCol);
