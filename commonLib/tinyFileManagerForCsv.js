@@ -20,14 +20,20 @@ var _int_showMapEmbed; // 地図を表示する関数async可 (localPath)
 var _int_localFileMode = false;
 var localDB;
 
-function registMap(dataTitleId,registMsgId,typeStr){
+async function registMap(dataTitleId,registMsgId,typeStr){
 	if (!typeStr){typeStr="svg"}
 	var dataTitle = document.getElementById(dataTitleId).value;
 	if ( ! dataTitle ){
 		alert("データの内容がわかるタイトルを入力してください");
 		return;
 	}
-	var ss = _int_getSource();
+	let ss;
+	try {
+		ss = await _int_getSource();
+	} catch (error) {
+		document.getElementById(registMsgId).innerText = "FAIL: " + error.message;
+		return;
+	}
 	console.log(ss);
 	document.getElementById(registMsgId).innerText="REGISTERING";
 	sendData({title:dataTitle , svgmapdata:ss, type:typeStr},function(msg){
