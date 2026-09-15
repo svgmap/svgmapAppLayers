@@ -22,6 +22,7 @@ import { unzip, HTTPRangeReader } from './unzipit.module.js';
 import { ClientSideQTCT } from './ClientSideQTCT.js';
 
 export class QTCTLayerRenderer {
+	#generation = 0;
 	constructor(options) {
 		// [Refactor 2026]: フレームワーク環境の注入。
 		// window.svgMap や window.svgImage などを直接参照するのをやめ、コンストラクタの引数から受け取る
@@ -36,12 +37,14 @@ export class QTCTLayerRenderer {
 		this.colorIndexEvaluator = options.colorIndexEvaluator || ((rawData) => {
 			let iconId = this.iconIdEvaluator(rawData);
 			// 文字列の末尾にある数字を抽出（"p0" -> 0, "p12" -> 12）して色番号を推論
-			let match = iconId.match(/\d+$/);
+			let match = String(iconId ?? "").match(/\d+$/);
 			return match ? parseInt(match[0], 10) : 0;
 		});
 		
 		// タイトルを動的に生成する関数を受け取れるようにする 2026/4/21
 		this.titleEvaluator = options.titleEvaluator || null;
+		this.createPoi = options.createPoi || null;
+		this.csvCodec = options.csvCodec || null;
 		
 		this.clientSideQTCT = new ClientSideQTCT();
 		this.qtctMapData = null; // ここにQuadTreeCompositeTilingされたデータが格納される
@@ -60,7 +63,9 @@ export class QTCTLayerRenderer {
 
 	// initCsvでこちらを呼ぶ
 	async buildQTCTdata(csv, schema, progressCBF, removeLatLngMeta) {
-		this.clientSideQTCT.init();
+		this.reset();
+		const generation = this.#generation;
+		const engine = this.clientSideQTCT;
 		console.log("buildQTCTdata:", schema);
 		this.csvSchema = schema;
 		
@@ -83,7 +88,9 @@ export class QTCTLayerRenderer {
 		// スキーマに maxTilePoints の指定があればそれを使い、無ければデフォルトの120にする
 		let maxPoints = schema.maxTilePoints !== undefined ? schema.maxTilePoints : 120;
 		
-		this.qtctMapData = await this.clientSideQTCT.doQTCT(csv, (col) => {
+		if (generation !== this.#generation) return false;
+		const data = await engine.doQTCT(csv, (sourceRow) => {
+			const col = [...sourceRow];
 			let x, y;
 			if (removeLatLngMeta) {
 				if (schema.latCol > schema.lngCol) {
@@ -99,12 +106,36 @@ export class QTCTLayerRenderer {
 			}
 			//console.log(x,y,col);
 			return [x, y, col];
-		}, { maxTilePoints: maxPoints, pixelColor: pixelColorOpt, progressCBF: progressCBF });
+		}, { maxTilePoints: maxPoints, pixelColor: pixelColorOpt, progressCBF: (message) => {
+			if (generation === this.#generation) progressCBF?.(message);
+		} });
+		if (generation !== this.#generation) return false;
+		this.qtctMapData = data;
+		return true;
 	}
 
+	#invalidateLoads() {
+		++this.#generation;
+		this.isZipMode = false;
+		this.zipArchive = null;
+		this.zipArchivePath = null;
+		this.loadingTiles = {};
+		this.toBeRemovedTiles = [];
+	}
+
+	// データのみ消去する。進行中の処理は旧世代として破棄する。
 	clearData() {
-		this.clientSideQTCT.init();
+		this.#invalidateLoads();
+		// 古いdoQTCTが再開しても、新しいエンジンを変更できないようにする。
+		this.clientSideQTCT = new ClientSideQTCT();
 		this.qtctMapData = null;
+		this.csvSchema = null;
+	}
+
+	// 再利用・データ切替時の共通後始末。defsや保護グループは保持する。
+	reset() {
+		this.clearData();
+		this.removePrevTiles();
 	}
 
 	// window.preRenderFunction に直接代入されるなど、外部からコールバックとして呼ばれても this のコンテキストが失われないようにバインド。
@@ -148,7 +179,7 @@ export class QTCTLayerRenderer {
 			// titleEvaluatorが渡されていればそれを優先実行
 			if (typeof this.titleEvaluator === "function") {
 				titleStr = this.titleEvaluator(poiDat[2]);
-			} else if (this.csvSchema.titleCol >= 0) {
+			} else if (this.csvSchema?.titleCol >= 0) {
 				titleStr = poiDat[2][this.csvSchema.titleCol];
 			}
 			
@@ -163,18 +194,12 @@ export class QTCTLayerRenderer {
 					}
 				}
 			}
-			// 2026/09/04: titleが空または "undefined" の場合、URI表示回避のために "-" をセット
-			if (!titleStr || titleStr === "undefined" || titleStr.trim() === "") {
-				titleStr = "-";
-			}
-			let poi = this.svgImage.createElement("use");
-			poi.setAttribute("xlink:href", "#" + iconId);
-			poi.setAttribute("x", 0);
-			poi.setAttribute("y", 0);
-			poi.setAttribute("xlink:title", titleStr);
-			poi.setAttribute("content", poiDat[2].join(","));
-			poi.setAttribute("transform", "ref(svg," + Number(poiDat[0]) * 100 + "," + (-Number(poiDat[1]) * 100) + ")");
-			tileG.appendChild(poi);
+			const poi = createPoiElement({
+				svgImage: this.svgImage,
+				longitude: poiDat[0], latitude: poiDat[1], metadata: poiDat[2],
+				iconId, title: titleStr, createPoi: this.createPoi, csvCodec: this.csvCodec
+			});
+			if (poi) tileG.appendChild(poi);
 		}
 	}
 
@@ -270,6 +295,7 @@ export class QTCTLayerRenderer {
 	}
 	
 	setQtctMapData(qtctMapDataSrc) {
+		this.#invalidateLoads();
 		this.qtctMapData = qtctMapDataSrc;
 	}
 
@@ -329,24 +355,28 @@ export class QTCTLayerRenderer {
 	// ZIP Range Request 非同期描画用 新設メソッド群
 	// ==========================================
 	async initZippedTile(path) {
-		this.isZipMode = true;
-		this.zipArchivePath = path;
-		const reader = new HTTPRangeReader(path);
-		this.zipArchive = await unzip(reader);
-		
-		this.qtctMapData = {};
-		this.qtctMapData.tileIndex = await this.zipArchive.entries["tileIndex"].json();
-		this.csvSchema = await this.zipArchive.entries["csvSchema"].json();
-		this.qtctMapData.csvSchema = this.csvSchema;
-		
-		this.svgImage.firstChild.setAttribute("property", this.csvSchema.property?.join(","));
-		this.clientSideQTCT.init(this.qtctMapData, (col) => {
-			let x = col[this.csvSchema.lngCol];
-			let y = col[this.csvSchema.latCol];
-			return [x, y, col];
-		});
-		
-		this.svgMap.refreshScreen();
+		this.reset();
+		const generation = this.#generation;
+		try {
+			const archive = await unzip(new HTTPRangeReader(path));
+			const [tileIndex, schema] = await Promise.all([
+				archive.entries.tileIndex.json(), archive.entries.csvSchema.json()
+			]);
+			if (generation !== this.#generation) return false;
+			this.isZipMode = true;
+			this.zipArchivePath = path;
+			this.zipArchive = archive;
+			this.csvSchema = schema;
+			this.qtctMapData = { tileIndex, csvSchema: schema };
+			this.svgImage.documentElement.setAttribute("property", this.csvCodec ? this.csvCodec.serializeRow(schema.property ?? []) : (schema.property ?? []).join(","));
+			this.clientSideQTCT.init(this.qtctMapData, (col) => [col[schema.lngCol], col[schema.latCol], col]);
+			this.svgMap.refreshScreen();
+			return true;
+		} catch (error) {
+			if (generation !== this.#generation) return false;
+			this.reset();
+			throw error;
+		}
 	}
 
 	asyncPreRenderFunction() {
@@ -389,84 +419,118 @@ export class QTCTLayerRenderer {
 	}
 
 	async renderAsyncTile(tkey) {
-		if (this.loadingTiles[tkey]) return;
-		this.loadingTiles[tkey] = true;
-		if (!this.zipArchive || !this.qtctMapData?.tileIndex) return;
-		
-		let tileData;
-		try{
-			if (this.qtctMapData.tileIndex[tkey] === true) {
-				tileData = await this.zipArchive.entries[tkey].json();
-			} else if (this.qtctMapData.tileIndex[tkey] === false) {
-				tileData = await this.zipArchive.entries[tkey].text();
+		const data = this.qtctMapData;
+		const archive = this.zipArchive;
+		const locks = this.loadingTiles;
+		const generation = this.#generation;
+		if (locks[tkey] || !archive || !data?.tileIndex ||
+			typeof data.tileIndex[tkey] !== "boolean" || !archive.entries[tkey]) return;
+		locks[tkey] = true;
+		let tileG;
+		let rendered = false;
+		try {
+			const tileData = data.tileIndex[tkey]
+				? await archive.entries[tkey].json()
+				: await archive.entries[tkey].text();
+			if (generation !== this.#generation) return;
+			this.clientSideQTCT.setTileData(tkey, tileData);
+			data[tkey] = tileData;
+			tileG = this.svgImage.createElement("g");
+			tileG.setAttribute("id", "T" + tkey);
+			// S-LaWAの差分同期のため、親を接続してからPOIを追加する。
+			this.svgImage.documentElement.appendChild(tileG);
+			if (Array.isArray(tileData)) this.#setPoiTile(tileData, tileG);
+			else this.#setImageTile(tileData, this.clientSideQTCT.getGeoBound(tkey), tileG);
+			rendered = true;
+		} catch (error) {
+			tileG?.remove();
+			if (generation === this.#generation) console.warn(`[QTCT] タイル ${tkey} の描画をスキップしました:`, error);
+		} finally {
+			// 旧リクエストの完了で新世代の同名タイルのロックを消さない。
+			delete locks[tkey];
+			if (generation === this.#generation && rendered) {
+				if (Object.keys(locks).length === 0) {
+					for (const group of this.toBeRemovedTiles) group.remove();
+					this.toBeRemovedTiles = [];
+					this.svgMap.refreshScreen();
+				} else {
+					this.svgMap.refreshScreen(true);
+				}
 			}
-		} catch ( e ){
-			// キャッシュエラーや通信エラーをスルーし、ロックを解除してクラッシュを防ぐ
-			console.warn(`[QTCT] タイル ${tkey} の取得をスキップしました (Range Request Error):`, e);
-			delete this.loadingTiles[tkey];
-			return;
 		}
-		
-		this.clientSideQTCT.setTileData(tkey, tileData);
-		this.qtctMapData[tkey] = tileData;
-		
-		let tileG = this.svgImage.createElement("g");
-		tileG.setAttribute("id", "T" + tkey);
-		this.svgImage.documentElement.appendChild(tileG);
-		
-		if (tileData instanceof Array) this.#setPoiTile(tileData, tileG);
-		else this.#setImageTile(tileData, this.clientSideQTCT.getGeoBound(tkey), tileG);
-		
-		delete this.loadingTiles[tkey];
-		
-		if (Object.keys(this.loadingTiles).length === 0) {
-			for (let i = this.toBeRemovedTiles.length - 1; i >= 0; i--) this.toBeRemovedTiles[i].remove();
-			this.svgMap.refreshScreen();
-		} else {
-			this.svgMap.refreshScreen(true);
+	}
+
+	#assertGeneration(generation) {
+		if (generation !== this.#generation) {
+			throw new DOMException("QTCTデータが切り替わったため処理を中止しました", "AbortError");
 		}
 	}
 
 	async restoreCsvDataFromZipFile(progressCBF) {
-		let pms = [];
-		let tlen = Object.keys(this.qtctMapData.tileIndex).length;
-		let tc = 0;
-		const response = await fetch(this.zipArchivePath);
-		const contentLength = response.headers.get('content-length');
+		const generation = this.#generation;
+		const data = this.qtctMapData;
+		const path = this.zipArchivePath;
+		if (!path || !data?.tileIndex) return;
+		const response = await fetch(path);
+		this.#assertGeneration(generation);
+		if (!response.ok) throw new Error(`ZIP取得に失敗しました: HTTP ${response.status}`);
+		const total = Number(response.headers.get("content-length"));
+		const reader = response.body.getReader();
+		const chunks = [];
 		let loaded = 0;
-		
-		const res = new Response(new ReadableStream({
-			async start(controller) {
-				const reader = response.body.getReader();
-				for (;;) {
-					const {done, value} = await reader.read();
-					if (done) break;
-					loaded += value.byteLength;
-					if (typeof progressCBF === 'function') progressCBF({loaded, total: parseInt(contentLength, 10)});
-					controller.enqueue(value);
-				}
-				controller.close();
-			},
-		}));
-		
-		const blob = await res.blob();
-		const zipArchiveFull = await unzip(blob);
-		
-		for (let tkey in this.qtctMapData.tileIndex) {
-			if (!this.qtctMapData[tkey]) {
-				let p = (this.qtctMapData.tileIndex[tkey] === true) ? 
-					zipArchiveFull.entries[tkey].json() : zipArchiveFull.entries[tkey].text();
-				pms.push(p.then(data => { this.qtctMapData[tkey] = data; }));
+		try {
+			for (;;) {
+				const { done, value } = await reader.read();
+				this.#assertGeneration(generation);
+				if (done) break;
+				chunks.push(value);
+				loaded += value.byteLength;
+				progressCBF?.({ loaded, total });
 			}
-			if (pms.length >= 8) {
-				if (typeof progressCBF === 'function') progressCBF(tc / tlen);
-				await Promise.all(pms);
-				pms = [];
-			}
-			tc++;
+		} catch (error) {
+			await reader.cancel().catch(() => {});
+			throw error;
+		} finally {
+			reader.releaseLock();
 		}
-		await Promise.all(pms);
+		const archive = await unzip(new Blob(chunks));
+		this.#assertGeneration(generation);
+		const keys = Object.keys(data.tileIndex);
+		for (let start = 0; start < keys.length; start += 8) {
+			await Promise.all(keys.slice(start, start + 8).map(async (key) => {
+				if (data[key]) return;
+				const value = data.tileIndex[key]
+					? await archive.entries[key].json() : await archive.entries[key].text();
+				this.#assertGeneration(generation);
+				data[key] = value;
+			}));
+			this.#assertGeneration(generation);
+			progressCBF?.(Math.min(start + 8, keys.length) / keys.length);
+		}
+		this.#assertGeneration(generation);
 		this.clientSideQTCT.restoreQuadTreeCompositeTileAndLowResImages();
 		return this.restoreCsvData();
 	}
+}
+
+// createPoiは未接続の要素（または描画を省略するnull）を返す。
+// 地点情報と座標は共通処理で付与し、親タイルへの追加は呼び出し元が行う。
+export function createPoiElement({
+  svgImage, longitude, latitude, metadata, iconId, title, createPoi, csvCodec
+}) {
+  if (iconId === null) return null;
+  const poi = createPoi
+    ? createPoi({ svgImage, longitude, latitude, metadata, iconId, title })
+    : svgImage.createElement("use");
+  if (!poi) return null;
+  if (!createPoi) {
+    poi.setAttribute("xlink:href", "#" + iconId);
+    poi.setAttribute("x", 0);
+    poi.setAttribute("y", 0);
+  }
+  const label = title == null || title === "undefined" ? "" : String(title);
+  poi.setAttribute("xlink:title", label.trim() ? label : "-");
+  poi.setAttribute("content", csvCodec ? csvCodec.serializeRow(metadata) : metadata.join(","));
+  poi.setAttribute("transform", `ref(svg,${Number(longitude) * 100},${-Number(latitude) * 100})`);
+  return poi;
 }

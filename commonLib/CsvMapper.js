@@ -62,9 +62,11 @@ windowObjから直接取得している(整理できていない)リソースは
 //    from 2a: ｘｘKm圏の円(楕円)を表示する機能(circleRadius),(radiusCol)
 //
 
-import { QTCTLayerRenderer } from './QTCTLayerRenderer.js';
+import { QTCTLayerRenderer, createPoiElement } from './QTCTLayerRenderer.js';
 
 export class CsvMapper {
+	#loadGeneration = 0;
+	#directPois = new Set();
 	constructor(options) {
 		// [Refactor 2026]: windowObj に依存せず、options 経由で依存を注入 (DI)
 		this.svgMap = options.svgMap;
@@ -72,6 +74,9 @@ export class CsvMapper {
 		this.svgImageProps = options.svgImageProps;
 		this.layerID = options.layerID;
 		this.messageDivElm = options.messageDivElm || null;
+		this.createPoi = options.createPoi || null;
+		// 既存のsplit(",")利用者を維持し、値保持は移行時に明示指定する。
+		this.csvCodec = options.csvCodec || null;
 		
 		// [Refactor 2026]: これまでグローバル変数だった useQTCT をクラスのプライベートな状態として管理
 		this.useQTCT = false;
@@ -134,6 +139,14 @@ export class CsvMapper {
 		return result;
 	}
 	
+	#parseCsvRow(line) {
+		return this.csvCodec ? this.csvCodec.parseRow(line) : line.split(",");
+	}
+
+	#serializeCsvRow(row) {
+		return this.csvCodec ? this.csvCodec.serializeRow(row) : row.join(",");
+	}
+
 	getCsv(progressCallBack) {
 		console.log("getCsv:csv:", this.csv);
 		// [Refactor 2026]: windowObj.useQTCT の代わりに this.useQTCT をチェック
@@ -144,7 +157,7 @@ export class CsvMapper {
 				if (this.qtctRenderer.isZipMode) {
 					return this.qtctRenderer.restoreCsvDataFromZipFile(progressCallBack).then(csvdat => {
 						for (let i = 0; i < csvdat.length; i++) {
-							csvdat[i] = csvdat[i].join(",");
+							csvdat[i] = this.#serializeCsvRow(csvdat[i]);
 						}
 						return csvdat;
 					});
@@ -152,7 +165,7 @@ export class CsvMapper {
 				let csvdat = this.qtctRenderer.restoreCsvData();
 				if (csvdat) {
 					for (let i = 0; i < csvdat.length; i++) {
-						csvdat[i] = csvdat[i].join(",");
+						csvdat[i] = this.#serializeCsvRow(csvdat[i]);
 					}
 					return csvdat;
 				}
@@ -161,6 +174,16 @@ export class CsvMapper {
 		return this.csv;
 	}
 	
+	// モードに依存しない非同期エクスポート。getCsvは既存呼び出しとの互換用。
+	async getCsvAsync(progressCallBack) {
+		const generation = this.#loadGeneration;
+		const rows = await this.getCsv(progressCallBack);
+		if (generation !== this.#loadGeneration) {
+			throw new DOMException("CSVデータが切り替わったため出力を中止しました", "AbortError");
+		}
+		return rows;
+	}
+
 	getSchema() {
 		return this.currentSchema;
 	}
@@ -310,7 +333,7 @@ export class CsvMapper {
 		let minSet = false;
 		let maxSet = false;
 		for (let i = firstRecord; i < csvArray.length; i++) {
-			let strTxt = csvArray[i].split(",");
+			let strTxt = this.#parseCsvRow(csvArray[i]);
 			if (strTxt.length > 2 && strTxt[cs.varIconCol]) {
 				let iconVal = strTxt[cs.varIconCol];
 				if (isNaN(iconVal)) {
@@ -336,7 +359,7 @@ export class CsvMapper {
 	}
 	
 	#parseSchema(sline) {
-		let scols = sline.split(",");
+		let scols = this.#parseCsvRow(sline);
 		let latCol = -1, lngCol = -1, titleCol = -1, titleCol2 = -1, varIconCol = -1, varIconTh = [];
 		for (let i = 0; i < scols.length; i++) {
 			let col = scols[i].toLowerCase();
@@ -436,6 +459,7 @@ export class CsvMapper {
 	}
 	
 	async initCsv(inputCsv, latC, lngC, titleC, iconIndexOrCustomIconDataURL, varIconThParam, firstRecordParam) {
+		const request = ++this.#loadGeneration;
 		console.log("called: initCsv", iconIndexOrCustomIconDataURL, varIconThParam, firstRecordParam);
 		let iconIndex;
 		let customIconDataURL;
@@ -446,18 +470,22 @@ export class CsvMapper {
 		}
 		if (this.messageDivElm) this.messageDivElm.innerText = "Start Visualization";
 		await this.#sleep(10);
+		if (request !== this.#loadGeneration) return;
 		
 		// [Refactor 2026]: 外部の関数呼び出しを廃止、クラス自身のメソッドで消去処理を実行
 		this.clearMap();
+		const generation = this.#loadGeneration;
 		
 		let csvArray = null;
 		// CSVを準備する
 		if (inputCsv) {
-			let csvText = this.simplifyCsv(inputCsv);
-			csvArray = csvText.split(this.LF); // CSVデータは、1次元配列、配列の要素は、1レコード分のCSVデータ（2次元配列ではない・・）
+			// コーデック指定時のみセル内改行などを保持する。
+			csvArray = this.csvCodec
+				? this.csvCodec.parse(inputCsv).map(row => this.#serializeCsvRow(row))
+				: this.simplifyCsv(inputCsv).split(this.LF);
 		}
 		
-		if (!csvArray) {
+		if (!csvArray?.length) {
 			console.warn("No CSV: exit");
 			if (this.messageDivElm) this.messageDivElm.innerText = "";
 			this.svgMap.refreshScreen();
@@ -522,7 +550,7 @@ export class CsvMapper {
 		
 		if (cs.latCol == null || cs.latCol == -1) {
 			cs = this.#parseSchema(csvArray[0]);
-			this.svgImage.firstChild.setAttribute("property", csvArray[0]);
+			this.svgImage.documentElement.setAttribute("property", csvArray[0]);
 			firstRecord = 1;
 		}
 		cs.firstRecord = firstRecord;
@@ -537,8 +565,8 @@ export class CsvMapper {
 			this.#checkVarIconTh(csvArray, firstRecord, cs);
 		}
 		
-		if (firstRecord != 0 && !this.svgImage.firstChild.getAttribute("property")) {
-			this.svgImage.firstChild.setAttribute("property", csvArray[0]);
+		if (firstRecord != 0 && !this.svgImage.documentElement.getAttribute("property")) {
+			this.svgImage.documentElement.setAttribute("property", csvArray[0]);
 		}
 		
 		let qtctData;
@@ -551,7 +579,7 @@ export class CsvMapper {
 		
 		let properPoints = 0;
 		for (let i = firstRecord; i < csvArray.length; i++) {
-			let strTxt = csvArray[i].split(",");
+			let strTxt = this.#parseCsvRow(csvArray[i]);
 			
 			if (strTxt.length > 2) {
 				let wgPos;
@@ -563,17 +591,18 @@ export class CsvMapper {
 					} else {
 						stxt = this.#getSchemaTxt(cs, strTxt.length);
 					}
-					this.svgImage.firstChild.setAttribute("property", stxt);
+					this.svgImage.documentElement.setAttribute("property", stxt);
 				}
+				if (!strTxt[cs.latCol]?.trim() || !strTxt[cs.lngCol]?.trim()) continue;
 				if (this.tokyoDatum) {
 					wgPos = this.#toWGS(Number(strTxt[cs.latCol]), Number(strTxt[cs.lngCol]));
 				} else {
 					wgPos = { lat: Number(strTxt[cs.latCol]), lng: Number(strTxt[cs.lngCol]) };
 				}
-				if (isNaN(wgPos.lat) || isNaN(wgPos.lng)) {
+				if (!Number.isFinite(wgPos.lat) || !Number.isFinite(wgPos.lng)) {
 					continue;
 				}
-				if (wgPos && wgPos.lat && wgPos.lng) {
+				if (wgPos) {
 					if (this.useQTCT) {
 						strTxt[cs.latCol] = wgPos.lat;
 						strTxt[cs.lngCol] = wgPos.lng;
@@ -603,7 +632,7 @@ export class CsvMapper {
 			}
 		}
 		
-		cs.property = this.svgImage.firstChild.getAttribute("property").split(",");
+		cs.property = this.#parseCsvRow(this.svgImage.documentElement.getAttribute("property") || "");
 		this.currentSchema = cs;
 		this.csv = csvArray;
 		
@@ -614,13 +643,16 @@ export class CsvMapper {
 				svgImage: this.svgImage,
 				svgImageProps: this.svgImageProps,
 				layerID: this.layerID,
+				createPoi: this.createPoi,
+				csvCodec: this.csvCodec,
 				// [Refactor 2026]: 循環参照を避けるため、自身のメソッドをアロー関数で包んで注入
 				iconIdEvaluator: (rawData) => this.getIconId(rawData, cs, false),
 				colorIndexEvaluator: (rawData) => this.getIconId(rawData, cs, true)
 			});
 			await this.qtctRenderer.buildQTCTdata(qtctData, cs, (msg) => {
-				if (this.messageDivElm) this.messageDivElm.innerText = msg;
+				if (generation === this.#loadGeneration && this.messageDivElm) this.messageDivElm.innerText = msg;
 			}, false);
+			if (generation !== this.#loadGeneration) return;
 			this.svgMap.refreshScreen();
 			if (this.messageDivElm) this.messageDivElm.innerText = "";
 		} else {
@@ -666,15 +698,16 @@ export class CsvMapper {
 	}
 	
 	clearMap() {
+		++this.#loadGeneration;
+		this.useQTCT = false;
 		// [Refactor 2026]: 外部の関数呼び出しではなく、内部のレンダラーとDOMに対して直接クリアを実行
 		if (this.qtctRenderer) {
-			this.qtctRenderer.removePrevTiles();
-			this.qtctRenderer.clearData();
+			this.qtctRenderer.reset();
 			this.qtctRenderer = null;
 		}
 		this.#removeAllPOIs();
-		if (this.svgImage.firstChild) {
-			this.svgImage.firstChild.setAttribute("property", "");
+		if (this.svgImage.documentElement) {
+			this.svgImage.documentElement.setAttribute("property", "");
 		}
 		this.csv = null;
 		this.currentSchema = null;
@@ -698,6 +731,8 @@ export class CsvMapper {
 	// 2026/9/3 zipped QTCT動的ロードに対応
 	async loadZip(zipPath) {
 		console.log("loadZip:", zipPath);
+		this.clearMap();
+		const generation = this.#loadGeneration;
 		this.useQTCT = true;
 		
 		if (!this.qtctRenderer) {
@@ -706,13 +741,17 @@ export class CsvMapper {
 				svgImage: this.svgImage,
 				svgImageProps: this.svgImageProps,
 				layerID: this.layerID,
+				createPoi: this.createPoi,
+				csvCodec: this.csvCodec,
 				iconIdEvaluator: (rawData) => this.getIconId(rawData, this.currentSchema || { defaultIconNumber: 0 }, false),
 				colorIndexEvaluator: (rawData) => this.getIconId(rawData, this.currentSchema || { defaultIconNumber: 0 }, true)
 			});
 		}
 		
-		await this.qtctRenderer.initZippedTile(zipPath);
-		this.currentSchema = this.qtctRenderer.csvSchema;
+		const renderer = this.qtctRenderer;
+		await renderer.initZippedTile(zipPath);
+		if (generation !== this.#loadGeneration || renderer !== this.qtctRenderer) return;
+		this.currentSchema = renderer.csvSchema;
 		
 		// 【修正追加】ZIP展開後、カスタムアイコン（データURL）が含まれていればDOMに復元する
 		if (typeof this.currentSchema.defaultIconNumber === "string") {
@@ -785,21 +824,12 @@ export class CsvMapper {
 	}
 	
 	#getPOI(latitude, longitude, title, metadata, csvSchema) {
-		let iconId = this.getIconId(metadata, csvSchema);
-		if (iconId === null) { return null };
-		let tf = "ref(svg," + (longitude * 100) + "," + (latitude * -100) + ")";
-		let cl;
-		// Edgeで不具合発生＆すべてのケースでもはやdocumentはSVG文書ではなく単なるwell formed XML文書化したためSVGネームスペース宣言不要
-		cl = this.svgImage.createElement("use"); 
-		cl.setAttribute("x", 0);
-		cl.setAttribute("y", 0);
-		cl.setAttribute("transform", tf);
-		cl.setAttribute("xlink:href", "#" + iconId);
-		cl.setAttribute("xlink:title", title);
-		if (metadata) {
-			cl.setAttribute("content", metadata);
-		}
-		return cl;
+		const poi = createPoiElement({
+			svgImage: this.svgImage, longitude, latitude, title, metadata,
+			iconId: this.getIconId(metadata, csvSchema), createPoi: this.createPoi, csvCodec: this.csvCodec
+		});
+		if (poi) this.#directPois.add(poi);
+		return poi;
 	}
 	
 	#toWGS(jlat, jlng) { // 雑すぎる旧測地系からWGS84への変換関数(TBD)
@@ -813,6 +843,8 @@ export class CsvMapper {
 	
 	#removeAllPOIs() {
 		console.log("removeAllPOIs");
+		for (const poi of this.#directPois) poi.remove();
+		this.#directPois.clear();
 		let pois = this.svgImage.getElementsByTagName("use");
 		if (pois.length > 0) {
 			for (let i = pois.length - 1; i >= 0; i--) {
@@ -852,17 +884,19 @@ export class CsvMapper {
 	async editCsv(action, line, prevLine) {
 		let q, stat = true;
 		if (!line) { return false }
-		line = this.simplifyCsv(line);
+		line = this.csvCodec ? this.#serializeCsvRow(this.#parseCsvRow(line)) : this.simplifyCsv(line);
+		if (!this.csv) this.csv = await this.getCsvAsync();
+		if (!this.csv) return false;
 		if (action.toLowerCase() == "add") {
 			this.csv.push(line);
 			if (this.useQTCT && this.qtctRenderer) {
-				q = line.split(",");
+				q = this.#parseCsvRow(line);
 				// [Refactor 2026]: 内包するQTCTLayerRendererのインスタンスに委譲
 				stat = await this.qtctRenderer.clientSideQTCT.registOneData(q);
 			}
 		} else if (action.toLowerCase() == "replace") {
 			if (!prevLine) { return false };
-			prevLine = this.simplifyCsv(prevLine);
+			prevLine = this.csvCodec ? this.#serializeCsvRow(this.#parseCsvRow(prevLine)) : this.simplifyCsv(prevLine);
 			const hitLine = this.csv.indexOf(prevLine);
 			if (hitLine >= 0) {
 				this.csv[hitLine] = line;
@@ -871,9 +905,9 @@ export class CsvMapper {
 				return false;
 			}
 			if (this.useQTCT && this.qtctRenderer) {
-				q = prevLine.split(",");
+				q = this.#parseCsvRow(prevLine);
 				stat = await this.qtctRenderer.clientSideQTCT.deleteOneData(q);
-				q = line.split(",");
+				q = this.#parseCsvRow(line);
 				stat = await this.qtctRenderer.clientSideQTCT.registOneData(q);
 			}
 		} else if (action.toLowerCase() == "delete") {
@@ -884,7 +918,7 @@ export class CsvMapper {
 				return false;
 			}
 			if (this.useQTCT && this.qtctRenderer) {
-				q = line.split(",");
+				q = this.#parseCsvRow(line);
 				stat = await this.qtctRenderer.clientSideQTCT.deleteOneData(q);
 			}
 		}
