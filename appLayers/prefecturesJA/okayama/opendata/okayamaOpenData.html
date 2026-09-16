@@ -1,0 +1,1787 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>岡山県オープンデータレイヤ</title>
+
+		<!-- データパース用ライブラリ -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/2.1.0/encoding.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+		<script src="https://unpkg.com/shpjs@6.2.0/dist/shp.js"></script>
+
+		<!-- SVGMap LaWA 連携用ライブラリ群 -->
+		<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+		<script type="module">
+			import { CsvMapper } from "./CsvMapper.js";
+			window.CsvMapperClass = CsvMapper;
+		</script>
+
+		<style>
+			body {
+				font-family: sans-serif;
+				padding: 6px;
+				line-height: 1.3;
+				background-color: #f4f4f9;
+				color: #333;
+				margin: 0;
+				height: 100vh;
+				box-sizing: border-box;
+				display: flex;
+				flex-direction: column;
+				font-size: 11px;
+				overflow: hidden;
+			}
+
+			.header-area {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				margin-bottom: 4px;
+				flex-shrink: 0;
+				padding-right: 22px;
+			}
+			h2 {
+				font-size: 12px;
+				margin: 0;
+				color: #2c3e50;
+				font-weight: bold;
+				white-space: nowrap;
+			}
+			.source-link {
+				font-size: 10px;
+				color: #666;
+				white-space: nowrap;
+			}
+			.source-link a {
+				color: #004085;
+				text-decoration: none;
+				font-weight: bold;
+			}
+			.source-link a:hover {
+				text-decoration: underline;
+			}
+
+			.status-bar {
+				font-size: 10px;
+				font-weight: bold;
+				margin-bottom: 4px;
+				padding: 4px;
+				border-radius: 3px;
+				border: 1px solid #ced4da;
+				text-align: center;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				background: #fff;
+				flex-shrink: 0;
+				height: 16px;
+				line-height: 16px;
+			}
+
+			.search-box {
+				margin-bottom: 4px;
+				background: #fff;
+				padding: 3px 4px;
+				border-radius: 4px;
+				border: 1px solid #ced4da;
+				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: 4px;
+			}
+			.search-box input[type="text"] {
+				flex-grow: 1;
+				box-sizing: border-box;
+				padding: 3px 5px;
+				font-size: 11px;
+				border: 1px solid #adb5bd;
+				border-radius: 3px;
+				outline: none;
+			}
+			.search-box input[type="text"]:focus {
+				border-color: #3498db;
+			}
+			.btn-clear {
+				padding: 2px 6px;
+				font-size: 10px;
+				cursor: pointer;
+				background: #e74c3c;
+				color: #fff;
+				border: none;
+				border-radius: 3px;
+				font-weight: bold;
+				flex-shrink: 0;
+				display: none;
+			}
+			.btn-clear:hover {
+				background: #c0392b;
+			}
+
+			.container {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				flex-grow: 1;
+				min-height: 0;
+			}
+
+			#tree-container {
+				background: #fff;
+				padding: 6px;
+				border-radius: 4px;
+				border: 1px solid #ced4da;
+				flex: 1 1 55%;
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+			}
+			.tree-controls {
+				margin-bottom: 4px;
+				display: flex;
+				gap: 4px;
+				align-items: center;
+				flex-shrink: 0;
+			}
+			#filter-tree {
+				flex-grow: 1;
+				overflow-y: auto;
+				overflow-x: hidden;
+				border: 1px solid #eee;
+				padding: 4px;
+				background: #fdfdfd;
+				font-size: 11px;
+				border-radius: 3px;
+			}
+
+			#detail-container {
+				background: #fff;
+				padding: 6px;
+				border-radius: 4px;
+				border: 1px solid #ced4da;
+				border-top: 3px solid #3498db;
+				flex: 0 0 45%;
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			.meta-box {
+				flex-grow: 1;
+				overflow-y: auto;
+				background: #f9f9f9;
+				border: 1px solid #eee;
+				padding: 6px;
+				border-radius: 3px;
+				font-size: 10px;
+				margin-top: 4px;
+				min-height: 0;
+			}
+			.meta-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+			.meta-table th {
+				text-align: left;
+				color: #666;
+				width: 50px;
+				vertical-align: top;
+				font-weight: normal;
+				padding: 2px 0;
+			}
+			.meta-table td {
+				padding: 2px 0;
+				word-break: break-all;
+			}
+
+			.btn-small {
+				padding: 2px 5px;
+				font-size: 10px;
+				cursor: pointer;
+				background: #95a5a6;
+				color: #fff;
+				border: none;
+				border-radius: 3px;
+			}
+			.btn-small:hover {
+				background: #7f8c8d;
+			}
+
+			.tree-root details {
+				margin-left: 8px;
+			}
+			.tree-root summary {
+				cursor: pointer;
+				padding: 2px;
+				border-radius: 3px;
+				user-select: none;
+				margin: 1px 0;
+			}
+			.tree-root summary:hover {
+				background-color: #ecf0f1;
+			}
+			.tree-root summary::marker {
+				content: "";
+				display: none;
+			}
+			.tree-root summary::-webkit-details-marker {
+				display: none;
+			}
+			.tree-root summary::before {
+				content: "▶";
+				font-size: 8px;
+				display: inline-block;
+				width: 12px;
+				color: #7f8c8d;
+			}
+			.tree-root details[open] > summary::before {
+				content: "▼";
+			}
+
+			.tree-leaf {
+				padding: 2px 4px 2px 14px;
+				margin: 1px 0;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				border-radius: 3px;
+				font-size: 10.5px;
+			}
+			.tree-leaf:hover {
+				background-color: #e8f4fd;
+			}
+			.tree-focusable {
+				outline: none;
+			}
+			.tree-focusable:focus {
+				background-color: #d1ecf1;
+				border-radius: 3px;
+			}
+			.tree-leaf.selected {
+				background-color: #3498db;
+				color: #fff;
+			}
+			.tree-leaf.selected.tree-focusable:focus {
+				background-color: #2980b9;
+			}
+			.tree-status {
+				margin-left: auto;
+				font-size: 11px;
+			}
+
+			.badge {
+				display: inline-block;
+				padding: 1px 3px;
+				border-radius: 2px;
+				color: #fff;
+				font-size: 8.5px;
+				font-weight: bold;
+				margin-right: 4px;
+				background-color: #34495e;
+			}
+			.badge-geo {
+				background-color: #27ae60;
+			}
+			.badge-zip {
+				background-color: #8e44ad;
+			}
+
+			.btn-dl {
+				background-color: #e67e22;
+				padding: 3px 6px;
+				cursor: pointer;
+				color: white;
+				border: none;
+				border-radius: 3px;
+				font-weight: bold;
+				font-size: 10px;
+				margin-top: 2px;
+			}
+			.empty-msg {
+				color: #7f8c8d;
+				font-size: 11px;
+				padding: 10px;
+				text-align: center;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="header-area">
+			<h2>岡山県オープンデータレイヤ</h2>
+			<span class="source-link"
+				>出典:
+				<a href="https://www.okayama-opendata.jp/" target="_blank"
+					>おかやまオープンデータカタログ</a
+				></span
+			>
+		</div>
+
+		<div id="status-bar" class="status-bar">LaWA初期化中...</div>
+
+		<div class="search-box">
+			<input
+				type="text"
+				id="searchInput"
+				placeholder="🔍 キーワード検索 (スペース区切りでAND検索)..."
+				oninput="handleSearch()"
+				disabled
+			/>
+			<button
+				id="btnClear"
+				class="btn-clear"
+				onclick="clearSearch()"
+				title="検索内容を消去"
+			>
+				✖
+			</button>
+		</div>
+
+		<div class="container">
+			<div id="tree-container">
+				<div class="tree-controls">
+					<span style="font-weight: bold; margin-right: auto; font-size: 11px"
+						>📁 データセットツリー</span
+					>
+					<span style="font-size: 9px; color: #999; margin-right: 4px"
+						>(↑↓:選択, →←:展開)</span
+					>
+					<button class="btn-small" onclick="expandAll()">全展開</button>
+					<button class="btn-small" onclick="collapseAll()">全折畳</button>
+				</div>
+				<div id="filter-tree">
+					<div class="empty-msg" style="margin-top: 40px">
+						データセットを検索中...
+					</div>
+				</div>
+			</div>
+
+			<div id="detail-container">
+				<div class="empty-msg" style="margin-top: 20px">
+					ツリーからデータを選択すると詳細が表示されます。
+				</div>
+			</div>
+		</div>
+
+		<script>
+			// 岡山県オープンデータレイヤ
+			// おかやまオープンデータカタログサイトのCKANラッパーを経由して、緯度経度が付与されている(地図に載る)と思われるデータを抽出、
+			// それを地図上に表示するLaWA
+			//
+			// License: (MPL v2)
+			// This Source Code Form is subject to the terms of the Mozilla Public
+			// License, v. 2.0. If a copy of the MPL was not distributed with this
+			// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+			//
+			// 2026/09/16 1st rev
+
+			// ==========================================
+			// ユーティリティ・ステータス更新・メモリ管理
+			// ==========================================
+			const statusBar = document.getElementById("status-bar");
+			const treeDiv = document.getElementById("filter-tree");
+			const detailDiv = document.getElementById("detail-container");
+			const searchInput = document.getElementById("searchInput");
+			const btnClear = document.getElementById("btnClear");
+
+			function updateStatusBar(text, color) {
+				statusBar.textContent = text;
+				statusBar.style.color = color || "#333";
+				statusBar.style.borderColor = color || "#ced4da";
+			}
+
+			// マップを即座にクリア
+			window.clearAllMaps = function () {
+				if (myCsvMapper) myCsvMapper.clearMap();
+				if (window.svgImage) {
+					const shpsGroup = window.svgImage.getElementById("shps");
+					if (shpsGroup) {
+						while (shpsGroup.firstChild) {
+							shpsGroup.removeChild(shpsGroup.firstChild);
+						}
+					}
+				}
+				// クリア結果を画面に反映
+				if (
+					window.svgMap &&
+					typeof window.svgMap.refreshScreen === "function"
+				) {
+					window.svgMap.refreshScreen();
+				}
+			};
+
+			// メモリ解放機能
+			window.releaseMemory = function (keepId) {
+				allCandidates.forEach((cand) => {
+					if (cand.id !== keepId) {
+						cand.cleanCsvResult = null;
+						cand.geoJsonData = null;
+					}
+				});
+			};
+
+			window.updateStatus = function (cand, status) {
+				cand.verificationStatus = status;
+				const treeStatus = document.getElementById(`tree-status-${cand.id}`);
+				if (treeStatus) {
+					if (status === "success") treeStatus.textContent = "🌍";
+					else if (status === "failed") treeStatus.textContent = "❌";
+					else if (status === "loading") treeStatus.textContent = "⏳";
+					else treeStatus.textContent = "❓";
+				}
+				if (currentSelectedId === cand.id) renderDetailPane(cand);
+			};
+
+			function getShortHash(str) {
+				let hash = 5381;
+				for (let i = 0; i < str.length; i++)
+					hash = (hash << 5) + hash + str.charCodeAt(i);
+				return (hash >>> 0).toString(16).padStart(8, "0");
+			}
+
+			// プログレスバー付きフェッチ関数
+			async function fetchWithProgress(url, targetId, label) {
+				const res = await fetch(url);
+				if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+				const contentLength = res.headers.get("content-length");
+				const total = contentLength ? parseInt(contentLength, 10) : 0;
+				let loaded = 0;
+
+				const reader = res.body.getReader();
+				const chunks = [];
+
+				while (true) {
+					if (currentSelectedId !== targetId) throw new Error("Cancelled");
+					const { done, value } = await reader.read();
+					if (done) break;
+					chunks.push(value);
+					loaded += value.byteLength;
+
+					const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+					if (total) {
+						const totalMB = (total / (1024 * 1024)).toFixed(1);
+						const percent = Math.round((loaded / total) * 100);
+						updateStatusBar(
+							`${label}: ${percent}% (${loadedMB}MB / ${totalMB}MB)`,
+							"#d35400"
+						);
+					} else {
+						updateStatusBar(`${label}: ${loadedMB}MB 取得中...`, "#d35400");
+					}
+				}
+
+				const arrayBuffer = new Uint8Array(loaded);
+				let offset = 0;
+				for (let chunk of chunks) {
+					arrayBuffer.set(chunk, offset);
+					offset += chunk.byteLength;
+				}
+				return arrayBuffer.buffer;
+			}
+
+			async function fetchTextWithProgress(url, targetId, label) {
+				const buffer = await fetchWithProgress(url, targetId, label);
+				return new TextDecoder("utf-8").decode(buffer);
+			}
+
+			// ==========================================
+			// SVGMap LaWA 初期化
+			// ==========================================
+			let myCsvMapper;
+			let layerPreRenderFunc = () => {};
+			window.preRenderFunction = () => layerPreRenderFunc();
+
+			window.addEventListener("layerWebAppReady", function () {
+				updateStatusBar("SVGMap初期化完了。カタログを検索します...", "#27ae60");
+				myCsvMapper = new window.CsvMapperClass({
+					svgMap: window.svgMap,
+					svgImage: window.svgImage,
+					svgImageProps: window.svgImageProps,
+					layerID: window.layerID,
+					messageDivElm: null,
+				});
+				layerPreRenderFunc = myCsvMapper.preRenderFunction;
+				myCsvMapper.onload();
+
+				fetchCatalogData();
+			});
+
+			const BASE_API_URL =
+				"https://www.okayama-opendata.jp/ckan_api/package_search";
+			const GEO_KEYWORDS = [
+				"緯度",
+				"経度",
+				"位置情報",
+				"地図",
+				"マップ",
+				"地理情報",
+				"地図情報",
+				"ロケーション",
+				"座標",
+			];
+			const ADDR_KEYWORDS = ["住所", "所在地"];
+			const FORMAT_KEYWORDS = ["shp", "kml", "kmz", "geojson", "zip"];
+			const ALL_SEARCH_WORDS = [
+				...GEO_KEYWORDS,
+				...ADDR_KEYWORDS,
+				...FORMAT_KEYWORDS,
+			];
+			const TARGET_FORMATS = [
+				"CSV",
+				"JSON",
+				"GEOJSON",
+				"KML",
+				"KMZ",
+				"SHP",
+				"XLS",
+				"XLSX",
+				"ZIP",
+			];
+
+			let allCandidates = [];
+			let currentSelectedId = null;
+			let verifyTimeout = null;
+
+			// --- 1. 高速検索 ---
+			async function fetchCatalogData() {
+				treeDiv.innerHTML =
+					'<div class="empty-msg" style="margin-top: 40px;">データセットを検索中...</div>';
+				allCandidates = [];
+				searchInput.disabled = true;
+
+				const totalKeywords = ALL_SEARCH_WORDS.length;
+				let completedKeywords = 0;
+				const uniquePackages = new Map();
+
+				updateStatusBar(
+					`検索中... (0/${totalKeywords} 完了 | 抽出: 0 件)`,
+					"#d35400"
+				);
+
+				try {
+					const searchPromises = ALL_SEARCH_WORDS.map(async (kw) => {
+						let start = 0;
+						let hasMore = true;
+						while (hasMore) {
+							const url = svgMap.getCORSURL(
+								`${BASE_API_URL}?q=${encodeURIComponent(kw)}&rows=100&start=${start}`
+							);
+							const res = await fetch(url);
+							if (!res.ok) break;
+							const json = await res.json();
+
+							if (json.success && json.result.results.length > 0) {
+								json.result.results.forEach((pkg) =>
+									uniquePackages.set(pkg.id, pkg)
+								);
+								updateStatusBar(
+									`検索中... (${completedKeywords}/${totalKeywords} 完了 | 抽出: ${uniquePackages.size} 件)`,
+									"#d35400"
+								);
+								if (json.result.results.length < 100) hasMore = false;
+								else start += 100;
+							} else {
+								hasMore = false;
+							}
+						}
+						completedKeywords++;
+						updateStatusBar(
+							`検索中... (${completedKeywords}/${totalKeywords} 完了 | 抽出: ${uniquePackages.size} 件)`,
+							"#d35400"
+						);
+					});
+
+					await Promise.all(searchPromises);
+					const allPackages = Array.from(uniquePackages.values());
+
+					updateStatusBar(
+						`完了: 関連データセット ${allPackages.length} 件を抽出`,
+						"#27ae60"
+					);
+					processPackages(allPackages);
+					searchInput.disabled = false;
+
+					await processHash();
+				} catch (e) {
+					console.error(e);
+					updateStatusBar(`取得エラー: ${e.message}`, "#e74c3c");
+				}
+			}
+
+			// --- 2. データ抽出と階層ツリー構築 ---
+			function processPackages(packages) {
+				packages.forEach((pkg) => {
+					if (!pkg.resources) return;
+					pkg.resources.forEach((resource) => {
+						const fmt = resource.format
+							? resource.format.toUpperCase()
+							: "UNKNOWN";
+						if (!TARGET_FORMATS.includes(fmt)) return;
+
+						const shortHash = getShortHash(
+							pkg.id + "_" + (resource.id || resource.name)
+						);
+						const cat = analyzeResource(pkg, resource, fmt);
+
+						if (cat.categoryCode === "ZIP_UNKNOWN") return;
+
+						allCandidates.push({
+							id: "item-" + Math.random().toString(36).substr(2, 9),
+							shortHash,
+							pkg,
+							resource,
+							fmt,
+							verificationStatus: "none",
+							matchedWords: getMatchedWords(pkg, resource),
+							categoryName: cat.categoryName,
+							categoryCode: cat.categoryCode,
+						});
+					});
+				});
+				buildTreeHTML();
+			}
+
+			// 検索用キーワード抽出処理
+			function getMatchedWords(pkg, resource) {
+				const textToSearch = [
+					pkg.title,
+					pkg.notes,
+					resource.name,
+					resource.description,
+				]
+					.filter(Boolean)
+					.join(" ")
+					.toLowerCase();
+				const geoHits = [
+					...new Set(GEO_KEYWORDS.filter((kw) => textToSearch.includes(kw))),
+				];
+				const addrHits = [
+					...new Set(ADDR_KEYWORDS.filter((kw) => textToSearch.includes(kw))),
+				];
+				return [...geoHits, ...addrHits];
+			}
+
+			function analyzeResource(pkg, resource, fmt) {
+				const textToSearch = [
+					pkg.title,
+					pkg.notes,
+					resource.name,
+					resource.description,
+				]
+					.filter(Boolean)
+					.join(" ")
+					.toLowerCase();
+				if (["GEOJSON", "SHP"].includes(fmt))
+					return { categoryName: "地理空間専用情報", categoryCode: "GEO" };
+				if (["KML", "KMZ"].includes(fmt))
+					return {
+						categoryName: "地理空間専用情報 (未対応)",
+						categoryCode: "GEO_UNSUPPORTED",
+					};
+				if (fmt === "ZIP") {
+					if (
+						textToSearch.includes("shp") ||
+						textToSearch.includes("shape") ||
+						textToSearch.includes("シェープ") ||
+						textToSearch.includes("ポリゴン")
+					) {
+						return {
+							categoryName: "ZIPアーカイブ (Shapefile内包の可能性)",
+							categoryCode: "ZIP_SHP",
+						};
+					}
+					return {
+						categoryName: "ZIPアーカイブ (未知)",
+						categoryCode: "ZIP_UNKNOWN",
+					};
+				}
+
+				const geoHits = [
+					...new Set(GEO_KEYWORDS.filter((kw) => textToSearch.includes(kw))),
+				];
+				const addrHits = [
+					...new Set(ADDR_KEYWORDS.filter((kw) => textToSearch.includes(kw))),
+				];
+				if (geoHits.length > 0)
+					return {
+						categoryName: "表情報 (緯度経度あり濃厚)",
+						categoryCode: "LATLNG",
+					};
+				else if (addrHits.length > 0)
+					return {
+						categoryName: "表情報 (住所あり・要ジオコーディング)",
+						categoryCode: "ADDR",
+					};
+				else return { categoryName: "表情報 (未知)", categoryCode: "UNKNOWN" };
+			}
+
+			function handleSearch() {
+				const query = searchInput.value.trim().toLowerCase();
+				if (searchInput.value.length > 0)
+					btnClear.style.display = "inline-block";
+				else btnClear.style.display = "none";
+
+				const keywords = query.split(/[\s ]+/).filter((k) => k !== "");
+				const filteredCandidates = allCandidates.filter((cand) => {
+					if (keywords.length === 0) return true;
+					const fullText = [
+						cand.pkg.title,
+						cand.pkg.notes,
+						cand.resource.name,
+						cand.resource.description,
+						cand.fmt,
+						cand.categoryName,
+					]
+						.filter(Boolean)
+						.join(" ")
+						.toLowerCase();
+					return keywords.every((k) => fullText.includes(k));
+				});
+
+				buildTreeHTML(filteredCandidates, keywords.length > 0);
+				if (filteredCandidates.length === 1)
+					selectResource(filteredCandidates[0].id, true);
+			}
+
+			window.clearSearch = function () {
+				searchInput.value = "";
+				btnClear.style.display = "none";
+				handleSearch();
+				searchInput.focus();
+			};
+
+			function buildTreeHTML(
+				candidateList = allCandidates,
+				autoExpand = false
+			) {
+				const orgGroups = {};
+				candidateList.forEach((cand) => {
+					const org =
+						cand.pkg.organization && cand.pkg.organization.title
+							? cand.pkg.organization.title
+							: "不明な組織";
+					const pkgTitle = cand.pkg.title || "無題のデータセット";
+					if (!orgGroups[org]) orgGroups[org] = {};
+					if (!orgGroups[org][pkgTitle]) orgGroups[org][pkgTitle] = [];
+					orgGroups[org][pkgTitle].push(cand);
+				});
+
+				let html = '<div class="tree-root">';
+				const sortedOrgs = Object.keys(orgGroups).sort((a, b) =>
+					a.localeCompare(b, "ja")
+				);
+
+				sortedOrgs.forEach((org) => {
+					const pkgs = orgGroups[org];
+					const pkgKeys = Object.keys(pkgs);
+					const orgCandCount = Object.values(pkgs).flat().length;
+					const orgOpen = autoExpand ? "open" : "";
+
+					html += `<details ${orgOpen}><summary class="tree-focusable" tabindex="0"><span style="font-weight:bold;">🏢 ${org}</span> <span style="color:#7f8c8d; font-size:9px;">(${orgCandCount})</span></summary>`;
+
+					const sortedPkgs = pkgKeys.sort(
+						(a, b) => pkgs[b].length - pkgs[a].length
+					);
+					sortedPkgs.forEach((pkgTitle) => {
+						const cands = pkgs[pkgTitle];
+						if (cands.length === 1) {
+							html += generateLeafHTML(cands[0]);
+						} else {
+							const pkgOpen = autoExpand || orgCandCount <= 5 ? "open" : "";
+							html += `<details ${pkgOpen}><summary class="tree-focusable" tabindex="0">📁 ${pkgTitle} <span style="color:#7f8c8d; font-size:9px;">(${cands.length})</span></summary>`;
+							cands.forEach((cand) => {
+								html += generateLeafHTML(cand);
+							});
+							html += `</details>`;
+						}
+					});
+					html += `</details>`;
+				});
+				html += "</div>";
+				treeDiv.innerHTML = html;
+			}
+
+			function generateLeafHTML(cand) {
+				let statusIcon = "❓";
+				if (cand.verificationStatus === "success") statusIcon = "🌍";
+				if (cand.verificationStatus === "failed") statusIcon = "❌";
+
+				let badgeClass = "badge";
+				if (["GEOJSON", "SHP"].includes(cand.fmt)) badgeClass = "badge-geo";
+				if (cand.fmt === "ZIP") badgeClass = "badge-zip";
+
+				return `
+        <div class="tree-leaf tree-focusable" tabindex="0" id="tree-node-${cand.id}" onclick="selectResource('${cand.id}', true)">
+          <span class="badge ${badgeClass}">${cand.fmt}</span>
+          <span style="flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cand.resource.name}">${cand.resource.name}</span>
+          <span class="tree-status" id="tree-status-${cand.id}">${statusIcon}</span>
+        </div>`;
+			}
+
+			window.expandAll = function () {
+				document
+					.querySelectorAll("#filter-tree details")
+					.forEach((d) => (d.open = true));
+			};
+			window.collapseAll = function () {
+				document
+					.querySelectorAll("#filter-tree details")
+					.forEach((d) => (d.open = false));
+			};
+
+			// --- 3. 選択・フォーカス解除 & ハッシュ復元 ---
+			function clearSelection() {
+				clearTimeout(verifyTimeout);
+				if (currentSelectedId) {
+					const prev = document.getElementById(
+						`tree-node-${currentSelectedId}`
+					);
+					if (prev) prev.classList.remove("selected");
+					currentSelectedId = null;
+				}
+				detailDiv.innerHTML =
+					'<div class="empty-msg" style="margin-top: 20px;">ツリーからデータを選択すると詳細が表示されます。</div>';
+
+				if (window.svgImageProps) window.svgImageProps.hash = "";
+				window.clearAllMaps();
+			}
+
+			window.highlightResource = function (itemId) {
+				if (currentSelectedId) {
+					const prev = document.getElementById(
+						`tree-node-${currentSelectedId}`
+					);
+					if (prev) prev.classList.remove("selected");
+				}
+				currentSelectedId = itemId;
+				const current = document.getElementById(`tree-node-${itemId}`);
+				if (current) {
+					current.classList.add("selected");
+					current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+				}
+
+				const cand = allCandidates.find((c) => c.id === itemId);
+				if (cand) renderDetailPane(cand);
+			};
+
+			window.selectResource = function (itemId, instant = false) {
+				clearTimeout(verifyTimeout);
+				window.clearAllMaps();
+				window.releaseMemory(itemId);
+				highlightResource(itemId);
+
+				const cand = allCandidates.find((c) => c.id === itemId);
+				if (cand) {
+					const needsFetch =
+						cand.verificationStatus === "none" ||
+						(cand.verificationStatus === "success" &&
+							!cand.cleanCsvResult &&
+							!cand.geoJsonData);
+
+					if (needsFetch) {
+						if (instant) runVerification(cand);
+						else
+							verifyTimeout = setTimeout(() => {
+								runVerification(cand);
+							}, 500);
+					} else if (cand.verificationStatus === "success") {
+						if (cand.cleanCsvResult) mapToSVGMap(cand);
+						else if (cand.geoJsonData) mapToSVGMapGeoJSON(cand);
+					} else {
+						window.clearAllMaps();
+					}
+				}
+			};
+
+			async function processHash() {
+				let hs = "";
+				if (window.svgImageProps && window.svgImageProps.hash)
+					hs = window.svgImageProps.hash;
+				else if (location.hash) hs = location.hash;
+
+				if (!hs || !hs.startsWith("#")) {
+					setTimeout(() => {
+						const firstFocusable = document.querySelector(".tree-focusable");
+						if (firstFocusable) firstFocusable.focus();
+					}, 100);
+					return;
+				}
+
+				const targetHash = hs.substring(1);
+				const targetCand = allCandidates.find(
+					(c) => c.shortHash === targetHash
+				);
+
+				if (targetCand) {
+					const node = document.getElementById(`tree-node-${targetCand.id}`);
+					if (node) {
+						let parent = node.parentElement;
+						while (parent && parent.id !== "filter-tree") {
+							if (parent.tagName === "DETAILS") parent.open = true;
+							parent = parent.parentElement;
+						}
+						setTimeout(() => {
+							node.focus();
+						}, 100);
+					}
+					selectResource(targetCand.id, true);
+				}
+			}
+
+			document.addEventListener("keydown", (e) => {
+				const tree = document.getElementById("filter-tree");
+				if (!tree || !tree.contains(document.activeElement)) return;
+
+				if (
+					["ArrowUp", "ArrowDown", "ArrowRight", "ArrowLeft"].includes(e.key)
+				) {
+					e.preventDefault();
+					const nodes = Array.from(
+						tree.querySelectorAll(".tree-focusable")
+					).filter((el) => {
+						let current = el;
+						while (current && current.id !== "filter-tree") {
+							const parent = current.parentElement;
+							if (parent && parent.tagName === "DETAILS" && !parent.open) {
+								if (el !== parent.firstElementChild) return false;
+							}
+							current = parent;
+						}
+						return true;
+					});
+
+					if (nodes.length === 0) return;
+					const currentIndex = nodes.indexOf(document.activeElement);
+
+					if (e.key === "ArrowDown") {
+						if (currentIndex < nodes.length - 1) {
+							const nextEl = nodes[currentIndex + 1];
+							nextEl.focus();
+							if (nextEl.classList.contains("tree-leaf"))
+								selectResource(nextEl.id.replace("tree-node-", ""), false);
+							else clearSelection();
+						}
+					} else if (e.key === "ArrowUp") {
+						if (currentIndex > 0) {
+							const prevEl = nodes[currentIndex - 1];
+							prevEl.focus();
+							if (prevEl.classList.contains("tree-leaf"))
+								selectResource(prevEl.id.replace("tree-node-", ""), false);
+							else clearSelection();
+						}
+					} else if (e.key === "ArrowRight") {
+						const el = nodes[currentIndex];
+						if (el.tagName === "SUMMARY") el.parentElement.open = true;
+					} else if (e.key === "ArrowLeft") {
+						const el = nodes[currentIndex];
+						if (el.tagName === "SUMMARY") el.parentElement.open = false;
+					}
+				}
+
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const active = document.activeElement;
+					if (active.classList.contains("tree-leaf"))
+						selectResource(active.id.replace("tree-node-", ""), true);
+					else if (active.tagName === "SUMMARY")
+						active.parentElement.open = !active.parentElement.open;
+				}
+			});
+
+			// --- 4. 詳細パネル ---
+			function renderDetailPane(cand) {
+				let statusText =
+					'<span style="color:#7f8c8d; font-weight:bold;">❓ 未検証</span>';
+				if (cand.verificationStatus === "loading")
+					statusText =
+						'<span style="color:#d35400; font-weight:bold;">⏳ 検証・取得中...</span>';
+				if (cand.verificationStatus === "success")
+					statusText =
+						'<span style="color:#27ae60; font-weight:bold;">🌍 位置情報アリ (マップ表示中)</span>';
+				if (cand.verificationStatus === "failed")
+					statusText =
+						'<span style="color:#e74c3c; font-weight:bold;">❌ 抽出・変換失敗</span>';
+
+				const pkg = cand.pkg;
+				let contact = "",
+					spatial = "";
+				if (pkg.extras && Array.isArray(pkg.extras)) {
+					const c = pkg.extras.find((e) => e.key === "contactPoint");
+					if (c) contact = c.value;
+					const s = pkg.extras.find((e) => e.key === "spatial");
+					if (s) spatial = s.value;
+				}
+				const tags = (pkg.tags || [])
+					.map((t) => t.display_name || t.name)
+					.join(", ");
+				const modified = pkg.metadata_modified
+					? pkg.metadata_modified.replace("T", " ")
+					: "不明";
+
+				detailDiv.innerHTML = `
+        <div style="flex-shrink: 0;">
+          <h3 style="margin: 0 0 4px 0; font-size: 11.5px; color: #2980b9; line-height: 1.2;">${pkg.title}</h3>
+          <table style="width:100%; font-size:10px; text-align:left; border-collapse: collapse; margin-bottom: 4px;">
+            <tr><th style="width:50px; padding:1px 0; color:#555;">ファイル:</th><td>${cand.resource.name}</td></tr>
+            <tr><th style="padding:1px 0; color:#555;">自動判定:</th><td>${cand.categoryName}</td></tr>
+            <tr><th style="padding:1px 0; color:#555;">検証結果:</th><td id="detail-status">${statusText}</td></tr>
+          </table>
+          <button class="btn-dl" onclick="window.open('${cand.resource.url}', '_blank')">📥 直DL</button>
+        </div>
+        
+        <div class="meta-box">
+          <div style="font-weight:bold; color:#555; margin-bottom:2px; border-bottom: 1px solid #ccc; font-size:10.5px;">📄 メタデータ</div>
+          <table class="meta-table">
+            <tr><th>説明</th><td>${pkg.notes || "なし"}</td></tr>
+            <tr><th>更新日</th><td>${modified}</td></tr>
+            <tr><th>担当</th><td>${contact || "不明"}</td></tr>
+            <tr><th>地域</th><td>${spatial || "不明"}</td></tr>
+            <tr><th>タグ</th><td>${tags || "なし"}</td></tr>
+          </table>
+        </div>
+      `;
+			}
+
+			// --- 5. 検証 & マッピングロジック ---
+			async function runVerification(cand) {
+				const targetId = cand.id;
+				window.updateStatus(cand, "loading");
+				updateStatusBar(`準備中: ${cand.resource.name}`, "#d35400");
+
+				if (["KML", "KMZ"].includes(cand.fmt)) {
+					window.updateStatus(cand, "failed");
+					updateStatusBar("KML/KMZは現在未対応です", "#e74c3c");
+					window.clearAllMaps();
+					return;
+				}
+
+				try {
+					let matrixData = null;
+
+					if (["SHP", "ZIP", "GEOJSON"].includes(cand.fmt)) {
+						let geojson = null;
+
+						if (cand.fmt === "GEOJSON") {
+							const text = await fetchTextWithProgress(
+								svgMap.getCORSURL(cand.resource.url),
+								targetId,
+								"GeoJSON取得"
+							);
+							geojson = JSON.parse(text);
+						} else if (cand.fmt === "ZIP" || cand.fmt === "SHP") {
+							const arrayBuffer = await fetchWithProgress(
+								svgMap.getCORSURL(cand.resource.url),
+								targetId,
+								cand.fmt === "ZIP" ? "ZIP取得" : "SHP取得"
+							);
+
+							const view = new DataView(arrayBuffer);
+							const isZip =
+								view.byteLength >= 2 && view.getUint16(0, false) === 0x504b;
+
+							let shpBuf, dbfBuf, shxBuf, prjBuf, cpgBuf;
+
+							if (isZip) {
+								updateStatusBar(`ZIP解凍・ファイル探索中...`, "#d35400");
+								const zip = await JSZip.loadAsync(arrayBuffer, {
+									decodeFileName: function (bytes) {
+										return Encoding.convert(bytes, {
+											to: "UNICODE",
+											type: "string",
+										});
+									},
+								});
+
+								for (let filename of Object.keys(zip.files)) {
+									if (zip.files[filename].dir) continue;
+									if (
+										filename.includes("__MACOSX") ||
+										filename.split("/").pop().startsWith("._")
+									)
+										continue;
+
+									const ext = filename.split(".").pop().toLowerCase().trim();
+									if (ext === "shp")
+										shpBuf = await zip.files[filename].async("arraybuffer");
+									if (ext === "dbf")
+										dbfBuf = await zip.files[filename].async("arraybuffer");
+									if (ext === "shx")
+										shxBuf = await zip.files[filename].async("arraybuffer");
+									if (ext === "prj")
+										prjBuf = await zip.files[filename].async("arraybuffer");
+									if (ext === "cpg")
+										cpgBuf = await zip.files[filename].async("arraybuffer");
+								}
+							} else {
+								updateStatusBar(`兄弟ファイル探索中...`, "#d35400");
+								shpBuf = arrayBuffer;
+
+								const baseName = cand.resource.name.replace(/\.shp$/i, "");
+								const siblings = cand.pkg.resources.filter(
+									(r) => r.id !== cand.resource.id && r.name.includes(baseName)
+								);
+
+								for (let sib of siblings) {
+									const ext = sib.name.split(".").pop().toLowerCase().trim();
+									if (
+										["dbf", "shx", "prj", "cpg"].includes(ext) ||
+										sib.format.toLowerCase() === ext
+									) {
+										const sibRes = await fetch(svgMap.getCORSURL(sib.url));
+										if (sibRes.ok) {
+											const buf = await sibRes.arrayBuffer();
+											if (ext === "dbf" || sib.format.toLowerCase() === "dbf")
+												dbfBuf = buf;
+											if (ext === "shx" || sib.format.toLowerCase() === "shx")
+												shxBuf = buf;
+											if (ext === "prj" || sib.format.toLowerCase() === "prj")
+												prjBuf = buf;
+											if (ext === "cpg" || sib.format.toLowerCase() === "cpg")
+												cpgBuf = buf;
+										}
+									}
+								}
+							}
+
+							// DBFの文字コード判定 (既存のcpgと実データスキャンを併用)
+							if (dbfBuf) {
+								try {
+									let isUTF8 = false;
+
+									// もしcpgが既存であれば、まずそれを読み取る
+									if (cpgBuf) {
+										const cpgText = new TextDecoder("utf-8")
+											.decode(cpgBuf)
+											.trim()
+											.toUpperCase();
+										if (cpgText === "UTF-8" || cpgText === "UTF8")
+											isUTF8 = true;
+									}
+
+									// 実データからサンプリングして確実な判定を行う
+									const dbfView = new DataView(dbfBuf);
+									const headerLen = dbfView.getUint16(8, true);
+
+									if (headerLen > 0 && headerLen < dbfBuf.byteLength) {
+										const sampleSize = Math.min(
+											dbfBuf.byteLength - headerLen,
+											100000
+										);
+										const sampleBuffer = new Uint8Array(
+											dbfBuf,
+											headerLen,
+											sampleSize
+										);
+
+										const detected = Encoding.detect(sampleBuffer);
+										// 判定が明確に "UTF8" の場合のみ UTF-8 とする
+										// (DBF特有のNullパディングによる "UNICODE" 誤検知は SJIS として救済する)
+										if (detected === "UTF8") {
+											isUTF8 = true;
+										} else {
+											isUTF8 = false;
+										}
+									}
+
+									// 最終判定結果で cpg を上書き/新規作成
+									cpgBuf = new TextEncoder().encode(
+										isUTF8 ? "UTF-8" : "Shift_JIS"
+									).buffer;
+								} catch (err) {
+									// エラー時は日本のオープンデータの9割を占める SJIS にフォールバック
+									cpgBuf = new TextEncoder().encode("Shift_JIS").buffer;
+								}
+							}
+
+							if (!shpBuf)
+								throw new Error("対象の .shp データが見つかりませんでした。");
+
+							updateStatusBar(`GeoJSON変換中...`, "#d35400");
+
+							const newZip = new JSZip();
+							newZip.file("data.shp", shpBuf);
+							if (dbfBuf) newZip.file("data.dbf", dbfBuf);
+							if (shxBuf) newZip.file("data.shx", shxBuf);
+							if (prjBuf) newZip.file("data.prj", prjBuf);
+							if (cpgBuf) newZip.file("data.cpg", cpgBuf);
+
+							const newZipBuffer = await newZip.generateAsync({
+								type: "arraybuffer",
+							});
+
+							updateStatusBar(`GeoJSONに変換中...`, "#d35400");
+							geojson = await shp(newZipBuffer);
+						}
+
+						// 空間参照系の自動補正 (平面直角座標系 第5系 -> WGS84)
+						if (geojson) {
+							// shpjsは単体ならFeatureCollection、複数なら配列を返すため正規化
+							const featureCollections = Array.isArray(geojson)
+								? geojson
+								: [geojson];
+							let needsConversion = false;
+
+							for (const fc of featureCollections) {
+								if (
+									fc.features &&
+									fc.features.length > 0 &&
+									fc.features[0].geometry &&
+									fc.features[0].geometry.coordinates
+								) {
+									if (isPlaneRectangular(fc.features[0].geometry.coordinates)) {
+										needsConversion = true;
+										break;
+									}
+								}
+							}
+
+							if (needsConversion) {
+								console.info(
+									"平面直角座標系を検知しました。WGS84(第5系基準)に自動変換します。"
+								);
+								updateStatusBar(
+									`座標系を変換中 (第5系 -> WGS84)...`,
+									"#d35400"
+								);
+								featureCollections.forEach((fc) => {
+									if (fc.features) {
+										fc.features.forEach((f) => {
+											if (f.geometry && f.geometry.coordinates) {
+												transformGeoJsonCoordinates(f.geometry.coordinates, 5); // 岡山県(第5系)
+											}
+										});
+									}
+								});
+							}
+						}
+
+						if (currentSelectedId !== targetId) return;
+
+						cand.geoJsonData = geojson;
+						window.updateStatus(cand, "success");
+
+						if (currentSelectedId === targetId) {
+							mapToSVGMapGeoJSON(cand);
+						}
+						return;
+					}
+
+					// --- 従来の CSV / Excel 処理ルート ---
+					const arrayBuffer = await fetchWithProgress(
+						svgMap.getCORSURL(cand.resource.url),
+						targetId,
+						"データ取得"
+					);
+
+					if (["XLS", "XLSX"].includes(cand.fmt)) {
+						const workbook = XLSX.read(arrayBuffer, { type: "array" });
+						const sheet = workbook.Sheets[workbook.SheetNames[0]];
+						matrixData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+					} else if (cand.fmt === "CSV") {
+						const uint8Array = new Uint8Array(arrayBuffer);
+						const detectedEncoding = Encoding.detect(uint8Array);
+						const unicodeArray = Encoding.convert(uint8Array, {
+							to: "UNICODE",
+							from: detectedEncoding || "AUTO",
+						});
+						const text = Encoding.codeToString(unicodeArray);
+						matrixData = rfcParseCSV(text);
+					} else {
+						window.updateStatus(cand, "failed");
+						updateStatusBar(`非対応のフォーマットです`, "#e74c3c");
+						window.clearAllMaps();
+						return;
+					}
+
+					if (currentSelectedId !== targetId) return;
+					checkCsvMatrix(cand, matrixData, targetId);
+				} catch (e) {
+					if (e.message === "Cancelled" || currentSelectedId !== targetId)
+						return;
+					console.error("解析エラー:", e);
+					window.updateStatus(cand, "failed");
+					updateStatusBar(`解析エラー: ${e.message}`, "#e74c3c");
+					window.clearAllMaps();
+				}
+			}
+
+			// GeoJSON を svgMapGIStool を使って描画
+			function mapToSVGMapGeoJSON(cand) {
+				if (!cand.geoJsonData) return;
+
+				try {
+					updateStatusBar(`地図描画中 (GeoJSON)...`, "#d35400");
+
+					const shpsGroup = window.svgImage.getElementById("shps");
+					if (!shpsGroup)
+						throw new Error("描画先の <g id='shps'> が見つかりません。");
+
+					// GeoJSONのプロパティから属性名リスト(metaDictionary)を抽出
+					let metaDictionary = null;
+					const featureCollections = Array.isArray(cand.geoJsonData)
+						? cand.geoJsonData
+						: [cand.geoJsonData];
+					const keysSet = new Set();
+					featureCollections.forEach((fc) => {
+						if (fc.features) {
+							fc.features.forEach((f) => {
+								if (f.properties) {
+									Object.keys(f.properties).forEach((k) => keysSet.add(k));
+								}
+							});
+						}
+					});
+					if (keysSet.size > 0) {
+						metaDictionary = Array.from(keysSet);
+					}
+
+					if (
+						typeof window.svgMapGIStool !== "undefined" &&
+						window.svgMapGIStool.drawGeoJson
+					) {
+						window.svgMapGIStool.drawGeoJson(
+							cand.geoJsonData,
+							window.layerID,
+							"#3c2ce7", // strokeColor
+							1.5, // strokeWidth
+							"rgba(60, 24, 241, 0.7)", // fillColor
+							"p0", // POIiconId
+							null, // poiTitle
+							null, // metadata
+							shpsGroup, // parentElm
+							metaDictionary // metaDictionary に配列を渡す
+						);
+
+						// SVGMapの仕様に合わせて、親要素にもproperties属性をカンマ区切りでセット
+						if (metaDictionary && metaDictionary.length > 0) {
+							window.svgImage.documentElement.setAttribute(
+								"property",
+								metaDictionary.join(",")
+							);
+						}
+
+						// 描画結果を画面に即時反映
+						if (
+							window.svgMap &&
+							typeof window.svgMap.refreshScreen === "function"
+						) {
+							window.svgMap.refreshScreen();
+						}
+
+						if (window.svgImageProps)
+							window.svgImageProps.hash = "#" + cand.shortHash;
+						updateStatusBar(`描画完了 (GeoJSON)`, "#27ae60");
+					} else {
+						throw new Error("svgMapGIStool.drawGeoJson が利用できません。");
+					}
+				} catch (e) {
+					console.error("マッピングエラー:", e);
+					updateStatusBar(`マッピングエラー: ${e.message}`, "#e74c3c");
+					window.clearAllMaps();
+				}
+			}
+
+			// CSV用のヘッダー走査
+			function checkCsvMatrix(cand, matrix, targetId) {
+				if (!matrix || matrix.length === 0) {
+					window.updateStatus(cand, "failed");
+					updateStatusBar(`データが空です`, "#e74c3c");
+					window.clearAllMaps();
+					return;
+				}
+
+				const searchLimit = Math.min(20, matrix.length);
+				const isLat = (h) => /緯度|^y$|_y$|\(y\)|^lat$|^latitude$/i.test(h);
+				const isLng = (h) =>
+					/経度|^x$|_x$|\(x\)|^lon$|^lng$|^longitude$/i.test(h);
+
+				let foundHeaderIndex = -1,
+					latColIndex = -1,
+					lngColIndex = -1;
+
+				for (let i = 0; i < searchLimit; i++) {
+					const row = matrix[i];
+					if (!row || !Array.isArray(row)) continue;
+
+					const headers = row.map((s) =>
+						s !== undefined && s !== null
+							? String(s).trim().replace(/^"|"$/g, "").toLowerCase()
+							: ""
+					);
+					let tempLat = -1,
+						tempLng = -1;
+					for (let j = 0; j < headers.length; j++) {
+						if (isLat(headers[j])) tempLat = j;
+						if (isLng(headers[j])) tempLng = j;
+					}
+
+					if (tempLat !== -1 && tempLng !== -1) {
+						foundHeaderIndex = i;
+						latColIndex = tempLat;
+						lngColIndex = tempLng;
+						break;
+					}
+				}
+
+				if (foundHeaderIndex !== -1) {
+					try {
+						const cleanResult = processMatrixToCleanLawa(
+							matrix,
+							foundHeaderIndex,
+							latColIndex,
+							lngColIndex
+						);
+						cand.cleanCsvResult = cleanResult;
+
+						window.updateStatus(cand, "success");
+						if (currentSelectedId === targetId) mapToSVGMap(cand);
+					} catch (err) {
+						window.updateStatus(cand, "failed");
+						updateStatusBar(
+							`データ内に有効な座標値が存在しませんでした`,
+							"#e74c3c"
+						);
+						if (currentSelectedId === targetId) window.clearAllMaps();
+					}
+				} else {
+					window.updateStatus(cand, "failed");
+					updateStatusBar(
+						`最初の20行内に緯度・経度カラムが見つかりませんでした`,
+						"#e74c3c"
+					);
+					if (currentSelectedId === targetId) window.clearAllMaps();
+				}
+			}
+
+			function processMatrixToCleanLawa(matrix, headerRowIdx, latCol, lngCol) {
+				let maxCols = 0;
+				matrix.forEach((r) => {
+					if (Array.isArray(r)) maxCols = Math.max(maxCols, r.length);
+				});
+
+				const rawHeader = matrix[headerRowIdx] || [];
+				const headers = [];
+				for (let j = 0; j < maxCols; j++) {
+					const h = rawHeader[j];
+					headers.push(
+						h !== undefined && h !== null ? String(h).trim() : `col_${j}`
+					);
+				}
+
+				let titleCol = headers.findIndex(
+					(h) =>
+						h &&
+						["名称", "施設", "名", "title", "name"].some((k) =>
+							h.toLowerCase().trim().includes(k)
+						)
+				);
+				if (titleCol === -1) titleCol = 0;
+
+				let swapped = false;
+				let isRectangular = false;
+				for (let i = headerRowIdx + 1; i < matrix.length; i++) {
+					const r = matrix[i];
+					if (r && Array.isArray(r)) {
+						const testLat = parseFloat(r[latCol]);
+						const testLng = parseFloat(r[lngCol]);
+						if (!isNaN(testLat) && !isNaN(testLng)) {
+							// 緯度経度の常識的な範囲(±180)を逸脱していれば平面直角座標系とみなす
+							if (Math.abs(testLat) > 180 || Math.abs(testLng) > 180) {
+								isRectangular = true;
+							} else if (testLat > testLng) {
+								let temp = latCol;
+								latCol = lngCol;
+								lngCol = temp;
+								swapped = true;
+							}
+							break;
+						}
+					}
+				}
+
+				const cleanCell = (cell) => {
+					if (cell === undefined || cell === null) return "";
+					return String(cell)
+						.replace(/"/g, "")
+						.replace(/,/g, ";")
+						.replace(/[\r\n]+/g, " ")
+						.trim();
+				};
+
+				const cleanRows = [];
+				cleanRows.push(headers.map(cleanCell).join(","));
+
+				for (let i = headerRowIdx + 1; i < matrix.length; i++) {
+					const cols = matrix[i];
+					if (!cols || !Array.isArray(cols)) continue;
+
+					let latVal = cols[latCol];
+					let lngVal = cols[lngCol];
+					if (
+						latVal === undefined ||
+						lngVal === undefined ||
+						isNaN(parseFloat(latVal)) ||
+						isNaN(parseFloat(lngVal))
+					)
+						continue;
+
+					// 平面直角座標系からWGS84への自動変換
+					if (isRectangular) {
+						// 検索判定により X列が lngCol、Y列が latCol にマッピングされている
+						// x (北方向) = lngVal, y (東方向) = latVal
+						const converted = rectangularToLatLon(
+							parseFloat(lngVal),
+							parseFloat(latVal),
+							5
+						); // 岡山(第5系)
+						latVal = converted.lat;
+						lngVal = converted.lon;
+					}
+
+					const formattedRow = [];
+					for (let j = 0; j < maxCols; j++) {
+						if (j === latCol) {
+							formattedRow.push(latVal);
+						} else if (j === lngCol) {
+							formattedRow.push(lngVal);
+						} else {
+							formattedRow.push(cleanCell(cols[j]));
+						}
+					}
+					cleanRows.push(formattedRow.join(","));
+				}
+
+				if (cleanRows.length <= 1)
+					throw new Error("有効な座標データが見つかりませんでした。");
+
+				const csvTextForMap = cleanRows.join("\n");
+				return {
+					csvTextForMap,
+					latCol,
+					lngCol,
+					titleCol,
+					swapped,
+					isRectangular,
+					validCount: cleanRows.length - 1,
+				};
+			}
+
+			async function mapToSVGMap(cand) {
+				if (!myCsvMapper || !cand.cleanCsvResult) return;
+				const res = cand.cleanCsvResult;
+
+				try {
+					updateStatusBar(`マッピング中: ${res.validCount}件...`, "#d35400");
+					await myCsvMapper.initCsv(
+						res.csvTextForMap,
+						res.latCol,
+						res.lngCol,
+						res.titleCol,
+						0,
+						null,
+						1
+					);
+
+					if (window.svgImageProps)
+						window.svgImageProps.hash = "#" + cand.shortHash;
+
+					let extra = res.isRectangular
+						? " (第5系→WGS84変換済)"
+						: res.swapped
+							? " (経緯度スワップ補正済)"
+							: "";
+					updateStatusBar(`描画完了: ${res.validCount}件${extra}`, "#27ae60");
+				} catch (e) {
+					console.error("マッピングエラー:", e);
+					updateStatusBar(`マッピングエラー: ${e.message}`, "#e74c3c");
+					window.clearAllMaps();
+				}
+			}
+
+			function rfcParseCSV(text) {
+				const rows = [];
+				let row = [];
+				let cell = "";
+				let inQuotes = false;
+				for (let i = 0; i < text.length; i++) {
+					const char = text[i];
+					const nextChar = text[i + 1];
+					if (char === '"') {
+						if (inQuotes && nextChar === '"') {
+							cell += '"';
+							i++;
+						} else {
+							inQuotes = !inQuotes;
+						}
+					} else if (char === "," && !inQuotes) {
+						row.push(cell);
+						cell = "";
+					} else if (char === "\n" && !inQuotes) {
+						row.push(cell);
+						rows.push(row);
+						row = [];
+						cell = "";
+					} else if (char === "\r" && !inQuotes) {
+						// CRはskip
+					} else {
+						cell += char;
+					}
+				}
+				if (cell || row.length > 0) {
+					row.push(cell);
+					rows.push(row);
+				}
+				return rows;
+			}
+
+			// ==========================================
+			// 座標系変換ロジック (平面直角座標系 -> WGS84)
+			// ==========================================
+			function isPlaneRectangular(coords) {
+				if (!Array.isArray(coords) || coords.length === 0) return false;
+				// GeoJSONの深い階層(Polygon/MultiPolygon等)から最初の座標ペアを掘り出す
+				let testCoord = coords;
+				while (Array.isArray(testCoord[0])) {
+					testCoord = testCoord[0];
+				}
+				if (testCoord.length >= 2) {
+					// 緯度・経度の常識的な範囲(±180度)を逸脱していれば平面直角座標系とみなす
+					return Math.abs(testCoord[0]) > 180 || Math.abs(testCoord[1]) > 180;
+				}
+				return false;
+			}
+
+			function transformGeoJsonCoordinates(coords, zone) {
+				if (!Array.isArray(coords) || coords.length === 0) return;
+				if (typeof coords[0] === "number") {
+					// GeoJSONは [Easting(Y), Northing(X)] の順で格納されている
+					const easting = coords[0];
+					const northing = coords[1];
+					// rectangularToLatLonは (X:北方向, Y:東方向) なので入れ替えて渡す
+					const result = rectangularToLatLon(northing, easting, zone);
+					coords[0] = result.lon;
+					coords[1] = result.lat;
+				} else {
+					for (let i = 0; i < coords.length; i++) {
+						transformGeoJsonCoordinates(coords[i], zone);
+					}
+				}
+			}
+
+			/**
+			 * 平面直角座標系（X, Y）から緯度・経度（JGD2000/WGS84）に変換する
+			 * @param {number} x - X座標（メートル, 北方向が正）
+			 * @param {number} y - Y座標（メートル, 東方向が正）
+			 * @param {number} zone - 座標系番号 (1 ～ 19)
+			 * @returns {{lat: number, lon: number}} 緯度・経度（10進数 degrees）
+			 */
+			function rectangularToLatLon(x, y, zone) {
+				const zoneOrigins = {
+					1: [33.0, 129.5],
+					2: [33.0, 131.0],
+					3: [36.0, 132.16666666666666],
+					4: [33.0, 133.5],
+					5: [36.0, 134.33333333333334],
+					6: [36.0, 136.0],
+					7: [36.0, 137.16666666666666],
+					8: [36.0, 138.5],
+					9: [36.0, 139.83333333333334],
+					10: [40.0, 140.83333333333334],
+					11: [40.0, 140.25],
+					12: [44.0, 142.25],
+					13: [44.0, 144.25],
+					14: [26.0, 142.0],
+					15: [26.0, 127.5],
+					16: [26.0, 124.0],
+					17: [26.0, 131.0],
+					18: [20.0, 136.0],
+					19: [20.0, 154.0],
+				};
+
+				if (!zoneOrigins[zone]) throw new Error(`Invalid zone number: ${zone}`);
+
+				const [lat0Deg, lon0Deg] = zoneOrigins[zone];
+				const a = 6378137.0;
+				const rf = 298.257222101;
+				const f = 1 / rf;
+				const m0 = 0.9999;
+				const deg2rad = Math.PI / 180;
+				const rad2deg = 180 / Math.PI;
+
+				const phi0 = lat0Deg * deg2rad;
+				const lambda0 = lon0Deg * deg2rad;
+
+				const n = f / (2 - f);
+				const n2 = n * n;
+				const n3 = n2 * n;
+				const n4 = n3 * n;
+				const n5 = n4 * n;
+
+				const A_i = [
+					1 + n2 / 4 + n4 / 64,
+					-(3 / 2) * (n - n3 / 8 - n5 / 64),
+					(15 / 16) * (n2 - n4 / 4),
+					-(35 / 48) * (n3 - n5 / 5),
+					(315 / 512) * n4,
+				];
+
+				const beta_i = [
+					0,
+					(1 / 2) * n -
+						(2 / 3) * n2 +
+						(37 / 96) * n3 -
+						(1 / 360) * n4 -
+						(81 / 512) * n5,
+					(1 / 48) * n2 + (1 / 15) * n3 - (437 / 1440) * n4 + (46 / 105) * n5,
+					(17 / 480) * n3 - (37 / 840) * n4 - (209 / 4480) * n5,
+					(4397 / 161280) * n4 - (11 / 504) * n5,
+				];
+
+				const delta_i = [
+					0,
+					2 * n -
+						(2 / 3) * n2 -
+						2 * n3 +
+						(116 / 45) * n4 +
+						(26 / 45) * n5 -
+						(2854 / 675) * n5,
+					(7 / 3) * n2 - (8 / 5) * n3 - (227 / 45) * n4 + (2704 / 315) * n5,
+					(56 / 15) * n3 - (136 / 35) * n4 - (1262 / 105) * n5,
+					(4279 / 630) * n4 - (332 / 35) * n5,
+				];
+
+				const S0 =
+					((m0 * a) / (1 + n)) *
+					(A_i[0] * phi0 +
+						A_i[1] * Math.sin(2 * phi0) +
+						A_i[2] * Math.sin(4 * phi0) +
+						A_i[3] * Math.sin(6 * phi0) +
+						A_i[4] * Math.sin(8 * phi0));
+
+				const xi = (x + S0) / ((m0 * a) / (1 + n));
+				const eta = y / ((m0 * a) / (1 + n));
+				let xi_prime = xi;
+				let eta_prime = eta;
+
+				for (let j = 1; j <= 4; j++) {
+					xi_prime -= beta_i[j] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta);
+					eta_prime -=
+						beta_i[j] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta);
+				}
+
+				const chi = Math.asin(Math.sin(xi_prime) / Math.cosh(eta_prime));
+				let phi = chi;
+				for (let j = 1; j <= 4; j++) {
+					phi += delta_i[j] * Math.sin(2 * j * chi);
+				}
+
+				const lambda =
+					lambda0 + Math.atan(Math.sinh(eta_prime) / Math.cos(xi_prime));
+
+				return { lat: phi * rad2deg, lon: lambda * rad2deg };
+			}
+		</script>
+	</body>
+</html>
