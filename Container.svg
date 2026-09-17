@@ -190,6 +190,7 @@
 <animation xlink:href="./appLayers/mlitRiver/overObs_dam.svg" title="警報のみ ダム" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="国交省_川の防災情報" opacity="0.75" visibility="hidden"/>
 
 <!-- 自治体レイヤ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okayama/integratedGIS/okayamaIntegratedGIS.svg" title="岡山県統合GIS" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okayama/opendata/okayamaOpenData.svg" title="岡山県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okinawa/okinawaOpenData.svg" title="沖縄県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
