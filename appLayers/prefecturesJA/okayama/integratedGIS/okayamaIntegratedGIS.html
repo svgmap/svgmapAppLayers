@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>おかやま全県統合型GISレイヤー</title>
+
+    <!-- SVGMap LaWA 連携用ライブラリ -->
+    <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+    <script type="module">
+        import { CsvMapper } from "./CsvMapper.js";
+        window.CsvMapperClass = CsvMapper;
+        
+        import { tky2jgd } from "./tky2jgd.js";
+        window.tky2jgd = tky2jgd;
+    </script>
+
+    <style>
+        body {
+            font-family: sans-serif; padding: 4px; line-height: 1.3; background-color: transparent;
+            color: #333; margin: 0; height: 100vh; box-sizing: border-box;
+            display: flex; flex-direction: column; font-size: 11px; overflow: hidden;
+            width: 100%; 
+        }
+
+        .header-area {
+            display: flex; align-items: baseline; justify-content: space-between;
+            margin-bottom: 4px; flex-shrink: 0; padding: 2px 2px 4px 2px;
+            border-bottom: 1px solid #ddd;
+        }
+        h2 { font-size: 11.5px; margin: 0; color: #2c3e50; font-weight: bold; white-space: nowrap; }
+        .source-link { 
+            font-size: 9px; 
+            color: #666; 
+            white-space: nowrap; 
+            margin-right: 20px; 
+        }
+        .source-link a { color: #004085; text-decoration: none; font-weight: bold; }
+        .source-link a:hover { text-decoration: underline; }
+
+        .status-bar {
+            font-size: 10px; font-weight: bold; margin-bottom: 4px; padding: 0 4px;
+            border-radius: 3px; border: 1px solid #ced4da; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            background: #222; color: #4af626; flex-shrink: 0;
+            height: 20px; line-height: 20px; box-sizing: border-box;
+        }
+
+        .container {
+            display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-height: 0;
+        }
+
+        #tree-container {
+            background: #fff; padding: 4px; border-radius: 4px; border: 1px solid #ced4da;
+            flex: 1 1 60%; display: flex; flex-direction: column; min-height: 0; box-shadow: inset 0 0 3px rgba(0,0,0,0.05);
+        }
+        #filter-tree {
+            flex-grow: 1; overflow-y: auto; overflow-x: hidden;
+            background: transparent; font-size: 11px;
+        }
+
+        #detail-container {
+            background: #fdfdfd; padding: 6px; border-radius: 4px; border: 1px solid #ced4da;
+            border-top: 3px solid #3498db; flex: 0 0 auto; display: flex; flex-direction: column;
+            min-height: 0; overflow-y: auto;
+        }
+
+        .meta-table { width: 100%; border-collapse: collapse; font-size: 10px;}
+        .meta-table th { text-align: left; color: #666; width: 35px; vertical-align: top; font-weight: normal; padding: 2px 0; }
+        .meta-table td { padding: 2px 0; word-break: break-all; }
+
+        .tree-root details { margin-left: 2px; }
+        .tree-root summary { cursor: pointer; padding: 2px 0; border-radius: 3px; user-select: none; margin: 1px 0; display: block;}
+        .tree-root summary:hover { background-color: #ecf0f1; }
+        .tree-root summary::marker { display: none; }
+        .tree-root summary::-webkit-details-marker { display: none; }
+        .tree-root summary::before { content: "▶"; font-size: 8px; display: inline-block; width: 12px; color: #7f8c8d; text-align: center;}
+        .tree-root details[open] > summary::before { content: "▼"; }
+
+        .tree-leaf {
+            padding: 3px 2px 3px 10px; margin: 1px 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between;
+            border-radius: 3px; font-size: 10.5px; border-bottom: 1px dashed #f0f0f0;
+            transition: background-color 0.2s;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .tree-leaf:hover { background-color: #e8f4fd; }
+        
+        .tree-leaf.selected { 
+            background-color: #d1ecf1; 
+            color: #0c5460; 
+            border-left: 4px solid #17a2b8; 
+            font-weight: bold;
+            border-bottom-color: transparent;
+        }
+        
+        .tree-focusable { outline: none; }
+        .tree-focusable:focus { box-shadow: inset 0 0 0 1px #3498db; background-color: #f1f8ff; border-radius: 2px; }
+        .tree-leaf.selected.tree-focusable:focus { background-color: #b8daff; box-shadow: inset 0 0 0 1px #0056b3; }
+
+        .badge {
+            display: inline-block; padding: 1px 3px; border-radius: 2px;
+            color: #fff; font-size: 8.5px; font-weight: bold; margin-left: 4px; background-color: #27ae60;
+        }
+        
+        .btn-img {
+            background: #6f42c1; color: #fff; border: none; padding: 2px 6px;
+            border-radius: 2px; cursor: pointer; font-size: 9px; margin-left: 5px; flex-shrink: 0;
+            font-weight: normal; 
+        }
+        .btn-img:hover { background: #5a32a3; }
+        .btn-img.active { background: #e74c3c; font-weight: bold; }
+        .btn-img.active:hover { background: #c0392b; }
+
+        .empty-msg { color: #7f8c8d; font-size: 10px; padding: 10px; text-align: center; }
+
+        .tree-leaf .btn-img { display: none; }
+        .tree-leaf.selected .btn-img { display: inline-block; }
+
+        .btn-img.re-fetch { background: #28a745; }
+        .btn-img.re-fetch:hover { background: #218838; }
+
+        .credit-footer {
+            font-size: 8.5px;
+            color: #888;
+            text-align: right;
+            padding: 2px 4px 0 0;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="header-area">
+        <h2>おかやま全県統合型GISレイヤー</h2>
+        <span class="source-link">出典: <a href="https://www.gis.pref.okayama.jp/" target="_blank">おかやま全県統合型GIS</a></span>
+    </div>
+
+    <div id="status-bar" class="status-bar">LaWA初期化中...</div>
+
+    <div class="container">
+        <div id="tree-container">
+            <div style="font-weight: bold; margin-bottom: 4px; font-size: 11px; color:#555;">データセット一覧</div>
+            <div id="filter-tree">
+                <div class="empty-msg" style="margin-top: 20px">初期化を待機しています...</div>
+            </div>
+        </div>
+
+        <div id="detail-container">
+            <div class="empty-msg">ツリーからデータを選択すると詳細が表示されます。</div>
+        </div>
+        <div class="credit-footer">
+            ※背景地図が付随する画像レイヤーには、国土地理院発行の数値地図を使用しています。
+        </div>
+    </div>
+
+    <script>
+        // おかやま全県統合型GISレイヤー
+        // おかやま全県統合型GISのLaWA、ベクトルPOIと、ラスターマップのハイブリッド構成としています。
+        //
+        // License: (MPL v2)
+        // This Source Code Form is subject to the terms of the Mozilla Public
+        // License, v. 2.0. If a copy of the MPL was not distributed with this
+        // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+        //
+        // 2026/09/17 1st rev
+
+        const getDmy = () => Math.floor(1000 + Math.random() * 9000).toString();
+
+        const statusBar = document.getElementById("status-bar");
+        const treeDiv = document.getElementById("filter-tree");
+        const detailDiv = document.getElementById("detail-container");
+
+        let currentAbortController = null;
+
+        function getCORSURL(url){
+            // モバイルUAリダイレクト問題対応等のために、専用のプロキシを使用する場合はこの関数を変更してください
+            return svgMap.getCORSURL(url);
+        }
+
+        function updateStatusBar(text, color) {
+            statusBar.textContent = text;
+            statusBar.style.color = color || "#4af626";
+            statusBar.title = text;
+        }
+
+        let myCsvMapper;
+        
+        window.preRenderFunction = () => {
+            if (myCsvMapper && typeof myCsvMapper.preRenderFunction === 'function') {
+                myCsvMapper.preRenderFunction();
+            }
+        };
+
+        window.clearAllMaps = function () {
+            if (myCsvMapper) myCsvMapper.clearMap();
+            if (window.svgImage) {
+                const shpsGroup = window.svgImage.getElementById("shps");
+                if (shpsGroup) {
+                    while (shpsGroup.firstChild) {
+                        shpsGroup.removeChild(shpsGroup.firstChild);
+                    }
+                }
+            }
+            if (window.svgMap && typeof window.svgMap.refreshScreen === "function") {
+                window.svgMap.refreshScreen();
+            }
+        };
+
+        window.addEventListener("layerWebAppReady", async function () {
+            updateStatusBar("初期化完了。測地系辞書を展開中...", "#f39c12");
+            try {
+                if (window.tky2jgd) await window.tky2jgd.init();
+            } catch(e) {
+                console.error("測地系辞書の初期化に失敗しました", e);
+            }
+            updateStatusBar("カタログを取得中...", "#f39c12");
+
+            myCsvMapper = new window.CsvMapperClass({
+                svgMap: window.svgMap,
+                svgImage: window.svgImage,
+                svgImageProps: window.svgImageProps,
+                layerID: window.layerID,
+                messageDivElm: null,
+            });
+            myCsvMapper.onload();
+            fetchCatalogData();
+        });
+
+        async function fetchCatalogData() {
+            const targetUrl = 'https://www.gis.pref.okayama.jp/pref-okayama/Map/GetMapCt';
+            const params = new URLSearchParams({ [getDmy()]: '', gkbn: '1', langmode: '0' });
+
+            try {
+                const res = await fetch(getCORSURL( targetUrl ), { method: 'POST', body: params.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }});
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                
+                const text = await res.text();
+                // サーバーがモバイル用のHTMLを返してきた場合の検知
+                if (text.includes('<!DOCTYPE HTML') || text.includes('<html')) {
+                    treeDiv.innerHTML = '<div class="empty-msg" style="color:#e74c3c;">モバイル環境からのアクセスが制限されています。<br>ブラウザの「PC版サイトを表示」を有効にして再読み込みしてください。</div>';
+                    updateStatusBar(`PC版に切り替えてください`, "#e74c3c");
+                    return;
+                }
+
+                const data = JSON.parse(text);
+                buildCatalogTree(data.JsonResult.MapCtList);
+                updateStatusBar("データを選択してください", "#27ae60");
+                processHash();
+            } catch (e) {
+                treeDiv.innerHTML = `<div class="empty-msg" style="color:#e74c3c;">カタログの取得に失敗しました。<br>(${e.message})</div>`;
+                updateStatusBar(`カタログ取得エラー`, "#e74c3c");
+                console.error(e);
+            }
+        }
+        
+        function buildCatalogTree(ctList) {
+            let html = '<div class="tree-root">';
+            ctList.forEach(ct => {
+                html += `<details><summary class="tree-focusable" tabindex="0"><span style="font-weight:bold; color:#2c3e50;">📂 ${ct.ctnm}</span></summary>`;
+                ct.mpinf.forEach(mp => {
+                    html += `
+                    <details id="map-node-${mp.id}" data-mid="${mp.id}" data-owner="${mp.ownersectionname||'不明'}" data-info="${mp.info||''}">
+                        <summary class="tree-focusable" tabindex="0" onclick="loadLayerTree(event, ${mp.id})"><span style="color:#0056b3; font-weight:bold;">${mp.nm}</span></summary>
+                        <div class="layer-tree-content" style="padding-left:12px; font-size:10px; color:#7f8c8d;">⏳ 展開中...</div>
+                    </details>`;
+                });
+                html += `</details>`;
+            });
+            html += '</div>';
+            treeDiv.innerHTML = html;
+        }
+
+        async function loadLayerTree(event, mid) {
+            const mapNode = document.getElementById(`map-node-${mid}`);
+            if (!mapNode) return;
+            const contentDiv = mapNode.querySelector('.layer-tree-content');
+            if (contentDiv.dataset.loaded === "true") return;
+
+            try {
+                const targetUrl = 'https://www.gis.pref.okayama.jp/pref-okayama/Map/GetLayerTree';
+                const params = new URLSearchParams({ mid: mid, tmtl: ';;', tmul: '-1;;', dmy: getDmy(), langmode: '0', fmnm: '1' });
+                const res = await fetch(getCORSURL( targetUrl ), { method: 'POST', body: params.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }});
+                const data = await res.json();
+                
+                contentDiv.innerHTML = generateLayerTreeHTML(data.JsonResult.tree.items, mid);
+                contentDiv.dataset.loaded = "true";
+            } catch (e) {
+                contentDiv.innerHTML = `<span style="color:red;">取得失敗</span>`;
+                console.error(e);
+            }
+        }
+
+        // 画像取得ボタンを右クリックした際の画像消去処理
+        function handleImageRightClick(e) {
+            e.preventDefault(); // デフォルトの右クリックメニュー(コンテキストメニュー)をブロック
+            e.stopPropagation();
+
+            const existingImg = window.svgImage.getElementById("okayama-wms-image");
+            if (existingImg) {
+                existingImg.remove();
+                updateStatusBar(`画像の配置を解除しました`, "#27ae60");
+                if (window.svgMap && typeof window.svgMap.refreshScreen === "function") window.svgMap.refreshScreen();
+            }
+
+            // ボタンの状態を初期状態に戻す
+            const btn = e.target;
+            if (btn) {
+                btn.classList.remove('active', 're-fetch');
+                btn.textContent = "画像取得";
+            }
+        }
+
+        function generateLayerTreeHTML(items, mid) {
+            let html = "";
+            items.forEach(item => {
+                if (item.classname === 'lyr' || item.classname === 'lct') {
+                    const lname = item.lname ? item.lname.trim() : "";
+                    if (lname === "") {
+                        if (item.items) html += generateLayerTreeHTML(item.items, mid);
+                    } else {
+                        html += `<details open><summary class="tree-focusable" tabindex="0"><span style="color:#444;">📁 ${lname}</span></summary>`;
+                        if (item.items) {
+                            html += `<div style="padding-left:12px;">${generateLayerTreeHTML(item.items, mid)}</div>`;
+                        }
+                        html += `</details>`;
+                    }
+                } else if (item.classname === 'hcode') {
+                    html += `
+                    <div class="tree-leaf tree-focusable" tabindex="0" id="leaf-${item.inputcodesetid}" data-mid="${mid}" data-lname="${item.lname}" onclick="selectLayer('${mid}', '${item.inputcodesetid}', '${item.lname}', true)">
+                        <span style="flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.lname}">${item.lname}</span>
+                        <button class="btn-img" tabindex="-1" onclick="handleImageClick(event, '${mid}', '${item.inputcodesetid}')" oncontextmenu="handleImageRightClick(event)">画像取得</button>
+                    </div>`;
+                }
+            });
+            return html;
+        }
+
+        let fetchTimeout = null;
+
+        async function selectLayer(mid, codesetid, layerName, isClick = true) {
+            const leaf = document.getElementById(`leaf-${codesetid}`);
+
+            if (isClick && leaf && leaf.classList.contains('selected')) {
+                leaf.classList.remove('selected');
+                window.clearAllMaps();
+                detailDiv.innerHTML = '<div class="empty-msg">表示をクリアしました。ツリーからデータを選択してください。</div>';
+                updateStatusBar(`選択を解除しました`, "#27ae60");
+                if (window.svgImageProps) window.svgImageProps.hash = ``;
+                
+                // 選択解除時に画像も連動して消去
+                const existingImg = window.svgImage.getElementById("okayama-wms-image");
+                if (existingImg) existingImg.remove();
+
+                clearTimeout(fetchTimeout);
+                if (currentAbortController) currentAbortController.abort();
+                document.querySelectorAll('.btn-img').forEach(b => { 
+                    b.classList.remove('active', 're-fetch'); 
+                    b.textContent = "画像取得"; 
+                    b.disabled = false; 
+                });
+                return;
+            }
+
+            document.querySelectorAll('.tree-leaf.selected').forEach(el => el.classList.remove('selected'));
+            if (leaf) leaf.classList.add('selected');
+            document.querySelectorAll('.btn-img').forEach(b => { 
+                b.classList.remove('active', 're-fetch'); 
+                b.textContent = "画像取得"; 
+                b.disabled = false; 
+            });
+
+            const existingImg = window.svgImage.getElementById("okayama-wms-image");
+            if (existingImg) existingImg.remove();
+
+            const mapNode = document.getElementById(`map-node-${mid}`);
+            const owner = mapNode ? mapNode.getAttribute('data-owner') : "不明";
+            const info = mapNode ? mapNode.getAttribute('data-info') : "なし";
+            
+            detailDiv.innerHTML = `
+                <div style="font-weight:bold; color:#2980b9; margin-bottom:4px; font-size:11.5px; border-bottom:1px solid #eee; padding-bottom:2px;">${layerName || "選択中"}</div>
+                <table class="meta-table">
+                    <tr><th>管轄</th><td>${owner}</td></tr>
+                    <tr><th>情報</th><td>${info}</td></tr>
+                </table>
+            `;
+
+            if (window.svgImageProps) window.svgImageProps.hash = `#${mid},${codesetid}`;
+
+            clearTimeout(fetchTimeout);
+            if (isClick) {
+                doFetchData(mid, codesetid, layerName);
+            } else {
+                fetchTimeout = setTimeout(() => doFetchData(mid, codesetid, layerName), 400);
+            }
+        }
+
+        async function doFetchData(mid, codesetid, layerName, forceFetchAll = false) {
+            if (currentAbortController) currentAbortController.abort();
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+
+            const mcl = codesetid.replace(/-/g, ',');
+            const mtl = mcl.split(',')[0];
+
+            updateStatusBar(`データ取得中...`, "#f39c12");
+            window.clearAllMaps();
+
+            let totalBytes = 0;
+
+            try {
+                const searchUrl = 'https://www.gis.pref.okayama.jp/pref-okayama/InfoSearch/Search/';
+                let pno = 1; let pct = 3000; let allFeatures = []; let totalPages = "?";
+
+                while (true) {
+                    const params = new URLSearchParams({
+                        mtl: mtl, mcl: mcl, skw: "", skwt: "1", scf: "1", shm: "1",
+                        mps: "25000", siz: "1089,714", cp: "133.9,34.65",
+                        pct: String(pct), pno: String(pno), allFiledFlg: "0", fid: "", pgid: ""
+                    });
+
+                    const res = await fetch(getCORSURL( searchUrl ), { 
+                        method: "POST", body: params.toString(), 
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: signal
+                    });
+                    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                    
+                    const text = await res.text();
+                    totalBytes += new Blob([text]).size;
+                    const mbSize = (totalBytes / (1024 * 1024)).toFixed(2);
+                    
+                    const data = JSON.parse(text);
+                    if (data.JsonResult && data.JsonResult.Result) {
+                        allFeatures.push(...data.JsonResult.Result);
+                    } else break;
+
+                    totalPages = data.JsonResult.SearchInfo.PageCount;
+                    updateStatusBar(`取得中... ${mbSize}MB (${pno}/${totalPages})`, "#f39c12");
+
+                    // 膨大データ時のストッパー処理
+                    if (!forceFetchAll && totalPages > 10 && pno === 1) {
+                        detailDiv.insertAdjacentHTML('beforeend', `
+                            <div style="margin-top:8px; padding:8px; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; text-align:center;">
+                                <div style="color:#856404; font-size:10.5px; margin-bottom:6px; line-height:1.4;">
+                                    ⚠️ データが非常に膨大（推定 ${totalPages * pct} 件以上）です。<br>
+                                    ブラウザのフリーズを防ぐため、1ページ目のみ取得しました。<br>
+                                    <strong>※全域の把握にはリスト横の「画像取得」をご利用ください。</strong>
+                                </div>
+                                <button onclick="doFetchData('${mid}', '${codesetid}', '${layerName}', true)" style="background:#e67e22; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:10px; font-weight:bold; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">
+                                    処理落ち覚悟で全点群を取得する
+                                </button>
+                            </div>
+                        `);
+                        break;
+                    }
+
+                    if (pno >= totalPages) break;
+                    pno++;
+                }
+
+                // ポイントデータが0件の場合は自動で画像取得を実行
+                if (allFeatures.length === 0) {
+                    updateStatusBar(`ポイントデータがないため画像を表示します`, "#f39c12");
+                    const leaf = document.getElementById(`leaf-${codesetid}`);
+                    if (leaf) {
+                        leaf.classList.remove('loading');
+                        const btn = leaf.querySelector('.btn-img');
+                        if (btn) {
+                            handleImageClick({ stopPropagation: () => {}, target: btn }, mid, codesetid);
+                        }
+                    }
+                    return;
+                }
+
+                updateStatusBar(`描画準備中...`, "#f39c12");
+                const csvInfo = convertToLawaCSV(allFeatures);
+
+                await myCsvMapper.initCsv(csvInfo.csvText, csvInfo.latCol, csvInfo.lonCol, csvInfo.titleCol, 0, null, 1);
+                
+                if (window.svgMap && typeof window.svgMap.refreshScreen === "function") {
+                    window.svgMap.refreshScreen();
+                }
+                
+                // 取得状況に応じたステータスメッセージの出し分け
+                if (forceFetchAll || totalPages <= 10) {
+                    updateStatusBar(`✅ 点群描画完了: ${csvInfo.count}件`, "#27ae60");
+                } else {
+                    updateStatusBar(`一部のみ描画しました: ${csvInfo.count}件`, "#e67e22");
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    updateStatusBar(`取得エラー`, "#e74c3c");
+                    console.error(e);
+                }
+            } finally {
+                if (currentAbortController && currentAbortController.signal === signal) {
+                    currentAbortController = null;
+                }
+            }
+        }
+
+        function convertToLawaCSV(features) {
+            const keysSet = new Set(["lat", "lon", "_iconUrl"]);
+            const rows = [];
+            features.forEach(f => {
+                let lat = ""; let lon = "";
+                if (f.Cnt_Bldd) {
+                    const rawLat = parseFloat(f.Cnt_Bldd.Y); const rawLon = parseFloat(f.Cnt_Bldd.X);
+                    if (!isNaN(rawLat) && !isNaN(rawLon)) {
+                        if (window.tky2jgd) {
+                            const converted = window.tky2jgd.transformS(rawLat, rawLon);
+                            lat = converted.y; lon = converted.x;
+                        } else {
+                            lat = rawLat; lon = rawLon;
+                        }
+                    }
+                }
+                const rowObj = { lat: lat, lon: lon, _iconUrl: f.Icn ? `https://www.gis.pref.okayama.jp/pref-okayama/${f.Icn}` : "" };
+                if (f.records && Array.isArray(f.records)) {
+                    f.records.forEach(rec => {
+                        const k = `${rec.field_name || ""}:${rec.field_alias || ""}`;
+                        keysSet.add(k); rowObj[k] = rec.field_value || "";
+                    });
+                }
+                rows.push(rowObj);
+            });
+
+            const headers = Array.from(keysSet);
+            
+            // 1. NAMEを含む列を探す。なければ lat, lon, _iconUrl 以外の最初の列を探す。
+            let nameCol = headers.find(h => h.toUpperCase().includes("NAME:"));
+            if (!nameCol) nameCol = headers.find(h => !["lat", "lon", "_iconUrl"].includes(h));
+            
+            // 2. 文字列であることが保証された専用の表示用タイトル列を追加
+            headers.push("_dispTitle");
+            rows.forEach(r => {
+                // 値が純粋な数値(例:"123")だった場合にパーサーがNumber型に変換するのを防ぐため、
+                // 見えない文字(ゼロ幅スペース \u200B)を先頭に付与して強制的にString型を維持させる
+                r["_dispTitle"] = r[nameCol] ? "\u200B" + String(r[nameCol]) : "名称不明";
+            });
+            const titleColIdx = headers.indexOf("_dispTitle");
+
+            const escapeCsv = (val) => {
+                if (val == null) return "";
+                let str = String(val).replace(/"/g, '""');
+                if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str}"`;
+                return str;
+            };
+
+            const csvRows = [headers.join(",")];
+            rows.forEach(r => { csvRows.push(headers.map(h => escapeCsv(r[h])).join(",")); });
+
+            return { csvText: csvRows.join("\n"), latCol: headers.indexOf("lat"), lonCol: headers.indexOf("lon"), titleCol: titleColIdx, count: rows.length };
+        }
+
+        // --- 画像(WMSライク)の静的スナップショット配置ロジック ---
+        // --- handleImageClick ---
+        async function handleImageClick(e, mid, codesetid) {
+            // 自動発火時のダミーイベントにも対応
+            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+            const btn = e.target;
+
+            const existingImg = window.svgImage.getElementById("okayama-wms-image");
+            if (existingImg) existingImg.remove();
+
+            btn.textContent = "読込中";
+            btn.disabled = true;
+            btn.classList.remove('re-fetch'); // 読み込み中はリセット
+            updateStatusBar(`現在の表示領域で画像を取得中...`, "#f39c12");
+            
+            const mcl = codesetid.replace(/-/g, ',');
+            const mtl = mcl.split(',')[0];
+
+            try {
+                const geoViewBox = window.svgMap.getGeoViewBox();
+                const screenSize = window.svgMap.getMapCanvasSize();
+                
+                const xminWGS = geoViewBox.x;
+                const xmaxWGS = geoViewBox.x + geoViewBox.width;
+                const yminWGS = geoViewBox.y;
+                const ymaxWGS = geoViewBox.y + geoViewBox.height;
+                const cxWGS = xminWGS + geoViewBox.width / 2;
+                const cyWGS = yminWGS + geoViewBox.height / 2;
+                
+                const lonSpan = geoViewBox.width;
+                const latSpan = geoViewBox.height;
+
+                const cosLat = Math.cos(cyWGS * Math.PI / 180);
+                const physicalAspectRatio = (lonSpan * cosLat) / latSpan;
+
+                let reqWidthPx = screenSize.width;
+                let reqHeightPx = Math.round(reqWidthPx / physicalAspectRatio);
+
+                if (reqWidthPx <= 0 || reqHeightPx <= 0) throw new Error("無効な画面サイズです");
+
+                const MAX_IMG_SIZE = 1500;
+                if (reqWidthPx > MAX_IMG_SIZE || reqHeightPx > MAX_IMG_SIZE) {
+                    const ratio = Math.min(MAX_IMG_SIZE / reqWidthPx, MAX_IMG_SIZE / reqHeightPx);
+                    reqWidthPx = Math.round(reqWidthPx * ratio);
+                    reqHeightPx = Math.round(reqHeightPx * ratio);
+                }
+
+                const sizStr = `${reqHeightPx},${reqWidthPx}`;
+                const heightMeters = latSpan * 111120;
+                const mps = Math.round(heightMeters / (reqHeightPx * 0.25 / 1000));
+
+                let xminTKY = xminWGS, yminTKY = yminWGS;
+                let xmaxTKY = xmaxWGS, ymaxTKY = ymaxWGS;
+                let cxTKY = cxWGS, cyTKY = cyWGS;
+                
+                if (window.tky2jgd) {
+                    try {
+                        let pMin, pMax, pCen;
+                        if (typeof window.tky2jgd.inverseTransformS === 'function') {
+                            pMin = window.tky2jgd.inverseTransformS(yminWGS, xminWGS);
+                            pMax = window.tky2jgd.inverseTransformS(ymaxWGS, xmaxWGS);
+                            pCen = window.tky2jgd.inverseTransformS(cyWGS, cxWGS);
+                        }
+                        
+                        if (!pMin || isNaN(pMin.x)) pMin = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(yminWGS, xminWGS) : {x: xminWGS, y: yminWGS};
+                        if (!pMax || isNaN(pMax.x)) pMax = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(ymaxWGS, xmaxWGS) : {x: xmaxWGS, y: ymaxWGS};
+                        if (!pCen || isNaN(pCen.x)) pCen = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(cyWGS, cxWGS) : {x: cxWGS, y: cyWGS};
+
+                        if (pMin && pMax && pCen) {
+                            xminTKY = pMin.x; yminTKY = pMin.y;
+                            xmaxTKY = pMax.x; ymaxTKY = pMax.y;
+                            cxTKY = pCen.x; cyTKY = pCen.y;
+                        }
+                    } catch (err) {
+                        console.warn("測地系逆変換でエラー発生。WGS84座標をそのまま使用します:", err);
+                    }
+                }
+
+                const saveUrl = getCORSURL( 'https://www.gis.pref.okayama.jp/pref-okayama/Map/SaveParameter' );
+                const saveParams = new URLSearchParams({
+                    [getDmy()]: '', pgFlg: '0', fids: '', iork: 'false', pfmd: '1',
+                    mid: mid, mps: mps.toString(), siz: sizStr,
+                    mcl: mcl, mtl: mtl, mtp: 'kokudo', gom: 'print'
+                });
+
+                const saveRes = await fetch(saveUrl, { method: 'POST', body: saveParams.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }});
+                if (!saveRes.ok) throw new Error(`SaveParameter Error: ${saveRes.status}`);
+                const saveData = await saveRes.json();
+                const tss = saveData.JsonResult.id;
+
+                const imgParams = new URLSearchParams({
+                    pgFlg: '0', fids: '', iork: 'false', tss: tss, prj: '1',
+                    cp: `${cxTKY},${cyTKY}`, mps: mps.toString(), siz: sizStr, dm: '0',
+                    xmax: xmaxTKY.toString(), xmin: xminTKY.toString(), ymax: ymaxTKY.toString(), ymin: yminTKY.toString(),
+                    img: '3', mtp: 'kokudo'
+                });
+
+                const imageUrl = `https://www.gis.pref.okayama.jp/pref-okayama/Map/GetMapImage?${imgParams.toString()}`;
+
+                const imgEl = window.svgImage.createElementNS("http://www.w3.org/2000/svg", "image");
+                imgEl.setAttribute("id", "okayama-wms-image");
+                imgEl.setAttribute("preserveAspectRatio", "none"); 
+                imgEl.setAttribute("opacity", "0.65"); 
+                imgEl.setAttributeNS("http://www.w3.org/1999/xlink", "href", imageUrl);
+                
+                const crsAD = 100; 
+                imgEl.setAttribute("x", geoViewBox.x * crsAD);
+                imgEl.setAttribute("y", -(geoViewBox.y + geoViewBox.height) * crsAD);
+                imgEl.setAttribute("width", geoViewBox.width * crsAD);
+                imgEl.setAttribute("height", geoViewBox.height * crsAD);
+
+                const shpsGroup = window.svgImage.getElementById("shps");
+                if (shpsGroup) {
+                    window.svgImage.documentElement.insertBefore(imgEl, shpsGroup);
+                } else {
+                    window.svgImage.documentElement.appendChild(imgEl);
+                }
+
+                updateStatusBar(`✅ 現在の表示領域に画像を配置しました`, "#27ae60");
+
+                // 画像取得成功時のボタン状態更新
+                btn.classList.add('re-fetch');
+                btn.textContent = "画像再取得";
+
+                if (window.svgMap && typeof window.svgMap.refreshScreen === "function") {
+                    window.svgMap.refreshScreen();
+                }
+
+            } catch (err) {
+                updateStatusBar(`画像取得エラー`, "#e74c3c");
+                btn.textContent = "画像取得";
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // --- 画像(WMSライク)の静的スナップショット配置ロジック (SP版) 使っていないがひとまず残置します---
+        async function handleImageClickSP(e, mid, codesetid) {
+            e.stopPropagation();
+            const btn = e.target;
+
+            // トグルOFF処理
+            if (btn.classList.contains('active')) {
+                const existingImg = window.svgImage.getElementById("okayama-wms-image");
+                if (existingImg) existingImg.remove();
+                btn.classList.remove('active');
+                btn.textContent = "画像";
+                updateStatusBar(`画像の配置を解除しました`, "#27ae60");
+                if (window.svgMap && typeof window.svgMap.refreshScreen === "function") window.svgMap.refreshScreen();
+                return;
+            }
+
+            // 他の選択状態をリセット
+            document.querySelectorAll('.btn-img').forEach(b => {
+                b.classList.remove('active');
+                b.textContent = "画像";
+            });
+            const existingImg = window.svgImage.getElementById("okayama-wms-image");
+            if (existingImg) existingImg.remove();
+
+            btn.textContent = "読込中";
+            btn.disabled = true;
+            updateStatusBar(`現在の表示領域で画像を取得中 (SP API)...`, "#f39c12");
+            
+            const mcl = codesetid.replace(/-/g, ',');
+            const mtl = mcl.split(',')[0];
+
+            try {
+                // 1. 現在の表示領域(geoViewBox)と画面サイズを取得
+                const geoViewBox = window.svgMap.getGeoViewBox();
+                const screenSize = window.svgMap.getMapCanvasSize();
+                
+                // SVGMap上のWGS84座標とスパン
+                const xminWGS = geoViewBox.x;
+                const xmaxWGS = geoViewBox.x + geoViewBox.width;
+                const yminWGS = geoViewBox.y;
+                const ymaxWGS = geoViewBox.y + geoViewBox.height;
+                const cxWGS = xminWGS + geoViewBox.width / 2;
+                const cyWGS = yminWGS + geoViewBox.height / 2;
+                
+                const lonSpan = geoViewBox.width;
+                const latSpan = geoViewBox.height;
+
+                // Plate Carreeの投影歪み補正 (物理アスペクト比の導出)
+                const cosLat = Math.cos(cyWGS * Math.PI / 180);
+                const physicalAspectRatio = (lonSpan * cosLat) / latSpan;
+
+                // 物理的な縦横比に合わせてピクセル数を決定
+                let reqWidthPx = screenSize.width;
+                let reqHeightPx = Math.round(reqWidthPx / physicalAspectRatio);
+
+                if (reqWidthPx <= 0 || reqHeightPx <= 0) throw new Error("無効な画面サイズです");
+
+                const MAX_IMG_SIZE = 1500;
+                if (reqWidthPx > MAX_IMG_SIZE || reqHeightPx > MAX_IMG_SIZE) {
+                    const ratio = Math.min(MAX_IMG_SIZE / reqWidthPx, MAX_IMG_SIZE / reqHeightPx);
+                    reqWidthPx = Math.round(reqWidthPx * ratio);
+                    reqHeightPx = Math.round(reqHeightPx * ratio);
+                }
+
+                // 縮尺(mps)の算出 (0.25mm/pixel)
+                const heightMeters = latSpan * 111120;
+                const mps = Math.round(heightMeters / (reqHeightPx * 0.25 / 1000));
+
+                // SaaSに要求するBBOXと中心点を「旧測地系(Tokyo Datum)」に逆変換
+                let xminTKY = xminWGS, yminTKY = yminWGS;
+                let xmaxTKY = xmaxWGS, ymaxTKY = ymaxWGS;
+                let cxTKY = cxWGS, cyTKY = cyWGS;
+                
+                if (window.tky2jgd) {
+                    try {
+                        let pMin, pMax, pCen;
+                        // 1. まず高精度変換(辞書ベース)を試す
+                        if (typeof window.tky2jgd.inverseTransformS === 'function') {
+                            pMin = window.tky2jgd.inverseTransformS(yminWGS, xminWGS);
+                            pMax = window.tky2jgd.inverseTransformS(ymaxWGS, xmaxWGS);
+                            pCen = window.tky2jgd.inverseTransformS(cyWGS, cxWGS);
+                        }
+                        
+                        // 2. 海の上などで辞書がなく undefined になった場合は、簡易変換(Molodensky)にフォールバックする
+                        if (!pMin || isNaN(pMin.x)) pMin = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(yminWGS, xminWGS) : {x: xminWGS, y: yminWGS};
+                        if (!pMax || isNaN(pMax.x)) pMax = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(ymaxWGS, xmaxWGS) : {x: xmaxWGS, y: ymaxWGS};
+                        if (!pCen || isNaN(pCen.x)) pCen = typeof window.tky2jgd.inverseTransform === 'function' ? window.tky2jgd.inverseTransform(cyWGS, cxWGS) : {x: cxWGS, y: cyWGS};
+
+                        if (pMin && pMax && pCen) {
+                            xminTKY = pMin.x; yminTKY = pMin.y;
+                            xmaxTKY = pMax.x; ymaxTKY = pMax.y;
+                            cxTKY = pCen.x; cyTKY = pCen.y;
+                        }
+                    } catch (err) {
+                        console.warn("測地系逆変換でエラー発生。WGS84座標をそのまま使用します:", err);
+                    }
+                }
+
+                // 2. スマホ用APIエンドポイントのクエリパラメータ構築
+                const imgParams = new URLSearchParams({
+                    mid: mid,
+                    dtp: mid,
+                    mtl: mtl,
+                    mcul: mcl,
+                    mpx: cxTKY.toString(),
+                    mpy: cyTKY.toString(),
+                    mcx: cxTKY.toString(),
+                    mcy: cyTKY.toString(),
+                    pmd: 'print',
+                    mps: mps.toString(),
+                    msw: reqWidthPx.toString(),
+                    msh: reqHeightPx.toString(),
+                    iork: 'undefined',
+                    xmin: xminTKY.toString(),
+                    ymin: yminTKY.toString(),
+                    xmax: xmaxTKY.toString(),
+                    ymax: ymaxTKY.toString(),
+                    mtp: 'pfm',
+                    mit: '3',
+                    stp: 'sp',
+                    exclusive: Date.now().toString(),
+                    sfmd: '4'
+                });
+
+                // GetMapImage ではなく /okayama-sp/Map/Index を直接叩く
+                const imageUrl =  `https://www.gis.pref.okayama.jp/okayama-sp/Map/Index?${imgParams.toString()}`;
+
+                // 3. SVG Image 要素を生成して設置
+                const imgEl = window.svgImage.createElementNS("http://www.w3.org/2000/svg", "image");
+                imgEl.setAttribute("id", "okayama-wms-image");
+                imgEl.setAttribute("preserveAspectRatio", "none"); 
+                imgEl.setAttribute("opacity", "0.75"); 
+                imgEl.setAttributeNS("http://www.w3.org/1999/xlink", "href", imageUrl);
+                
+                const crsAD = 100; 
+                imgEl.setAttribute("x", geoViewBox.x * crsAD);
+                imgEl.setAttribute("y", -(geoViewBox.y + geoViewBox.height) * crsAD);
+                imgEl.setAttribute("width", geoViewBox.width * crsAD);
+                imgEl.setAttribute("height", geoViewBox.height * crsAD);
+
+                const shpsGroup = window.svgImage.getElementById("shps");
+                if (shpsGroup) {
+                    window.svgImage.documentElement.insertBefore(imgEl, shpsGroup);
+                } else {
+                    window.svgImage.documentElement.appendChild(imgEl);
+                }
+
+                btn.classList.add('active');
+                btn.textContent = "画像消去";
+                updateStatusBar(`✅ 現在の表示領域に画像を配置しました (SP API)`, "#27ae60");
+
+                if (window.svgMap && typeof window.svgMap.refreshScreen === "function") {
+                    window.svgMap.refreshScreen();
+                }
+
+            } catch (err) {
+                updateStatusBar(`画像取得エラー`, "#e74c3c");
+                btn.textContent = "画像";
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function processHash() {
+            let hs = window.svgImageProps ? window.svgImageProps.hash : location.hash;
+            if (!hs || !hs.startsWith("#")) return;
+            
+            const parts = hs.substring(1).split(',');
+            if (parts.length !== 2) return;
+            const [mid, codesetid] = parts;
+
+            const mapNode = document.getElementById(`map-node-${mid}`);
+            if (mapNode) {
+                let parent = mapNode.parentElement;
+                while(parent && parent.tagName === "DETAILS") {
+                    parent.open = true;
+                    parent = parent.parentElement;
+                }
+                mapNode.open = true;
+                
+                await loadLayerTree(null, mid);
+                setTimeout(() => {
+                    selectLayer(mid, codesetid, "ハッシュ指定レイヤー", true);
+                }, 100);
+            }
+        }
+
+        document.addEventListener("keydown", (e) => {
+            const tree = document.getElementById("filter-tree");
+            if (!tree || !tree.contains(document.activeElement)) return;
+
+            if (["ArrowUp", "ArrowDown", "ArrowRight", "ArrowLeft"].includes(e.key)) {
+                e.preventDefault();
+                
+                const nodes = Array.from(tree.querySelectorAll(".tree-focusable")).filter((el) => {
+                    let current = el;
+                    while (current && current.id !== "filter-tree") {
+                        const parent = current.parentElement;
+                        if (parent && parent.tagName === "DETAILS" && !parent.open) {
+                            if (el !== parent.firstElementChild) return false;
+                        }
+                        current = parent;
+                    }
+                    return true;
+                });
+
+                if (nodes.length === 0) return;
+                const currentIndex = nodes.indexOf(document.activeElement);
+
+                if (e.key === "ArrowDown" && currentIndex < nodes.length - 1) {
+                    const nextEl = nodes[currentIndex + 1];
+                    nextEl.focus();
+                    if (nextEl.classList.contains("tree-leaf")) selectLayer(nextEl.dataset.mid, nextEl.id.replace("leaf-", ""), nextEl.dataset.lname, false);
+                } else if (e.key === "ArrowUp" && currentIndex > 0) {
+                    const prevEl = nodes[currentIndex - 1];
+                    prevEl.focus();
+                    if (prevEl.classList.contains("tree-leaf")) selectLayer(prevEl.dataset.mid, prevEl.id.replace("leaf-", ""), prevEl.dataset.lname, false);
+                } else if (e.key === "ArrowRight") {
+                    const el = nodes[currentIndex];
+                    if (el.tagName === "SUMMARY" && !el.parentElement.open) el.click();
+                } else if (e.key === "ArrowLeft") {
+                    const el = nodes[currentIndex];
+                    if (el.tagName === "SUMMARY" && el.parentElement.open) el.click();
+                }
+            }
+
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const active = document.activeElement;
+                if (active.classList.contains("tree-leaf")) {
+                    selectLayer(active.dataset.mid, active.id.replace("leaf-", ""), active.dataset.lname, true);
+                } else if (active.tagName === "SUMMARY") active.click();
+            }
+        });
+    </script>
+</body>
+</html>
