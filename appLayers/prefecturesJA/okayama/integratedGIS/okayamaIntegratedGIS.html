@@ -386,7 +386,7 @@
                 </table>
             `;
 
-            if (window.svgImageProps) window.svgImageProps.hash = `#${mid},${codesetid}`;
+            if (window.svgImageProps) window.svgImageProps.hash = `#${mid}:${codesetid}`;
 
             clearTimeout(fetchTimeout);
             if (isClick) {
@@ -859,7 +859,7 @@
             let hs = window.svgImageProps ? window.svgImageProps.hash : location.hash;
             if (!hs || !hs.startsWith("#")) return;
             
-            const parts = hs.substring(1).split(',');
+            const parts = hs.substring(1).split(':');
             if (parts.length !== 2) return;
             const [mid, codesetid] = parts;
 
