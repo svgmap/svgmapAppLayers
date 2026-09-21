@@ -77,6 +77,11 @@ import { TileExistence } from "./TileExistence.js";
 import { DynamicWebTile } from "./DynamicWebTileModule.js";
 
 class ArcGISDynamicImageTile extends DynamicWebTile {
+    constructor(svgImage, svgProps, tileInfo, timeParam = null) {
+        super(svgImage, svgProps, tileInfo);
+        this.timeParam = timeParam; // 時系列レイヤーの場合のみ値がセットされる
+    }
+
     getURL(tx, ty, lvl) {
         var key = this.getKey(tx, ty, lvl);
         var tl = this.XY2latLng(tx * this.tilePix, ty * this.tilePix, lvl);
@@ -87,6 +92,12 @@ class ArcGISDynamicImageTile extends DynamicWebTile {
         
         var baseUrl = this.tileInfo.baseURL || this.tileInfo.serviceUrl;
         var rawUrl = `${baseUrl}/exportImage?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image`;
+        
+        // ★ timeParam が存在する場合のみ &time= を付与（静的予想図等には無影響）
+        if (this.timeParam) {
+            rawUrl += `&time=${encodeURIComponent(this.timeParam)}`;
+        }
+        
         return { URL: rawUrl, Key: key };
     }
 }
@@ -311,27 +322,86 @@ function buildTreeUI(layers, parentElement) {
     });
 }
 
-function selectLayer(layerObj) {
-    activeLayerInfo = layerObj;
+// 非同期通信の競合を防ぐため、リクエスト中のレイヤー情報を保持
+var currentRequestedLayer = null;
+
+async function selectLayer(layerObj) {
+    currentRequestedLayer = layerObj;
+    
+    var statusEl = document.getElementById("status");
+    statusEl.textContent = `読込中: ${layerObj.title}...`;
+
     if (window.svgImageProps && layerObj.hashId) {
         window.svgImageProps.hash = "#" + layerObj.hashId;
     }
-    voidTileChecker = new TileExistence();
-    clearScreen();
     
-    if (activeLayerInfo.type === "image") {
-        rasterTileHandler = new ArcGISDynamicImageTile(svgImage, svgImageProps, {
-            baseURL: activeLayerInfo.url,
-            serviceUrl: activeLayerInfo.url,
-            minLevel: 3,
-            maxLevel: 18
-        });
+    if (layerObj.type === "image") {
+        var timeParam = null;
+        try {
+            // 画像の時系列情報の取得（非同期通信）
+            var srvUrl = svgMap.getCORSURL(`${layerObj.url}?f=json`);
+            var res = await fetch(srvUrl);
+            var srvJson = await res.json();
+            
+            if (srvJson && srvJson.timeInfo && srvJson.timeInfo.startTimeField) {
+                var startField = srvJson.timeInfo.startTimeField;
+                var endField = srvJson.timeInfo.endTimeField || startField;
+                
+                var qUrl = `${layerObj.url}/query?f=json&orderByFields=${startField} DESC&outFields=${startField},${endField}&returnGeometry=false&where=1%3D1`;
+                var qCorsUrl = svgMap.getCORSURL(qUrl);
+                var qRes = await fetch(qCorsUrl);
+                var qJson = await qRes.json();
+                
+                if (qJson && qJson.features && qJson.features.length > 0) {
+                    var attr = qJson.features[0].attributes;
+                    var tStart = attr[startField];
+                    var tEnd = attr[endField] || tStart;
+                    timeParam = `${tStart},${tEnd}`;
+                }
+            }
+        } catch(e) {
+            console.log("メタデータ解析スキップ", e);
+        }
+
+        // 別のレイヤーがクリックされていたら処理を中断（競合防止）
+        if (currentRequestedLayer !== layerObj) return;
+
+        // ★ 非同期通信が終わってから画面をクリア＆状態を切り替える
+        activeLayerInfo = layerObj;
+        voidTileChecker = new TileExistence();
+        clearScreen();
+        rasterTileHandler = null; 
+
+        rasterTileHandler = new ArcGISDynamicImageTile(
+            svgImage, 
+            svgImageProps, 
+            {
+                baseURL: activeLayerInfo.url,
+                serviceUrl: activeLayerInfo.url,
+                minLevel: 3,
+                maxLevel: 18
+            },
+            timeParam
+        );
+        
+        // ★ svgMapアプリに「強制的に再描画・タイル計算」を指示して叩き起こす
+        if (window.preRenderFunction) window.preRenderFunction();
+        svgMap.refreshScreen();
+        window.dispatchEvent(new Event("zoomPanMap"));
+
     } else {
+        // ベクターレイヤーの場合は通信なしなので即時クリア＆描画開始
+        activeLayerInfo = layerObj;
+        voidTileChecker = new TileExistence();
+        clearScreen();
         rasterTileHandler = null;
+        zoomPanMapFunction();
     }
     
-    zoomPanMapFunction();
-    svgMap.refreshScreen();
+    // ステータスメッセージとメタデータ表の更新
+    if (currentRequestedLayer === layerObj) {
+        statusEl.textContent = `表示中: ${layerObj.title}`;
+    }
     loadMetaTable(activeLayerInfo);
 }
 
