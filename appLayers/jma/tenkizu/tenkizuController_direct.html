@@ -3,6 +3,8 @@
 <head>
 	<meta charset="utf-8"/>
 	<title>rent a car data parser</title>
+	<!-- PDFをブラウザ上で画像化するためのPDF.jsを読み込み -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
 </head>
 
 <style>
@@ -32,6 +34,10 @@ table tr:nth-child(even){
 // History:
 // 2022/04/05 初版
 // 2026/09/27 アジア太平洋域を選択可能に
+// 2026/09/27 PDF版(高解像度)の動的レンダリング機能を追加
+
+// PDF.jsのWorker設定
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
 var proxyPath="https://www.jma.go.jp/bosai/";
 var tenkizuInfoSubPath="weather_map/data/list.json";
@@ -53,17 +59,29 @@ function showTenkizu(json){
 	var tenkiSelect = document.getElementById("tenkiSelect");
 	removeChildren(tenkiSelect);
 	
-	tenkiInfo=allTenkiData[currentArea].now;
+	// 高解像度版が選ばれている場合はベースとして"asia"のデータを参照
+	var targetAreaKey = (currentArea === "asia_highres") ? "asia" : currentArea;
+	
+	tenkiInfo = allTenkiData[targetAreaKey].now;
 	tenki = tenkiInfo[tenkiInfo.length-1];
 	console.log(tenki);
+	
 	changeTenki(proxyPath + tenkizuPngSubPath + tenki);
+	
 	if ( typeof(svgImageProps)=="object" && svgImageProps.Path.indexOf("noforecast")>0){
 		console.log("予報表示を抑制します・・");
 	} else {
-		if (allTenkiData[currentArea].ft48) buildOptions(allTenkiData[currentArea].ft48,"48時間");
-		if (allTenkiData[currentArea].ft24) buildOptions(allTenkiData[currentArea].ft24,"24時間");
+		// 高解像度PDFでも予想図が存在するため、そのままプルダウンに追加
+		if (allTenkiData[targetAreaKey].ft48) buildOptions(allTenkiData[targetAreaKey].ft48,"48時間");
+		if (allTenkiData[targetAreaKey].ft24) buildOptions(allTenkiData[targetAreaKey].ft24,"24時間");
 	}
-	buildOptions(tenkiInfo);
+	
+	// 実況のプルダウン構築（高解像度の場合は実況は過去分がないため最新1件のみ）
+	if (currentArea === "asia_highres") {
+		buildOptions([tenki]);
+	} else {
+		buildOptions(tenkiInfo);
+	}
 }
 
 function buildOptions(js,isFuture){
@@ -102,31 +120,87 @@ function changeTime(event){
 	changeTenki(fn);
 }
 
-function changeTenki(path){
+// 非同期関数(async)に変更し、PDFのレンダリングを待てるようにする
+async function changeTenki(path){
 	var op = svgImage.getElementById("tenkiPng");
 	if(op) op.parentNode.removeChild(op);
 	
 	var im= svgImage.createElement("image");
+	
 	if (currentArea === "near") {
-		im.setAttribute("x",0);
-		im.setAttribute("y",0);
-		im.setAttribute("width",600);
-		im.setAttribute("height",581);
+		// 日本周辺
+		im.setAttribute("x", 0);
+		im.setAttribute("y", 0);
+		im.setAttribute("width", 600);
+		im.setAttribute("height", 581);
 	} else if (currentArea === "asia") {
-		im.setAttribute("x",-360);
-		im.setAttribute("y",-294);
-		im.setAttribute("width",1400);
-		im.setAttribute("height",1230);
-		im.setAttribute("preserveAspectRatio","none");
+		// アジア太平洋域 (軽量PNG版)
+		im.setAttribute("x", -360);
+		im.setAttribute("y", -294);
+		im.setAttribute("width", 1400);
+		im.setAttribute("height", 1230);
+		im.setAttribute("preserveAspectRatio", "none");
+	} else if (currentArea === "asia_highres") {
+		// アジア太平洋域 (高解像度PDF版) 
+		im.setAttribute("x", -391);
+		im.setAttribute("y", -214);
+		im.setAttribute("width", 1464);
+		im.setAttribute("height", 1078);
+		im.setAttribute("preserveAspectRatio", "none");
 	}
-	im.setAttribute("xlink:href",path);
+
+	if (currentArea === "asia_highres") {
+		try {
+			console.log("高解像度PDFの取得とレンダリングを開始...");
+			
+			// パスから読み込むべきPDFを判定
+			let targetPdfUrl = "https://www.data.jma.go.jp/yoho/data/wxchart/quick/ASAS_COLOR.pdf"; // デフォルト実況
+			if (path.indexOf("fsas24") !== -1) {
+				targetPdfUrl = "https://www.data.jma.go.jp/yoho/data/wxchart/quick/FSAS24_COLOR_ASIA.pdf";
+			} else if (path.indexOf("fsas48") !== -1) {
+				targetPdfUrl = "https://www.data.jma.go.jp/yoho/data/wxchart/quick/FSAS48_COLOR_ASIA.pdf";
+			}
+
+			const currentPdfUrl = targetPdfUrl + "?_=" + new Date().getTime();
+			const loadingTask = pdfjsLib.getDocument(currentPdfUrl);
+			
+			const pdfDoc = await loadingTask.promise;
+			const page = await pdfDoc.getPage(1);
+			
+			// 横幅1400pxになるようにスケールを計算して描画
+			const originalViewport = page.getViewport({ scale: 1.0 });
+			const targetWidth = 1400; 
+			const scale = targetWidth / originalViewport.width;
+			const viewport = page.getViewport({ scale: scale });
+			
+			const canvas = document.createElement('canvas');
+			const context = canvas.getContext('2d');
+			canvas.width = viewport.width;
+			canvas.height = viewport.height;
+			
+			await page.render({
+				canvasContext: context,
+				viewport: viewport
+			}).promise;
+			
+			// レンダリングしたCanvasをBase64のPNGに変換してSVGのImageに流し込む
+			const imgDataUrl = canvas.toDataURL('image/png');
+			im.setAttribute("xlink:href", imgDataUrl);
+			console.log("PDFから1400px幅の画像生成完了");
+			
+		} catch (error) {
+			console.error("PDFのレンダリングに失敗しました。軽量PNG版にフォールバックします。", error);
+			im.setAttribute("xlink:href", path); 
+		}
+	} else {
+		im.setAttribute("xlink:href", path);
+	}
+	
 	im.setAttribute("opacity",0.5);
 	im.setAttribute("id","tenkiPng");
 	svgImage.documentElement.appendChild(im);
 	svgMap.refreshScreen();
 }
-
-
 
 function loadJSON(cbFunc, url, dataCat, postProcess){
 //	console.log("loadJSON : SRC: ", url);
@@ -184,6 +258,7 @@ function removeChildren(element){
 <select id="areaSelect" onChange="changeArea(event)">
 	<option value="near" selected>日本周辺</option>
 	<option value="asia">アジア太平洋域</option>
+	<option value="asia_highres">アジア太平洋域 (高解像度)</option>
 </select>
 <select id="tenkiSelect" onChange="changeTime(event)"></select>
 </body>
