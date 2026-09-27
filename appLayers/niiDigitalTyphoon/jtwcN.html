@@ -31,6 +31,11 @@
 	// 1. X方向: 水色の縦線(100E, 180)から正確な経度スケールとオフセットを算出。
 	// 2. Y方向: 水色の横線(赤道)を起点とし、白い緯線の周期をコムフィルタで解析して、
 	//           X方向とは異なる独自の緯度スケール(アスペクト比のズレ)を正確に算出。
+	//
+	// 2026/09/27 さらに改良してテスト
+	// X方向のピクセル/度を水色アンカーから確定後、
+	// Y方向は「経度:緯度 = 1.11:1」の理論値を基準とし、
+	// その近傍(±20%)のみでコムフィルタ探索を行うことで雲ノイズによるエラーを防ぐ。
 
 		var corsPxy = "ProxieForNonSvgMapEnv";
 		
@@ -155,9 +160,10 @@
 					lonLeft = selectedPeaks.length === 1 ? 100 - (selectedPeaks[0].x / pxPerDeg) : 18.5;
 				}
 
-				// 5. 【改良】Y方向独自の10度ピッチ(spanY)をコムフィルタで特定
-				var minSpanY = pxPerDeg * 8; // X方向スケールの0.8倍〜1.5倍の範囲を探る
-				var maxSpanY = pxPerDeg * 15;
+				// 5. 【アスペクト比の制約】1.11:1 (X:Y) の理論値をベースにする
+				var expectedSpanY = (pxPerDeg * 10) / 1.11; 
+				var minSpanY = expectedSpanY * 0.8; // 理論値の±20%に探索範囲を絞る
+				var maxSpanY = expectedSpanY * 1.2;
 				
 				var edgeY = new Float32Array(ih);
 				for (var y = mapTop + 1; y < mapBottom - 1; y++) {
@@ -165,11 +171,8 @@
 					for (var x = 0; x < iw; x += 3) {
 						var pi = (y * iw + x) * 4;
 						var pi_up = ((y - 2) * iw + x) * 4; 
-						
 						var v = data[pi] + data[pi+1] + data[pi+2]; 
 						var v_up = data[pi_up] + data[pi_up+1] + data[pi_up+2];
-						
-						// 雲を避け、緯線特有の「白っぽくて水平なエッジ」を抽出
 						if (v > 450 && v - v_up > 50) {
 							sumEdge += (v - v_up);
 						}
@@ -177,14 +180,11 @@
 					edgeY[y] = sumEdge;
 				}
 
-				var bestSpanY = pxPerDeg * 10;
-				var maxScore = -1;
+				var bestSpanY = expectedSpanY;
+				var maxScore = 0;
 
-				// 赤道から sy ピッチで等間隔にサンプリングし、最も緯線に重なる周期を探す
-				for (var sy = minSpanY; sy <= maxSpanY; sy += 0.2) {
+				for (var sy = minSpanY; sy <= maxSpanY; sy += 0.1) {
 					var score = 0, count = 0;
-					
-					// 北半球側
 					for (var step = 1; ; step++) {
 						var ty = Math.round(py_0d - step * sy);
 						if (ty < mapTop + 10) break;
@@ -192,7 +192,6 @@
 						score += val;
 						count++;
 					}
-					// 南半球側
 					for (var step = 1; ; step++) {
 						var ty = Math.round(py_0d + step * sy);
 						if (ty > mapBottom - 10) break;
@@ -209,15 +208,22 @@
 						}
 					}
 				}
+
+				// スコアが著しく低い(ノイズしか拾えていない)場合は理論値を強制適用
+				if (maxScore < 100) {
+					console.warn("明確な緯線エッジが検出できなかったため、理論値(1.11:1)を強制適用します。");
+					bestSpanY = expectedSpanY;
+				}
 				
 				console.log("X方向 10度ピッチ:", (pxPerDeg * 10).toFixed(2));
-				console.log("Y方向 10度ピッチ(コムフィルタ検出):", bestSpanY.toFixed(2));
+				console.log("Y方向 10度ピッチ 理論値(10/1.11):", expectedSpanY.toFixed(2));
+				console.log("Y方向 10度ピッチ 最終適用値:", bestSpanY.toFixed(2));
 
 				var lonWidth = iw / pxPerDeg;
 
 				cbf({
 					lat0: py_0d, 
-					lat10span: bestSpanY, // 独立算出したYスケールを適用
+					lat10span: bestSpanY, 
 					imageHeight: ih,
 					lonLeft: lonLeft,
 					lonWidth: lonWidth
