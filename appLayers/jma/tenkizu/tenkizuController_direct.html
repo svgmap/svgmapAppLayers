@@ -28,10 +28,17 @@ table tr:nth-child(even){
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History:
+// 2022/04/05 初版
+// 2026/09/27 アジア太平洋域を選択可能に
 
 var proxyPath="https://www.jma.go.jp/bosai/";
 var tenkizuInfoSubPath="weather_map/data/list.json";
 var tenkizuPngSubPath="weather_map/data/png/";
+
+var allTenkiData = null;
+var currentArea = "near";
 
 addEventListener("layerWebAppReady", function(){
 	console.log("tenkizuController:layerWebAppReady: ");
@@ -40,22 +47,28 @@ addEventListener("layerWebAppReady", function(){
 
 var tenkiInfo;
 function showTenkizu(json){
-	console.log(json);
-	tenkiInfo=json.near.now;
+	if (json) allTenkiData = json;
+	console.log(allTenkiData);
+	
+	var tenkiSelect = document.getElementById("tenkiSelect");
+	removeChildren(tenkiSelect);
+	
+	tenkiInfo=allTenkiData[currentArea].now;
 	tenki = tenkiInfo[tenkiInfo.length-1];
 	console.log(tenki);
 	changeTenki(proxyPath + tenkizuPngSubPath + tenki);
 	if ( typeof(svgImageProps)=="object" && svgImageProps.Path.indexOf("noforecast")>0){
 		console.log("予報表示を抑制します・・");
 	} else {
-		buildOptions(json.near.ft48,"48時間");
-		buildOptions(json.near.ft24,"24時間");
+		if (allTenkiData[currentArea].ft48) buildOptions(allTenkiData[currentArea].ft48,"48時間");
+		if (allTenkiData[currentArea].ft24) buildOptions(allTenkiData[currentArea].ft24,"24時間");
 	}
 	buildOptions(tenkiInfo);
 }
 
 function buildOptions(js,isFuture){
 	var isFirst=true;
+	var tenkiSelect = document.getElementById("tenkiSelect");
 	for ( var i = js.length-1 ; i >= 0 ; i--){
 		var oi =js[i];
 		var opt = document.createElement("option");
@@ -78,6 +91,11 @@ function buildOptions(js,isFuture){
 	}
 }
 
+function changeArea(event){
+	currentArea = event.target.value;
+	showTenkizu();
+}
+
 function changeTime(event){
 	console.log(event.target.selectedIndex,event.target);
 	var fn = proxyPath + tenkizuPngSubPath + (event.target.options[event.target.selectedIndex]).value;
@@ -86,13 +104,21 @@ function changeTime(event){
 
 function changeTenki(path){
 	var op = svgImage.getElementById("tenkiPng");
-	op.parentNode.removeChild(op);
+	if(op) op.parentNode.removeChild(op);
 	
 	var im= svgImage.createElement("image");
-	im.setAttribute("x",0);
-	im.setAttribute("y",0);
-	im.setAttribute("width",600);
-	im.setAttribute("height",581);
+	if (currentArea === "near") {
+		im.setAttribute("x",0);
+		im.setAttribute("y",0);
+		im.setAttribute("width",600);
+		im.setAttribute("height",581);
+	} else if (currentArea === "asia") {
+		im.setAttribute("x",-360);
+		im.setAttribute("y",-294);
+		im.setAttribute("width",1400);
+		im.setAttribute("height",1230);
+		im.setAttribute("preserveAspectRatio","none");
+	}
 	im.setAttribute("xlink:href",path);
 	im.setAttribute("opacity",0.5);
 	im.setAttribute("id","tenkiPng");
@@ -155,7 +181,10 @@ function removeChildren(element){
 <h3>気象庁天気図レイヤー</h3>
 <p style="font-size:12px">出典:<a target="_blank" href="https://www.jma.go.jp/bosai/weather_map/">気象庁ホームページの天気図情報</a>を加工して作成</p>
 
-
+<select id="areaSelect" onChange="changeArea(event)">
+	<option value="near" selected>日本周辺</option>
+	<option value="asia">アジア太平洋域</option>
+</select>
 <select id="tenkiSelect" onChange="changeTime(event)"></select>
 </body>
 </html>
