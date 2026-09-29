@@ -1341,12 +1341,18 @@
 						typeof window.svgMapGIStool !== "undefined" &&
 						window.svgMapGIStool.drawGeoJson
 					) {
+						// 各featureのpropertiesに描画用スタイルを直接付与
+						cand.geoJsonData.features.forEach(f => {
+							if (!f.properties) f.properties = {};
+							f.properties["stroke"] = "#0000ff";
+							f.properties["stroke-width"] = 0.5;
+						});
 						window.svgMapGIStool.drawGeoJson(
 							cand.geoJsonData,
 							window.layerID,
 							"#3c2ce7", // strokeColor
 							1.5, // strokeWidth
-							"rgba(60, 24, 241, 0.7)", // fillColor
+							"rgba(60, 24, 241, 0.5)", // fillColor
 							"p0", // POIiconId
 							null, // poiTitle
 							null, // metadata

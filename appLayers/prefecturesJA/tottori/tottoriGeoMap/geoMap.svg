@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" 
+     xmlns:xlink="http://www.w3.org/1999/xlink" 
+     xmlns:go="http://purl.org/svgmap/profile" 
+     viewBox="12375.0 -4500.0 2250.0 2250.0" 
+     go:dataArea="12375.0 -4500.0 2250.0 2250.0" 
+     data-controller="geoMap.html#exec=appearOnLayerLoad&amp;requiredHeight=600&amp;requiredWidth=350" 
+     property="objectid,subLayer">
+
+<defs>
+<g id="p0">
+    <circle cx="0" cy="0" r="5" stroke-width="1" stroke="#c0b0f0" vector-effect="non-scaling-stroke" fill="#2050c0"/>
+</g>
+</defs>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(100.0,0.0,0.0,-100.0,0.0,0.0)" />
+
+<g id="areas"></g>
+</svg>

@@ -1,0 +1,2227 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<title>BODIK ODCS レイヤ</title>
+
+		<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+		<script src="https://unpkg.com/shapefile@0.6"></script>
+
+		<style>
+			body {
+				font-family: sans-serif;
+				font-size: 11px;
+				margin: 3px;
+				line-height: 1.3;
+				color: #111;
+				background-color: #fff;
+			}
+
+			.header-container {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				margin-bottom: 4px;
+			}
+			h2 {
+				font-size: 13px;
+				margin: 0;
+				color: #000;
+				font-weight: bold;
+			}
+			.source-header {
+				font-size: 9px;
+				color: #004085;
+				text-decoration: none;
+				font-weight: bold;
+				padding-right: 38px;
+			}
+			.source-header:hover {
+				text-decoration: underline;
+			}
+
+			.search-box {
+				margin-bottom: 4px;
+				background: #f8f9fa;
+				padding: 5px;
+				border-radius: 4px;
+				border: 1px solid #ced4da;
+			}
+			label {
+				font-weight: bold;
+				display: block;
+				margin-bottom: 2px;
+				color: #212529;
+				font-size: 10px;
+			}
+
+			.search-row {
+				display: flex;
+				gap: 4px;
+				align-items: center;
+				margin-bottom: 4px;
+			}
+			.search-row input[type="text"] {
+				flex: 1;
+				margin-bottom: 0;
+			}
+			.btn-small {
+				font-size: 10px;
+				padding: 3px 6px;
+				cursor: pointer;
+				background: #fff;
+				border: 1px solid #adb5bd;
+				border-radius: 3px;
+				color: #333;
+				white-space: nowrap;
+				height: 23px;
+				box-sizing: border-box;
+			}
+			.btn-small:hover {
+				background: #e9ecef;
+			}
+
+			input[type="text"],
+			select {
+				width: 100%;
+				box-sizing: border-box;
+				padding: 4px;
+				font-size: 11px;
+				margin-bottom: 4px;
+				border: 1px solid #adb5bd;
+				border-radius: 3px;
+				color: #000;
+			}
+			input[type="text"]:focus,
+			select:focus {
+				border-color: #0056b3;
+				outline: none;
+			}
+
+			.tree-container {
+				max-height: 220px;
+				overflow-y: auto;
+				background: #fff;
+				border: 1px solid #adb5bd;
+				border-radius: 3px;
+				margin-bottom: 4px;
+				outline: none;
+			}
+			.tree-container:focus-within {
+				border-color: #0056b3;
+				box-shadow: 0 0 0 1px rgba(0, 86, 179, 0.2);
+			}
+			.tree-container details {
+				margin: 0;
+			}
+			.tree-container summary {
+				padding: 3px 5px;
+				cursor: pointer;
+				font-weight: bold;
+				background: #f4f6f8;
+				border-bottom: 1px solid #eee;
+				font-size: 10.5px;
+				user-select: none;
+				outline: none;
+				display: block;
+			}
+			.tree-container summary:hover {
+				background: #e2e6ea;
+			}
+
+			.tree-container summary::before {
+				content: "▶";
+				display: inline-block;
+				width: 12px;
+				font-size: 9px;
+				color: #666;
+				transition: transform 0.2s;
+			}
+			.tree-container details[open] > summary::before {
+				transform: rotate(90deg);
+			}
+			.tree-container summary::-webkit-details-marker {
+				display: none;
+			}
+
+			.dataset-item {
+				padding: 3px 5px 3px 18px;
+				cursor: pointer;
+				color: #0056b3;
+				border-bottom: 1px dashed #f0f0f0;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-size: 10px;
+				outline: none;
+			}
+			.dataset-item:last-child {
+				border-bottom: none;
+			}
+			.dataset-item:hover {
+				background: #e9ecef;
+				text-decoration: underline;
+			}
+			.dataset-item.active {
+				background: #d3e3fd;
+				font-weight: bold;
+				border-left: 3px solid #0056b3;
+				padding-left: 15px;
+				color: #003a7a;
+			}
+
+			.tree-container summary:focus,
+			.dataset-item:focus {
+				background: #cce5ff;
+				color: #004085;
+				outline: 1px dotted #0056b3;
+				outline-offset: -1px;
+			}
+
+			.status-action-row {
+				display: flex;
+				gap: 4px;
+				align-items: center;
+				margin-bottom: 4px;
+				width: 100%;
+				box-sizing: border-box;
+			}
+			#status {
+				flex: 1;
+				font-weight: bold;
+				padding: 4px;
+				border-radius: 3px;
+				font-size: 10px;
+				border: 1px solid #ced4da;
+				box-sizing: border-box;
+				text-align: center;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
+			}
+			#status.loading {
+				color: #212529;
+				background: #e9ecef;
+				border-color: #ced4da;
+			}
+			#status.success {
+				color: #1e7e34;
+				background: #d4edda;
+				border-color: #c3e6cb;
+			}
+			#status.filtered {
+				color: #004085;
+				background: #cce5ff;
+				border-color: #b8daff;
+			}
+			#status.warning {
+				color: #d9480f;
+				background: #fff4e6;
+				border-color: #fde8cd;
+			}
+			#status.error {
+				color: #721c24;
+				background: #f8d7da;
+				border-color: #f5c6cb;
+			}
+
+			#downloadBtn,
+			#cancelBtn {
+				padding: 4px 10px;
+				font-size: 10px;
+				font-weight: bold;
+				cursor: pointer;
+				color: white;
+				border: none;
+				border-radius: 3px;
+				height: 22px;
+			}
+			#downloadBtn {
+				background-color: #495057;
+			}
+			#downloadBtn:hover:not(:disabled) {
+				background-color: #212529;
+			}
+			#downloadBtn:disabled {
+				background-color: #dee2e6;
+				cursor: not-allowed;
+				color: #868e96;
+				border: 1px solid #ced4da;
+			}
+			#cancelBtn {
+				background-color: #d9534f;
+			}
+			#cancelBtn:hover {
+				background-color: #c9302c;
+			}
+
+			#notesArea {
+				background: #fff;
+				border: 1px solid #ced4da;
+				padding: 4px;
+				border-radius: 3px;
+				margin-top: 2px;
+			}
+			.notes-title {
+				font-weight: bold;
+				color: #004085;
+				margin-bottom: 2px;
+				font-size: 10px;
+			}
+			#notesContent {
+				white-space: pre-wrap;
+				word-break: break-all;
+				font-size: 10px;
+				color: #111;
+				max-height: 100px;
+				overflow-y: auto;
+				background: #f8f9fa;
+				padding: 4px;
+				border: 1px solid #dee2e6;
+				border-radius: 2px;
+				line-height: 1.35;
+			}
+			.meta-table {
+				width: 100%;
+				border-collapse: collapse;
+				margin-bottom: 4px;
+				font-size: 9px;
+				background: #fff;
+				border: 1px solid #ced4da;
+			}
+			.meta-table th {
+				background: #e9ecef;
+				padding: 2px 4px;
+				text-align: left;
+				border: 1px solid #ced4da;
+				font-weight: bold;
+				width: 15%;
+				color: #212529;
+			}
+			.meta-table td {
+				padding: 2px 4px;
+				border: 1px solid #ced4da;
+				color: #000;
+				width: 35%;
+				word-break: break-all;
+				font-weight: 500;
+			}
+		</style>
+	</head>
+
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script type="module">
+		import { CsvMapper } from "./CsvMapper.js";
+		import { unzip } from "./unzipit.module.js";
+		window.CsvMapperClass = CsvMapper;
+		window.unzip = unzip;
+	</script>
+
+	<script>
+		// BODIK オープンデータカタログレイヤ。
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+		//
+		// History:
+		// 2026/09/29 Initial Release
+
+		const CKAN_API_BASE = "https://data.bodik.jp/api/3/action/";
+		const DEFAULT_ICON = 0;
+
+		const PREF_MAP = {
+			"01": ["北海道", "hokkaido"],
+			"02": ["青森県", "aomori"],
+			"03": ["岩手県", "iwate"],
+			"04": ["宮城県", "miyagi"],
+			"05": ["秋田県", "akita"],
+			"06": ["山形県", "yamagata"],
+			"07": ["福島県", "fukushima"],
+			"08": ["茨城県", "ibaraki"],
+			"09": ["栃木県", "tochigi"],
+			10: ["群馬県", "gunma"],
+			11: ["埼玉県", "saitama"],
+			12: ["千葉県", "chiba"],
+			13: ["東京都", "tokyo"],
+			14: ["神奈川県", "kanagawa"],
+			15: ["新潟県", "niigata"],
+			16: ["富山県", "toyama"],
+			17: ["石川県", "ishikawa"],
+			18: ["福井県", "fukui"],
+			19: ["山梨県", "yamanashi"],
+			20: ["長野県", "nagano"],
+			21: ["岐阜県", "gifu"],
+			22: ["静岡県", "shizuoka"],
+			23: ["愛知県", "aichi"],
+			24: ["三重県", "mie"],
+			25: ["滋賀県", "shiga"],
+			26: ["京都府", "kyoto"],
+			27: ["大阪府", "osaka"],
+			28: ["兵庫県", "hyogo"],
+			29: ["奈良県", "nara"],
+			30: ["和歌山県", "wakayama"],
+			31: ["鳥取県", "tottori"],
+			32: ["島根県", "shimane"],
+			33: ["岡山県", "okayama"],
+			34: ["広島県", "hiroshima"],
+			35: ["山口県", "yamaguchi"],
+			36: ["徳島県", "tokushima"],
+			37: ["香川県", "kagawa"],
+			38: ["愛媛県", "ehime"],
+			39: ["高知県", "kochi"],
+			40: ["福岡県", "fukuoka"],
+			41: ["佐賀県", "saga"],
+			42: ["長崎県", "nagasaki"],
+			43: ["熊本県", "kumamoto"],
+			44: ["大分県", "oita"],
+			45: ["宮崎県", "miyazaki"],
+			46: ["鹿児島県", "kagoshima"],
+			47: ["沖縄県", "okinawa"],
+		};
+
+		// 都道府県コードと暗黙の平面直角座標系の系番号の対応表
+		const PREF_TO_ZONE = {
+			"01": 12,
+			"02": 10,
+			"03": 10,
+			"04": 10,
+			"05": 10,
+			"06": 10,
+			"07": 9,
+			"08": 9,
+			"09": 9,
+			10: 9,
+			11: 9,
+			12: 9,
+			13: 9,
+			14: 9,
+			15: 8,
+			16: 7,
+			17: 7,
+			18: 6,
+			19: 8,
+			20: 8,
+			21: 7,
+			22: 8,
+			23: 7,
+			24: 6,
+			25: 6,
+			26: 6,
+			27: 6,
+			28: 5,
+			29: 6,
+			30: 6,
+			31: 5,
+			32: 3,
+			33: 5,
+			34: 3,
+			35: 3,
+			36: 4,
+			37: 4,
+			38: 4,
+			39: 4,
+			40: 2,
+			41: 2,
+			42: 1,
+			43: 2,
+			44: 2,
+			45: 2,
+			46: 2,
+			47: 15,
+		};
+
+		let myCsvMapper;
+		let lawaDatasets = [];
+		let fetchedDatasetList = [];
+		let currentArchive = null;
+		let currentSubResources = {};
+		let currentDownloadController = null;
+		let activeDatasetId = null;
+
+		let targetPref = "";
+		let targetDatasetHash = "";
+		let targetResourceHash = "";
+
+		let layerPreRenderFunc = () => {};
+		window.preRenderFunction = () => layerPreRenderFunc();
+
+		function parseHash() {
+			if (!window.svgImageProps || !window.svgImageProps.hash) return;
+			let hs = window.svgImageProps.hash.replace(/^#/, "");
+
+			if (hs.includes("=")) {
+				const params = new URLSearchParams(hs);
+				targetPref = params.get("pref") || "";
+				const ds = params.get("dataset");
+				if (ds) {
+					const parts = ds.split("-");
+					targetDatasetHash = parts[0] || "";
+					targetResourceHash = parts[1] || "";
+				}
+			} else {
+				const parts = hs.split("-");
+				targetDatasetHash = parts[0] || "";
+				targetResourceHash = parts[1] || "";
+			}
+		}
+
+		addEventListener("layerWebAppReady", function () {
+			myCsvMapper = new window.CsvMapperClass({
+				svgMap: window.svgMap,
+				svgImage: window.svgImage,
+				svgImageProps: window.svgImageProps,
+				layerID: window.layerID,
+				messageDivElm: null,
+			});
+
+			layerPreRenderFunc = myCsvMapper.preRenderFunction;
+			myCsvMapper.onload();
+
+			parseHash();
+			setupAppTitle();
+			setupKeyboardNavigation();
+			fetchBodikMetadata(0);
+		});
+
+		function setupAppTitle() {
+			let appTitle = "BODIK ODCS レイヤ";
+			let sourceText = "BODIKオープンデータカタログサイトを参照";
+			let appLink = "https://odcs.bodik.jp/";
+
+			if (targetPref === "others") {
+				appTitle = "BODIK ODCS レイヤ (その他広域)";
+			} else if (targetPref && PREF_MAP[targetPref]) {
+				appTitle = PREF_MAP[targetPref][0] + " オープンデータ レイヤ";
+				sourceText = PREF_MAP[targetPref][0] + "BODIKオープンデータを参照";
+				appLink = `https://odcs.bodik.jp/${PREF_MAP[targetPref][1]}/`;
+			}
+			document.getElementById("appTitle").textContent = appTitle;
+
+			const sourceLink = document.getElementById("appSourceLink");
+			sourceLink.textContent = sourceText;
+			sourceLink.href = appLink;
+		}
+
+		function updateStatus(text, className) {
+			const statusEl = document.getElementById("status");
+			statusEl.innerText = text;
+			statusEl.className = className;
+		}
+
+		function clearShapefileLayer() {
+			if (!window.svgImage) return;
+			const parentG = window.svgImage.getElementById(
+				"shpGroup_" + window.layerID
+			);
+			if (parentG) {
+				while (parentG.firstChild) parentG.removeChild(parentG.firstChild);
+			}
+			// DOMを消去したあと、画面の再描画(リフレッシュ)を強制する
+			if (window.svgMap && typeof window.svgMap.refreshScreen === "function") {
+				window.svgMap.refreshScreen();
+			}
+		}
+
+		async function clearAllMapLayers() {
+			if (myCsvMapper)
+				await myCsvMapper.initCsv(
+					"緯度,経度,名称\n",
+					0,
+					1,
+					2,
+					DEFAULT_ICON,
+					null,
+					1
+				);
+			clearShapefileLayer();
+		}
+
+		window.cancelDownload = function () {
+			if (currentDownloadController) {
+				currentDownloadController.abort();
+				currentDownloadController = null;
+				updateStatus("ダウンロードを中止しました。", "warning");
+				document.getElementById("cancelBtn").style.display = "none";
+			}
+		};
+
+		function getShortHash(str) {
+			let hash = 5381;
+			for (let i = 0; i < str.length; i++)
+				hash = (hash << 5) + hash + str.charCodeAt(i);
+			return (hash >>> 0).toString(16).padStart(8, "0");
+		}
+
+		// ページネーションで全件 or 指定県のデータを取得
+		async function fetchBodikMetadata(start = 0) {
+			try {
+				const LIMIT = 1000;
+				let fq = "tags:位置情報";
+				if (targetPref && targetPref !== "others") {
+					fq = `organization:${targetPref}* AND tags:位置情報`;
+				}
+
+				const url = `${CKAN_API_BASE}package_search?fq=${fq}&rows=${LIMIT}&start=${start}`;
+				const proxyUrl = svgMap.getCORSURL(encodeURI(url));
+
+				const response = await fetch(proxyUrl);
+				if (!response.ok) throw new Error("HTTP " + response.status);
+				const data = await response.json();
+				if (!data.success) throw new Error("APIレスポンスエラー");
+
+				const totalCount = data.result.count;
+				if (start === 0) {
+					updateStatus(
+						`全 ${totalCount} 件のデータセットを読み込み中...`,
+						"loading"
+					);
+				}
+
+				fetchedDatasetList = fetchedDatasetList.concat(data.result.results);
+
+				if (fetchedDatasetList.length < totalCount) {
+					updateStatus(
+						`データを取得中... (${fetchedDatasetList.length} / ${totalCount}件)`,
+						"loading"
+					);
+					await fetchBodikMetadata(start + LIMIT);
+					return;
+				}
+
+				lawaDatasets = [];
+				fetchedDatasetList.forEach((pkg) => {
+					const orgId = pkg.organization ? pkg.organization.name : "";
+					let isOthers = false;
+					let prefCodeStr = null;
+
+					if (orgId && orgId.length === 6 && !isNaN(orgId)) {
+						prefCodeStr = orgId.substring(0, 2);
+					} else {
+						isOthers = true;
+					}
+
+					if (targetPref === "others" && !isOthers) return;
+					if (
+						targetPref &&
+						targetPref !== "others" &&
+						prefCodeStr !== targetPref
+					)
+						return;
+
+					const resources = pkg.resources.map((r) => {
+						let fmt = (r.format || "不明").toUpperCase();
+						const urlStr = (r.url || "").toLowerCase();
+						const nameStr = (r.name || r.title || "").toLowerCase();
+						const mimeStr = (r.mimetype || "").toLowerCase();
+
+						if (
+							urlStr.includes(".zip") ||
+							nameStr.includes(".zip") ||
+							mimeStr.includes("zip")
+						) {
+							fmt = "ZIP";
+						} else if (
+							urlStr.includes(".geojson") ||
+							nameStr.includes(".geojson") ||
+							mimeStr.includes("geojson") ||
+							urlStr.includes(".json")
+						) {
+							fmt = "GEOJSON";
+						} else if (
+							urlStr.includes(".csv") ||
+							nameStr.includes(".csv") ||
+							mimeStr.includes("csv")
+						) {
+							fmt = "CSV";
+						} else if (urlStr.includes(".xlsx") || nameStr.includes(".xlsx")) {
+							fmt = "XLSX";
+						} else if (urlStr.includes(".xls") || nameStr.includes(".xls")) {
+							fmt = "XLS";
+						}
+
+						return {
+							id: r.id,
+							name: r.name || r.title || "名称不明",
+							format: fmt,
+							url: r.url,
+							shortHash: getShortHash(r.url || r.id),
+						};
+					});
+
+					lawaDatasets.push({
+						id: pkg.id,
+						title: pkg.title,
+						detailUrl: `https://data.bodik.jp/dataset/${pkg.name}`,
+						notes: pkg.notes || "説明はありません。",
+						author: pkg.organization ? pkg.organization.title : "不明",
+						orgId: orgId,
+						updated: pkg.metadata_modified,
+						license: pkg.license_title || "不明",
+						shortHash: getShortHash(pkg.id),
+						availableResources: resources,
+					});
+				});
+
+				buildTreeUI();
+				document.getElementById("filterInput").disabled = false;
+				await applyHashSelection();
+			} catch (err) {
+				updateStatus("初期化エラー: 一覧の取得に失敗しました。", "error");
+				console.error(err);
+			}
+		}
+
+		function buildTreeUI() {
+			const container = document.getElementById("treeContainer");
+			let html = "";
+
+			if (targetPref) {
+				const tree = {};
+				lawaDatasets.forEach((ds) => {
+					if (!tree[ds.author]) tree[ds.author] = [];
+					tree[ds.author].push(ds);
+				});
+				Object.keys(tree)
+					.sort()
+					.forEach((org) => {
+						html += `<details class="org-node"><summary tabindex="0">🏢 ${org} (${tree[org].length})</summary>`;
+						tree[org].forEach((ds) => {
+							html += `<div class="dataset-item" data-id="${ds.id}" tabindex="0" onclick="uiSelectDataset('${ds.id}')">${ds.title}</div>`;
+						});
+						html += `</details>`;
+					});
+			} else {
+				const tree = {};
+				lawaDatasets.forEach((ds) => {
+					let prefName = "その他・広域組織";
+					if (ds.orgId && ds.orgId.length === 6 && !isNaN(ds.orgId)) {
+						const prefCode = ds.orgId.substring(0, 2);
+						if (PREF_MAP[prefCode]) prefName = PREF_MAP[prefCode][0];
+					}
+					if (!tree[prefName]) tree[prefName] = {};
+					if (!tree[prefName][ds.author]) tree[prefName][ds.author] = [];
+					tree[prefName][ds.author].push(ds);
+				});
+
+				Object.keys(tree)
+					.sort()
+					.forEach((pref) => {
+						let prefCount = 0;
+						Object.values(tree[pref]).forEach(
+							(arr) => (prefCount += arr.length)
+						);
+						html += `<details class="pref-node"><summary tabindex="0">🗾 ${pref} (${prefCount})</summary>`;
+
+						Object.keys(tree[pref])
+							.sort()
+							.forEach((org) => {
+								html += `<details class="org-node" style="margin-left: 14px;"><summary tabindex="0">🏢 ${org} (${tree[pref][org].length})</summary>`;
+								tree[pref][org].forEach((ds) => {
+									html += `<div class="dataset-item" data-id="${ds.id}" tabindex="0" onclick="uiSelectDataset('${ds.id}')">${ds.title}</div>`;
+								});
+								html += `</details>`;
+							});
+						html += `</details>`;
+					});
+			}
+
+			container.innerHTML =
+				html || '<div style="padding:5px;">データがありません</div>';
+			updateStatus(
+				`全 ${lawaDatasets.length} 件のデータセットが利用可能`,
+				"success"
+			);
+		}
+
+		function setupKeyboardNavigation() {
+			const container = document.getElementById("treeContainer");
+			container.addEventListener("keydown", function (e) {
+				const focusableItems = Array.from(
+					this.querySelectorAll("summary, .dataset-item")
+				).filter((el) => {
+					if (el.style.display === "none") return false;
+					let parent =
+						el.tagName === "SUMMARY"
+							? el.parentElement.parentElement.closest("details")
+							: el.closest("details");
+					while (parent) {
+						if (!parent.open || parent.style.display === "none") return false;
+						parent = parent.parentElement.closest("details");
+					}
+					return true;
+				});
+
+				if (focusableItems.length === 0) return;
+
+				const currentIndex = focusableItems.indexOf(document.activeElement);
+
+				if (e.key === "ArrowDown") {
+					e.preventDefault();
+					const nextIndex =
+						currentIndex < 0 ? 0 : (currentIndex + 1) % focusableItems.length;
+					focusableItems[nextIndex].focus();
+					focusableItems[nextIndex].scrollIntoView({ block: "nearest" });
+				} else if (e.key === "ArrowUp") {
+					e.preventDefault();
+					const prevIndex =
+						currentIndex <= 0 ? focusableItems.length - 1 : currentIndex - 1;
+					focusableItems[prevIndex].focus();
+					focusableItems[prevIndex].scrollIntoView({ block: "nearest" });
+				} else if (e.key === "ArrowRight") {
+					if (document.activeElement.tagName === "SUMMARY") {
+						document.activeElement.parentElement.open = true;
+						e.preventDefault();
+					}
+				} else if (e.key === "ArrowLeft") {
+					if (document.activeElement.tagName === "SUMMARY") {
+						if (document.activeElement.parentElement.open) {
+							document.activeElement.parentElement.open = false;
+						} else {
+							const parentDetails =
+								document.activeElement.parentElement.parentElement.closest(
+									"details"
+								);
+							if (parentDetails) {
+								const parentSummary = parentDetails.querySelector("summary");
+								if (parentSummary) {
+									parentSummary.focus();
+									parentSummary.scrollIntoView({ block: "nearest" });
+								}
+							}
+						}
+						e.preventDefault();
+					} else if (
+						document.activeElement.classList.contains("dataset-item")
+					) {
+						const parentDetails = document.activeElement.closest("details");
+						if (parentDetails) {
+							const parentSummary = parentDetails.querySelector("summary");
+							if (parentSummary) {
+								parentSummary.focus();
+								parentSummary.scrollIntoView({ block: "nearest" });
+							}
+						}
+						e.preventDefault();
+					}
+				} else if (e.key === "Enter") {
+					if (document.activeElement.classList.contains("dataset-item")) {
+						document.activeElement.click();
+						e.preventDefault();
+					}
+				}
+			});
+		}
+
+		function toggleAllTree(isOpen) {
+			document.querySelectorAll(".pref-node, .org-node").forEach((node) => {
+				if (node.style.display !== "none") node.open = isOpen;
+			});
+		}
+
+		function isHit(item, keywords) {
+			if (keywords.length === 0) return true;
+			const dsId = item.getAttribute("data-id");
+			const ds = lawaDatasets.find((d) => d.id === dsId);
+			if (!ds) return false;
+			const textToSearch = [ds.title, ds.author, ds.notes]
+				.join(" ")
+				.toLowerCase();
+			return keywords.every((k) => textToSearch.includes(k));
+		}
+
+		function renderFilteredList() {
+			const query = document
+				.getElementById("filterInput")
+				.value.trim()
+				.toLowerCase();
+			const keywords = query.split(/[\s ]+/).filter((k) => k !== "");
+			let hitCount = 0;
+
+			if (targetPref) {
+				document.querySelectorAll(".org-node").forEach((org) => {
+					let hasVisibleChild = false;
+					org.querySelectorAll(".dataset-item").forEach((item) => {
+						if (isHit(item, keywords)) {
+							item.style.display = "block";
+							hasVisibleChild = true;
+							hitCount++;
+						} else {
+							item.style.display = "none";
+						}
+					});
+					org.style.display = hasVisibleChild ? "block" : "none";
+					if (hasVisibleChild && query) org.open = true;
+				});
+			} else {
+				document.querySelectorAll(".pref-node").forEach((pref) => {
+					let prefVisibleChild = false;
+					pref.querySelectorAll(".org-node").forEach((org) => {
+						let orgVisibleChild = false;
+						org.querySelectorAll(".dataset-item").forEach((item) => {
+							if (isHit(item, keywords)) {
+								item.style.display = "block";
+								orgVisibleChild = true;
+								prefVisibleChild = true;
+								hitCount++;
+							} else {
+								item.style.display = "none";
+							}
+						});
+						org.style.display = orgVisibleChild ? "block" : "none";
+						if (orgVisibleChild && query) org.open = true;
+					});
+					pref.style.display = prefVisibleChild ? "block" : "none";
+					if (prefVisibleChild && query) pref.open = true;
+				});
+			}
+
+			if (keywords.length > 0)
+				updateStatus(`検索結果: ${hitCount} 件ヒット`, "filtered");
+			else
+				updateStatus(
+					`全 ${lawaDatasets.length} 件のデータセットが利用可能`,
+					"success"
+				);
+		}
+
+		async function uiSelectDataset(datasetId, autoScroll = false) {
+			if (activeDatasetId === datasetId) {
+				document
+					.querySelectorAll(".dataset-item")
+					.forEach((el) => el.classList.remove("active"));
+				activeDatasetId = null;
+				await handleDatasetSelection(null);
+				return;
+			}
+
+			document
+				.querySelectorAll(".dataset-item")
+				.forEach((el) => el.classList.remove("active"));
+			const targetEl = document.querySelector(
+				`.dataset-item[data-id="${datasetId}"]`
+			);
+			if (targetEl) {
+				targetEl.classList.add("active");
+				let parent = targetEl.closest("details");
+				while (parent) {
+					parent.open = true;
+					parent = parent.parentElement.closest("details");
+				}
+
+				if (autoScroll) {
+					setTimeout(() => {
+						targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+					}, 50);
+				}
+			}
+			activeDatasetId = datasetId;
+			await handleDatasetSelection(datasetId);
+		}
+
+		function updateHashProperty() {
+			if (!window.svgImageProps) return;
+
+			if (!activeDatasetId) {
+				window.svgImageProps.hash = targetPref ? `#pref=${targetPref}` : "";
+				return;
+			}
+
+			const ds = lawaDatasets.find((d) => d.id === activeDatasetId);
+			if (!ds) return;
+
+			let newHash = targetPref
+				? `pref=${targetPref}&dataset=${ds.shortHash}`
+				: `dataset=${ds.shortHash}`;
+			const resId = document.getElementById("resourceList").value;
+			if (resId) {
+				const res = ds.availableResources.find((r) => r.id === resId);
+				if (res) newHash += `-${res.shortHash}`;
+			}
+			window.svgImageProps.hash = "#" + newHash;
+		}
+
+		async function handleDatasetSelection(datasetId) {
+			if (currentDownloadController) {
+				currentDownloadController.abort();
+				currentDownloadController = null;
+				document.getElementById("cancelBtn").style.display = "none";
+			}
+
+			const resourceSelect = document.getElementById("resourceList");
+			const singleText = document.getElementById("singleResourceText");
+			const downloadBtn = document.getElementById("downloadBtn");
+			const subResourceContainer = document.getElementById(
+				"subResourceContainer"
+			);
+			const singleSubText = document.getElementById("singleSubResourceText");
+
+			if (!datasetId) {
+				resourceSelect.innerHTML =
+					'<option value="">-- ファイルを選択 --</option>';
+				resourceSelect.disabled = true;
+				resourceSelect.style.display = "block";
+				singleText.style.display = "none";
+				subResourceContainer.style.display = "none";
+				singleSubText.style.display = "none";
+				downloadBtn.disabled = true;
+				document.getElementById("notesArea").style.display = "none";
+				updateHashProperty();
+				await clearAllMapLayers();
+				return;
+			}
+
+			downloadBtn.disabled = false;
+			const dataset = lawaDatasets.find((d) => d.id === datasetId);
+			subResourceContainer.style.display = "none";
+			singleSubText.style.display = "none";
+			currentArchive = null;
+			currentSubResources = {};
+
+			updateNotesDisplay(dataset);
+			resourceSelect.innerHTML = "";
+
+			const validResources = dataset.availableResources.filter((r) =>
+				["CSV", "XLSX", "XLS", "EXCEL", "ZIP", "GEOJSON"].includes(r.format)
+			);
+
+			if (validResources.length === 0) {
+				resourceSelect.style.display = "block";
+				singleText.style.display = "none";
+				resourceSelect.innerHTML =
+					'<option value="">対応可能な形式(CSV/ZIP等)がありません</option>';
+				resourceSelect.disabled = true;
+				updateHashProperty();
+				updateStatus(
+					"このデータセットには展開可能なファイルがありません。",
+					"warning"
+				);
+				return;
+			} else if (validResources.length === 1) {
+				resourceSelect.style.display = "none";
+				singleText.style.display = "block";
+				const res = validResources[0];
+				singleText.textContent = `[${res.format}] ${res.name}`;
+				const option = document.createElement("option");
+				option.value = res.id;
+				resourceSelect.appendChild(option);
+				resourceSelect.value = res.id;
+			} else {
+				resourceSelect.style.display = "block";
+				singleText.style.display = "none";
+				resourceSelect.innerHTML =
+					'<option value="">-- 展開するファイルを選択 --</option>';
+				validResources.forEach((res) => {
+					const option = document.createElement("option");
+					option.value = res.id;
+					option.textContent = `[${res.format}] ${res.name}`;
+					resourceSelect.appendChild(option);
+				});
+				resourceSelect.disabled = false;
+			}
+
+			if (validResources.length > 0) {
+				resourceSelect.value = validResources[0].id;
+				await handleResourceChange("map");
+			}
+		}
+
+		// 日本の平面直角座標系(JGD2000)->緯度経度変換関数(これは共通ライブラリに移行すべき)
+		function rectangularToLatLon(x, y, zone) {
+			const zoneOrigins = {
+				1: [33.0, 129.5],
+				2: [33.0, 131.0],
+				3: [36.0, 132.16666666666666],
+				4: [33.0, 133.5],
+				5: [36.0, 134.33333333333334],
+				6: [36.0, 136.0],
+				7: [36.0, 137.16666666666666],
+				8: [36.0, 138.5],
+				9: [36.0, 139.83333333333334],
+				10: [40.0, 140.83333333333334],
+				11: [40.0, 140.25],
+				12: [44.0, 142.25],
+				13: [44.0, 144.25],
+				14: [26.0, 142.0],
+				15: [26.0, 127.5],
+				16: [26.0, 124.0],
+				17: [26.0, 131.0],
+				18: [20.0, 136.0],
+				19: [20.0, 154.0],
+			};
+			if (!zoneOrigins[zone]) throw new Error(`Invalid zone number: ${zone}`);
+
+			const [lat0Deg, lon0Deg] = zoneOrigins[zone];
+			const a = 6378137.0;
+			const rf = 298.257222101;
+			const f = 1 / rf;
+			const m0 = 0.9999;
+			const deg2rad = Math.PI / 180;
+			const rad2deg = 180 / Math.PI;
+
+			const phi0 = lat0Deg * deg2rad;
+			const lambda0 = lon0Deg * deg2rad;
+			const n = f / (2 - f);
+			const n2 = n * n;
+			const n3 = n2 * n;
+			const n4 = n3 * n;
+			const n5 = n4 * n;
+
+			const A_i = [
+				1 + n2 / 4 + n4 / 64,
+				-(3 / 2) * (n - n3 / 8 - n5 / 64),
+				(15 / 16) * (n2 - n4 / 4),
+				-(35 / 48) * (n3 - n5 / 5),
+				(315 / 512) * n4,
+			];
+
+			const beta_i = [
+				0,
+				(1 / 2) * n -
+					(2 / 3) * n2 +
+					(37 / 96) * n3 -
+					(1 / 360) * n4 -
+					(81 / 512) * n5,
+				(1 / 48) * n2 + (1 / 15) * n3 - (437 / 1440) * n4 + (46 / 105) * n5,
+				(17 / 480) * n3 - (37 / 840) * n4 - (209 / 4480) * n5,
+				(4397 / 161280) * n4 - (11 / 504) * n5,
+			];
+
+			const delta_i = [
+				0,
+				2 * n -
+					(2 / 3) * n2 -
+					2 * n3 +
+					(116 / 45) * n4 +
+					(26 / 45) * n5 -
+					(2854 / 675) * n5,
+				(7 / 3) * n2 - (8 / 5) * n3 - (227 / 45) * n4 + (2704 / 315) * n5,
+				(56 / 15) * n3 - (136 / 35) * n4 - (1262 / 105) * n5,
+				(4279 / 630) * n4 - (332 / 35) * n5,
+			];
+
+			const S0 =
+				((m0 * a) / (1 + n)) *
+				(A_i[0] * phi0 +
+					A_i[1] * Math.sin(2 * phi0) +
+					A_i[2] * Math.sin(4 * phi0) +
+					A_i[3] * Math.sin(6 * phi0) +
+					A_i[4] * Math.sin(8 * phi0));
+
+			const xi = (x + S0) / ((m0 * a) / (1 + n));
+			const eta = y / ((m0 * a) / (1 + n));
+			let xi_prime = xi;
+			let eta_prime = eta;
+
+			for (let j = 1; j <= 4; j++) {
+				xi_prime -= beta_i[j] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta);
+				eta_prime -= beta_i[j] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta);
+			}
+
+			const chi = Math.asin(Math.sin(xi_prime) / Math.cosh(eta_prime));
+			let phi = chi;
+			for (let j = 1; j <= 4; j++) {
+				phi += delta_i[j] * Math.sin(2 * j * chi);
+			}
+
+			const lambda =
+				lambda0 + Math.atan(Math.sinh(eta_prime) / Math.cos(xi_prime));
+			return { lat: phi * rad2deg, lon: lambda * rad2deg };
+		}
+
+		// GeoJSONツリーを再帰的に変換
+		function transformGeoJSON(geojson, zone) {
+			function convertPoint(coords) {
+				// GeoJSON の coordinates は [経度(X), 緯度(Y)]
+				// 平面直角座標の計算式は (X=北方向, Y=東方向) を求める
+				// したがって、x=coords[1], y=coords[0] となる
+				const res = rectangularToLatLon(coords[1], coords[0], zone);
+				coords[0] = res.lon;
+				coords[1] = res.lat;
+			}
+			function traverse(node) {
+				if (!node) return;
+				if (node.type === "FeatureCollection") node.features.forEach(traverse);
+				else if (node.type === "Feature") traverse(node.geometry);
+				else if (node.type === "Point") convertPoint(node.coordinates);
+				else if (node.type === "LineString" || node.type === "MultiPoint")
+					node.coordinates.forEach(convertPoint);
+				else if (node.type === "Polygon" || node.type === "MultiLineString")
+					node.coordinates.forEach((ring) => ring.forEach(convertPoint));
+				else if (node.type === "MultiPolygon")
+					node.coordinates.forEach((poly) =>
+						poly.forEach((ring) => ring.forEach(convertPoint))
+					);
+			}
+			traverse(geojson);
+		}
+
+		async function handleResourceChange(action = "map") {
+			if (currentDownloadController) {
+				currentDownloadController.abort();
+				currentDownloadController = null;
+				document.getElementById("cancelBtn").style.display = "none";
+			}
+
+			const datasetId = activeDatasetId;
+			const resourceId = document.getElementById("resourceList").value;
+			const downloadBtn = document.getElementById("downloadBtn");
+			const subResourceContainer = document.getElementById(
+				"subResourceContainer"
+			);
+			const subResourceSelect = document.getElementById("subResourceList");
+			const singleSubText = document.getElementById("singleSubResourceText");
+
+			if (!datasetId || !resourceId) {
+				downloadBtn.disabled = true;
+				subResourceContainer.style.display = "none";
+				singleSubText.style.display = "none";
+				await clearAllMapLayers();
+				updateStatus("ファイルを選択してください。", "success");
+				return;
+			}
+
+			downloadBtn.disabled = false;
+			subResourceContainer.style.display = "none";
+			singleSubText.style.display = "none";
+			currentArchive = null;
+			currentSubResources = {};
+
+			const dataset = lawaDatasets.find((d) => d.id === datasetId);
+			const resource = dataset.availableResources.find(
+				(r) => r.id === resourceId
+			);
+
+			updateHashProperty();
+
+			try {
+				const isCsv = resource.format === "CSV";
+				const isExcel = ["XLSX", "XLS", "EXCEL"].includes(resource.format);
+				const isZip = resource.format === "ZIP";
+				const isGeoJson = resource.format === "GEOJSON";
+
+				if (isZip && action === "download") {
+					window.open(resource.url, "_blank");
+					return;
+				}
+
+				await clearAllMapLayers();
+
+				// 全形式共通：プログレス表示付きのダウンロード処理
+				currentDownloadController = new AbortController();
+				const signal = currentDownloadController.signal;
+				document.getElementById("cancelBtn").style.display = "block";
+
+				updateStatus(`[${resource.format}] 接続中...`, "loading");
+				const response = await fetch(svgMap.getCORSURL(resource.url), {
+					signal,
+				});
+				if (!response.ok) throw new Error("HTTP " + response.status);
+
+				const contentLength = response.headers.get("content-length");
+				const total = contentLength ? parseInt(contentLength, 10) : 0;
+				let loaded = 0;
+				const reader = response.body.getReader();
+				const chunks = [];
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					chunks.push(value);
+					loaded += value.length;
+
+					const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+					if (total) {
+						const totalMB = (total / (1024 * 1024)).toFixed(1);
+						updateStatus(
+							`[${resource.format}] ダウンロード中... ${loadedMB}MB / ${totalMB}MB (${Math.round((loaded / total) * 100)}%)`,
+							"loading"
+						);
+					} else {
+						updateStatus(
+							`[${resource.format}] ダウンロード中... ${loadedMB}MB 取得済み`,
+							"loading"
+						);
+					}
+				}
+
+				const fileData = new Uint8Array(loaded);
+				let position = 0;
+				for (let chunk of chunks) {
+					fileData.set(chunk, position);
+					position += chunk.length;
+				}
+				const arrayBuffer = fileData.buffer;
+
+				document.getElementById("cancelBtn").style.display = "none";
+				currentDownloadController = null;
+
+				// ダウンロード完了後の各形式に応じた展開・解析処理
+				if (isZip) {
+					updateStatus(`ZIPを展開中...`, "loading");
+					const archive = await window.unzip(arrayBuffer);
+					currentArchive = archive;
+
+					const fileSets = {};
+
+					async function extractFilesFromArchive(arch, prefix = "") {
+						for (const entry of Object.values(arch.entries)) {
+							if (entry.isDirectory) continue;
+							let safeName = entry.name;
+							if (entry.nameBytes) {
+								try {
+									safeName = new TextDecoder("utf-8", { fatal: true }).decode(
+										entry.nameBytes
+									);
+								} catch (e) {
+									safeName = new TextDecoder("shift_jis").decode(
+										entry.nameBytes
+									);
+								}
+							}
+
+							const fullPath = prefix + safeName;
+
+							if (safeName.toLowerCase().endsWith(".zip")) {
+								updateStatus(`入れ子ZIPを展開中... (${safeName})`, "loading");
+								try {
+									const nestedBuffer = await entry.arrayBuffer();
+									const nestedArchive = await window.unzip(nestedBuffer);
+									await extractFilesFromArchive(nestedArchive, fullPath + "/");
+								} catch (err) {
+									console.warn(`入れ子ZIP展開失敗: ${fullPath}`, err);
+								}
+								continue;
+							}
+
+							const match = safeName.match(/^(.*)\.(shp|dbf|shx|pbf|prj)$/i);
+							if (match) {
+								const basePath = prefix + match[1];
+								const ext = match[2].toLowerCase();
+								if (!fileSets[basePath]) fileSets[basePath] = {};
+								fileSets[basePath][ext] = entry;
+							}
+
+							const geoMatch = safeName.match(/^(.*)\.(geojson|json)$/i);
+							if (geoMatch) {
+								if (!fileSets[fullPath]) fileSets[fullPath] = {};
+								fileSets[fullPath]["geojson"] = entry;
+							}
+
+							const tabMatch = safeName.match(/^(.*)\.(csv|xlsx|xls)$/i);
+							if (tabMatch) {
+								if (!fileSets[fullPath]) fileSets[fullPath] = {};
+								fileSets[fullPath]["tabular"] = entry;
+								fileSets[fullPath]["ext"] = tabMatch[2].toLowerCase();
+							}
+						}
+					}
+
+					await extractFilesFromArchive(archive);
+
+					subResourceSelect.innerHTML = "";
+					const subResKeys = Object.keys(fileSets).filter(
+						(k) =>
+							fileSets[k].shp ||
+							fileSets[k].pbf ||
+							fileSets[k].tabular ||
+							fileSets[k].geojson
+					);
+					subResKeys.forEach((basePath) => {
+						currentSubResources[basePath] = fileSets[basePath];
+					});
+
+					if (subResKeys.length === 1) {
+						subResourceSelect.style.display = "none";
+						singleSubText.style.display = "block";
+						const basePath = subResKeys[0];
+						const set = currentSubResources[basePath];
+
+						let typeLabel = set.shp
+							? "Shapefile"
+							: set.pbf
+								? "PBF"
+								: set.geojson
+									? "GeoJSON"
+									: set.ext.toUpperCase();
+						singleSubText.textContent = `[${typeLabel}] ${basePath}`;
+
+						const option = document.createElement("option");
+						option.value = basePath;
+						subResourceSelect.appendChild(option);
+						subResourceSelect.value = basePath;
+
+						subResourceContainer.style.display = "block";
+						updateStatus(
+							`ZIP内に1件のデータを発見しました。自動展開します。`,
+							"loading"
+						);
+						await handleSubResourceChange();
+					} else if (subResKeys.length > 1) {
+						subResourceSelect.style.display = "block";
+						singleSubText.style.display = "none";
+						subResourceSelect.innerHTML =
+							'<option value="">-- ZIP内のデータを選択 --</option>';
+						subResKeys.forEach((basePath) => {
+							const set = currentSubResources[basePath];
+							const option = document.createElement("option");
+							let typeLabel = set.shp
+								? "Shapefile"
+								: set.pbf
+									? "PBF"
+									: set.geojson
+										? "GeoJSON"
+										: set.ext.toUpperCase();
+							option.value = basePath;
+							option.textContent = `[${typeLabel}] ${basePath}`;
+							subResourceSelect.appendChild(option);
+						});
+						subResourceContainer.style.display = "block";
+						updateStatus(
+							`ZIP内に ${subResKeys.length} 件のデータを発見。選択してください。`,
+							"success"
+						);
+					} else {
+						throw new Error(
+							"ZIP内に対応するデータ(Shapefile/GeoJSON/CSV/Excel等)が見つかりませんでした。"
+						);
+					}
+				} else if (isGeoJson) {
+					updateStatus(`[GEOJSON] データを解析中...`, "loading");
+					const geoJsonStr = new TextDecoder("utf-8").decode(arrayBuffer);
+					const geojson = JSON.parse(geoJsonStr);
+					await renderGeoJsonToMap(geojson, dataset.title);
+				} else {
+					updateStatus(`[${resource.format}] データを解析中...`, "loading");
+					let rawCsvText = "";
+					if (isExcel) {
+						const workbook = XLSX.read(arrayBuffer, { type: "array" });
+						rawCsvText = XLSX.utils.sheet_to_csv(
+							workbook.Sheets[workbook.SheetNames[0]]
+						);
+					} else {
+						rawCsvText = autoDecodeBuffer(arrayBuffer);
+					}
+
+					const cleanResult = filterAndNormalizeToLawa(
+						rawCsvText,
+						dataset.title
+					);
+
+					if (action === "map") {
+						await myCsvMapper.initCsv(
+							cleanResult.csvTextForMap,
+							cleanResult.latCol,
+							cleanResult.lngCol,
+							cleanResult.titleCol,
+							DEFAULT_ICON,
+							null,
+							1
+						);
+						if (cleanResult.swapped)
+							updateStatus(
+								`補正可視化完了 (経緯度逆転を自動スワップしました)`,
+								"warning"
+							);
+						else
+							updateStatus(
+								`地図に展開完了 (${cleanResult.validCount}件)`,
+								"success"
+							);
+					} else if (action === "download") {
+						triggerCsvDownload(cleanResult.consoleCsv, dataset.title);
+						updateStatus(`正規化CSVのダウンロードが完了しました。`, "success");
+					}
+				}
+			} catch (e) {
+				if (e.name === "AbortError") return;
+				document.getElementById("cancelBtn").style.display = "none";
+				currentDownloadController = null;
+				updateStatus("エラー: " + e.message, "error");
+				console.error(e);
+				await clearAllMapLayers();
+			}
+		}
+
+		async function handleSubResourceChange() {
+			const basePath = document.getElementById("subResourceList").value;
+			if (!basePath || !currentSubResources[basePath]) return;
+			const set = currentSubResources[basePath];
+
+			try {
+				const displayName = basePath.split("/").pop();
+				updateStatus(`[${displayName}] データを展開・解析中...`, "loading");
+
+				await clearAllMapLayers();
+
+				if (set.shp) {
+					const shpAB = await set.shp.arrayBuffer();
+					let dbfAB = null;
+					if (set.dbf) dbfAB = await set.dbf.arrayBuffer();
+
+					updateStatus(`ShapefileをGeoJSONに変換中...`, "loading");
+					const geojson = await window.shapefile.read(shpAB, dbfAB, {
+						encoding: "shift_jis",
+					});
+
+					let targetZone = null;
+					if (set.prj) {
+						const prjStr = new TextDecoder("shift_jis").decode(
+							await set.prj.arrayBuffer()
+						);
+						const m = prjStr.match(/(?:Japan_Zone_|平面直角座標系.*?第)(\d+)/i);
+						if (m) targetZone = parseInt(m[1], 10);
+					}
+
+					await renderGeoJsonToMap(geojson, displayName, targetZone);
+				} else if (set.geojson) {
+					updateStatus(`ZIP内のGeoJSONを展開・解析中...`, "loading");
+					const geoJsonStr = new TextDecoder("utf-8").decode(
+						await set.geojson.arrayBuffer()
+					);
+					const geojson = JSON.parse(geoJsonStr);
+					await renderGeoJsonToMap(geojson, displayName);
+				} else if (set.tabular) {
+					const tabularAB = await set.tabular.arrayBuffer();
+					let rawCsvText = "";
+					const isExcel = ["xlsx", "xls"].includes(set.ext);
+
+					if (isExcel) {
+						const workbook = XLSX.read(tabularAB, { type: "array" });
+						rawCsvText = XLSX.utils.sheet_to_csv(
+							workbook.Sheets[workbook.SheetNames[0]]
+						);
+					} else {
+						rawCsvText = autoDecodeBuffer(tabularAB);
+					}
+
+					const cleanResult = filterAndNormalizeToLawa(rawCsvText, displayName);
+
+					await myCsvMapper.initCsv(
+						cleanResult.csvTextForMap,
+						cleanResult.latCol,
+						cleanResult.lngCol,
+						cleanResult.titleCol,
+						DEFAULT_ICON,
+						null,
+						1
+					);
+
+					if (cleanResult.swapped) {
+						updateStatus(
+							`地図に展開完了 (経緯度逆転スワップ: ${cleanResult.validCount}件)`,
+							"warning"
+						);
+					} else {
+						updateStatus(
+							`地図に展開完了 (${displayName} / ${cleanResult.validCount}件)`,
+							"success"
+						);
+					}
+				}
+			} catch (e) {
+				updateStatus("ZIP内データ解析エラー: " + e.message, "error");
+				console.error(e);
+			}
+		}
+
+		function updateNotesDisplay(dataset) {
+			const notesArea = document.getElementById("notesArea");
+			const metaContent = document.getElementById("metaContent");
+			const notesContent = document.getElementById("notesContent");
+			if (!dataset) {
+				notesArea.style.display = "none";
+				return;
+			}
+
+			let updated = "不明";
+			if (dataset.updated) {
+				const d = new Date(dataset.updated);
+				if (!isNaN(d.getTime()))
+					updated = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+			}
+
+			const formats =
+				dataset.availableResources
+					.map((r) => r.format)
+					.filter((v, i, a) => a.indexOf(v) === i)
+					.join(", ") || "なし";
+
+			metaContent.innerHTML = `
+		<table class="meta-table">
+			<tr><th>データ形式</th><td><strong style="color:#d9480f;">${formats}</strong></td><th>出典元組織</th><td>${dataset.author}</td></tr>
+			<tr><th>最終更新日</th><td>${updated}</td><th>ライセンス</th><td>${dataset.license}</td></tr>
+			<tr><th>詳細元URL</th><td colspan="3"><a href="${dataset.detailUrl}" target="_blank">ページを開く</a></td></tr>
+		</table>
+	`;
+			notesContent.textContent = dataset.notes;
+			notesArea.style.display = "block";
+		}
+
+		function autoDecodeBuffer(buffer) {
+			try {
+				return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+			} catch (e) {
+				return new TextDecoder("shift_jis").decode(buffer);
+			}
+		}
+
+		function triggerCsvDownload(csvText, fileName) {
+			const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+			const blob = new Blob([bom, csvText], {
+				type: "text/csv;charset=utf-8;",
+			});
+			const link = document.createElement("a");
+			link.setAttribute("href", URL.createObjectURL(blob));
+			link.setAttribute("download", fileName + "_normalized.csv");
+			link.style.visibility = "hidden";
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}
+
+		function rfcParseCSV(text) {
+			const rows = [];
+			let row = [];
+			let cell = "";
+			let inQuotes = false;
+			text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+			for (let i = 0; i < text.length; i++) {
+				const char = text[i];
+				const nextChar = text[i + 1];
+				if (char === '"') {
+					if (inQuotes && nextChar === '"') {
+						cell += '"';
+						i++;
+					} else inQuotes = !inQuotes;
+				} else if (char === "," && !inQuotes) {
+					row.push(cell);
+					cell = "";
+				} else if (char === "\n" && !inQuotes) {
+					row.push(cell);
+					rows.push(row);
+					row = [];
+					cell = "";
+				} else cell += char;
+			}
+			if (cell !== "" || row.length > 0) {
+				row.push(cell);
+				rows.push(row);
+			}
+			return rows;
+		}
+
+		function filterAndNormalizeToLawa(csvText, datasetTitle) {
+			let rows = rfcParseCSV(csvText).filter(
+				(row) => row.length > 0 && row.join("").trim() !== ""
+			);
+			if (rows.length === 0) throw new Error("パース結果が空です。");
+
+			let headerRowIdx = rows.findIndex(
+				(r) => r[0] && !String(r[0]).trim().startsWith("#")
+			);
+			if (headerRowIdx === -1) headerRowIdx = 0;
+
+			let headers = rows[headerRowIdx].map((h) => (h ? String(h).trim() : ""));
+			let expectedColsCount = headers.length;
+
+			let latCol = headers.findIndex((h) => {
+				if (!h) return false;
+				const hl = h.toLowerCase().trim();
+				return (
+					hl === "y" ||
+					hl === "ｙ" ||
+					["緯度", "latitude", "lat", "y座標", "y軸", "ｙ座標", "ｙ軸"].some(
+						(k) => hl.includes(k)
+					)
+				);
+			});
+
+			let lngCol = headers.findIndex((h) => {
+				if (!h) return false;
+				const hl = h.toLowerCase().trim();
+				return (
+					hl === "x" ||
+					hl === "ｘ" ||
+					[
+						"経度",
+						"longitude",
+						"lon",
+						"lng",
+						"x座標",
+						"x軸",
+						"ｘ座標",
+						"ｘ軸",
+					].some((k) => hl.includes(k))
+				);
+			});
+
+			let titleCol = headers.findIndex(
+				(h) =>
+					h &&
+					["名称", "名前", "施設名", "店舗名", "title", "name"].includes(
+						h.trim()
+					)
+			);
+			if (titleCol === -1) {
+				titleCol = headers.findIndex((h) => {
+					if (!h) return false;
+					const hl = h.toLowerCase().trim();
+					return (
+						["名称", "施設", "名", "title", "name", "店舗"].some((k) =>
+							hl.includes(k)
+						) &&
+						!hl.includes("団体") &&
+						!hl.includes("都道府県") &&
+						!hl.includes("市区町村") &&
+						!hl.includes("コード")
+					);
+				});
+			}
+
+			if (latCol === -1 || lngCol === -1) {
+				const maxCols = Math.max(...rows.map((r) => r.length));
+				let latCandidate = -1;
+				let lngCandidate = -1;
+
+				for (let c = 0; c < maxCols; c++) {
+					let validLat = 0,
+						validLng = 0,
+						invalidCount = 0;
+					for (let r = headerRowIdx + 1; r < rows.length; r++) {
+						if (
+							rows[r].length === 0 ||
+							(rows[r][0] && String(rows[r][0]).startsWith("#"))
+						)
+							continue;
+						const val = rows[r][c];
+						if (val === undefined || val === null) continue;
+						const strVal = String(val).trim();
+						if (strVal === "") continue;
+						const num = Number(strVal);
+						if (isNaN(num)) {
+							invalidCount++;
+							continue;
+						}
+						if (num > 20 && num <= 50) validLat++;
+						else if (num > 100 && num <= 160) validLng++;
+						else invalidCount++;
+					}
+					const total = validLat + validLng + invalidCount;
+					if (total > 0) {
+						if (validLat > 0 && validLat / total >= 0.8) latCandidate = c;
+						if (validLng > 0 && validLng / total >= 0.8) lngCandidate = c;
+					}
+				}
+
+				if (latCandidate !== -1 && lngCandidate !== -1) {
+					const newHeader = [];
+					for (let c = 0; c < maxCols; c++) {
+						if (c === latCandidate) newHeader.push("緯度");
+						else if (c === lngCandidate) newHeader.push("経度");
+						else newHeader.push(`prop${c}`);
+					}
+					let guessedTitle = -1;
+					for (let c = 0; c < maxCols; c++) {
+						if (
+							c !== latCandidate &&
+							c !== lngCandidate &&
+							rows[headerRowIdx][c] &&
+							isNaN(parseFloat(rows[headerRowIdx][c]))
+						) {
+							guessedTitle = c;
+							break;
+						}
+					}
+					if (guessedTitle !== -1) newHeader[guessedTitle] = "名称";
+					rows.splice(headerRowIdx, 0, newHeader);
+					headers = newHeader;
+					expectedColsCount = headers.length;
+					latCol = latCandidate;
+					lngCol = lngCandidate;
+					titleCol = guessedTitle !== -1 ? guessedTitle : 0;
+				} else
+					throw new Error(
+						"緯度または経度カラムを特定できませんでした。(値範囲からの推測も失敗)"
+					);
+			}
+
+			if (titleCol === -1) titleCol = 0;
+			let swapped = false;
+			let firstDataRow = rows.find(
+				(r, idx) =>
+					idx > headerRowIdx &&
+					r.length === expectedColsCount &&
+					!String(r[0]).trim().startsWith("#")
+			);
+
+			if (firstDataRow && latCol !== -1 && lngCol !== -1) {
+				const testLat = parseFloat(firstDataRow[latCol]);
+				const testLng = parseFloat(firstDataRow[lngCol]);
+				if (!isNaN(testLat) && !isNaN(testLng) && testLat > testLng) {
+					let temp = latCol;
+					latCol = lngCol;
+					lngCol = temp;
+					headers[latCol] = "緯度";
+					headers[lngCol] = "経度";
+					swapped = true;
+				}
+			}
+
+			const cleanCell = (cell) => {
+				if (cell === undefined || cell === null) return "";
+				return String(cell)
+					.replace(/"/g, "”")
+					.replace(/,/g, ";")
+					.replace(/[\r\n]+/g, " ")
+					.trim();
+			};
+
+			const cleanRows = [headers.map(cleanCell).join(",")];
+			for (let i = 0; i < rows.length; i++) {
+				if (i === headerRowIdx) continue;
+				const cols = rows[i];
+				if (cols[0] && String(cols[0]).trim().startsWith("#")) continue;
+				if (cols.length > expectedColsCount) cols.length = expectedColsCount;
+				if (latCol !== -1 && lngCol !== -1) {
+					const lat = cols[latCol];
+					const lng = cols[lngCol];
+					if (!lat || !lng || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng)))
+						continue;
+				}
+				cleanRows.push(cols.map(cleanCell).join(","));
+			}
+
+			const csvTextForMap = cleanRows.join("\n");
+			const consoleCsv =
+				`[情報] 緯度カラム index: ${latCol}, 経度カラム index: ${lngCol}, タイトルカラム index: ${titleCol}\n` +
+				csvTextForMap;
+			return {
+				consoleCsv,
+				csvTextForMap,
+				latCol,
+				lngCol,
+				titleCol,
+				swapped,
+				validCount: cleanRows.length - 1,
+			};
+		}
+
+		async function applyHashSelection() {
+			if (targetDatasetHash) {
+				const targetDataset = lawaDatasets.find(
+					(d) => d.shortHash === targetDatasetHash
+				);
+				if (targetDataset) {
+					// ハッシュ読み込み時のみ自動スクロールを有効にする
+					await uiSelectDataset(targetDataset.id, true);
+					if (targetResourceHash) {
+						const targetRes = targetDataset.availableResources.find(
+							(r) => r.shortHash === targetResourceHash
+						);
+						if (targetRes) {
+							const resSelect = document.getElementById("resourceList");
+							if (resSelect && !resSelect.disabled) {
+								resSelect.value = targetRes.id;
+								await handleResourceChange("map");
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/**
+		 * GeoJSON全体のbboxを評価し、画面上サイズに応じたLOD代替SVG要素を
+		 * 対象svgImageドキュメントに直接追加する。
+		 *
+		 * Note: 今後、この機能はフレームワークのdrawGeoJsonに内包されると良いと思います
+		 *
+		 * 画面でのbbox対角サイズ:
+		 *   100px超    : 代替表示なし(呼び出し側が元データをそのまま描画)
+		 *   10〜100px  : bbox矩形のpath(fill="none", 太線)
+		 *   10px未満   : bbox中心のuse(#p0)
+		 * → いずれのズームでも代替物が残るよう、path/use に
+		 *   visibleMinZoom/visibleMaxZoom(%)を付与して設置する。
+		 *
+		 * @param {Object} svgMap      SvgMapインスタンス (Geo2SVG使用)
+		 * @param {Document} svgDoc      対象レイヤーのsvgImageドキュメント
+		 * @param {Object} layerCRS      対象レイヤーのCRS(svgImagesProps[layerId].CRS)
+		 * @param {Object} geoJson      FeatureCollection等
+		 * @param {Object} options
+		 *   options.targetGroup  : SVGElement またはそのid。省略時は documentElement 直下
+		 *   options.currentZoom  : 現在の実効ズーム (inZoomRangeの zoom*c2rScale と同単位)
+		 *   options.geoSizePerPx : 現在ズームでの1pxあたり地理度[deg] (viewBox幅/画面幅)
+		 *   options.pointPxThreshold (def:10), options.boxPxThreshold (def:200)
+		 *   options.rectStyle    : {stroke:"#f00", strokeWidth:2} 矩形の線スタイル
+		 *   options.pointIcon    : "#p0" 等 (def:"#p0")
+		 * @returns {Element|null} 追加した親g要素。座標なし/判定不要なら null
+		 */
+		function drawGeoJsonLodAssist(svgMap, svgDoc, layerCRS, geoJson, options) {
+			var opt = options || {};
+			var pointPx = opt.pointPxThreshold || 10;
+			var boxPx = opt.boxPxThreshold || 200;
+			var icon = opt.pointIcon || "#p0";
+			var style = Object.assign(
+				{ stroke: "#f00", strokeWidth: 2 },
+				opt.rectStyle
+			);
+
+			// FeatureCollection全体のbbox (全geometry再帰走査)
+			var bbox = { minX: 1e30, minY: 1e30, maxX: -1e30, maxY: -1e30 };
+			function scanCoords(cd) {
+				if (typeof cd[0] === "number") {
+					if (cd[0] < bbox.minX) bbox.minX = cd[0];
+					if (cd[0] > bbox.maxX) bbox.maxX = cd[0];
+					if (cd[1] < bbox.minY) bbox.minY = cd[1];
+					if (cd[1] > bbox.maxY) bbox.maxY = cd[1];
+				} else for (var s of cd) scanCoords(s);
+			}
+			function scan(g) {
+				if (!g) return;
+				if (g.type === "FeatureCollection") for (var f of g.features) scan(f);
+				else if (g.type === "Feature") scan(g.geometry);
+				else if (g.type === "GeometryCollection")
+					for (var gg of g.geometries) scan(gg);
+				else if (g.coordinates) scanCoords(g.coordinates);
+			}
+			scan(geoJson);
+			if (bbox.minX > bbox.maxX) return null;
+
+			var sb0 = svgMap.Geo2SVG(bbox.minY, bbox.minX, layerCRS);
+			var sb1 = svgMap.Geo2SVG(bbox.maxY, bbox.maxX, layerCRS);
+			var diagSvg = Math.hypot(sb0.x - sb1.x, sb0.y - sb1.y);
+
+			// 境界ズームの逆算 (svgmapjsの仕様により属性は百分率)
+			var diagDeg = Math.hypot(bbox.maxX - bbox.minX, bbox.maxY - bbox.minY);
+			var svgPxPerGeoDeg = diagSvg / diagDeg;
+			var bboxSvgPx = diagDeg * svgPxPerGeoDeg;
+
+			var zBox = (100 * boxPx) / bboxSvgPx;
+			var zPt = (100 * pointPx) / bboxSvgPx;
+			console.log(
+				"BBOX:",
+				bbox,
+				" diagDeg:",
+				diagDeg,
+				" zBox:",
+				zBox,
+				" zPt:",
+				zPt,
+				" diagSvg:",
+				diagSvg,
+				" diagSvg/diagDeg:",
+				diagSvg / diagDeg
+			);
+
+			// 出力先グループ決定
+			var parent = svgDoc.documentElement;
+			if (opt.targetGroup) {
+				parent =
+					typeof opt.targetGroup === "string"
+						? svgDoc.getElementById(opt.targetGroup)
+						: opt.targetGroup;
+				if (!parent) parent = svgDoc.documentElement;
+			}
+
+			var nssvg = svgDoc.documentElement.namespaceURI;
+			var g = svgDoc.createElementNS(nssvg, "g");
+			parent.appendChild(g);
+
+			// 矩形path (10〜100px域): bbox4隅をGeo2SVGでSVG座標化
+			var c = [
+				[bbox.minX, bbox.minY],
+				[bbox.maxX, bbox.minY],
+				[bbox.maxX, bbox.maxY],
+				[bbox.minX, bbox.maxY],
+				[bbox.minX, bbox.minY],
+			];
+			var d = "";
+			for (var i = 0; i < c.length; i++) {
+				var p = svgMap.Geo2SVG(c[i][1], c[i][0], layerCRS);
+				d += (i === 0 ? "M" : "") + p.x + "," + p.y + " ";
+			}
+			var path = svgDoc.createElementNS(nssvg, "path");
+			path.setAttribute("d", d);
+			path.setAttribute("fill", "none");
+			path.setAttribute("stroke", style.stroke);
+			path.setAttribute("stroke-width", style.strokeWidth);
+			path.setAttribute("vector-effect", "non-scaling-stroke"); // ズームに追従させない太線
+			path.setAttribute("visibleMinZoom", zPt);
+			path.setAttribute("visibleMaxZoom", zBox);
+			g.appendChild(path);
+
+			// 代表ポイントuse (<10px域): bbox中心にref(svg) transform
+			var cp = svgMap.Geo2SVG(
+				(bbox.minY + bbox.maxY) / 2,
+				(bbox.minX + bbox.maxX) / 2,
+				layerCRS
+			);
+			var use = svgDoc.createElementNS(nssvg, "use");
+			use.setAttribute("transform", "ref(svg," + cp.x + "," + cp.y + ")");
+			use.setAttribute("xlink:href", icon);
+			use.setAttribute("visibleMaxZoom", zPt);
+			g.appendChild(use);
+
+			return g;
+		}
+
+		// 共通描画関数
+		async function renderGeoJsonToMap(geojson, displayName, targetZone = null) {
+			let requiresTransform = false;
+			let sampleCoords = [];
+			function getSamples(node) {
+				if (sampleCoords.length >= 10 || !node) return;
+				if (node.type === "FeatureCollection")
+					node.features.forEach(getSamples);
+				else if (node.type === "Feature") getSamples(node.geometry);
+				else if (node.type === "Point") sampleCoords.push(node.coordinates);
+				else if (node.type === "LineString" || node.type === "MultiPoint")
+					sampleCoords.push(...node.coordinates.slice(0, 3));
+				else if (node.type === "Polygon")
+					sampleCoords.push(...node.coordinates[0].slice(0, 3));
+			}
+			getSamples(geojson);
+
+			if (sampleCoords.length > 0) {
+				const sample = sampleCoords[0];
+				if (
+					sample[0] < 100 ||
+					sample[0] > 160 ||
+					sample[1] < 20 ||
+					sample[1] > 60
+				) {
+					requiresTransform = true;
+				}
+			}
+
+			if (requiresTransform) {
+				if (!targetZone) {
+					const dataset = lawaDatasets.find((d) => d.id === activeDatasetId);
+					if (dataset && dataset.orgId && dataset.orgId.length === 6) {
+						const prefCode = dataset.orgId.substring(0, 2);
+						if (PREF_TO_ZONE[prefCode]) {
+							targetZone = PREF_TO_ZONE[prefCode];
+							console.log(
+								`[座標推測] 自治体コード(${prefCode})より第${targetZone}系を適用`
+							);
+						}
+					}
+				}
+				if (targetZone) {
+					updateStatus(
+						`平面直角座標系(第${targetZone}系)を検出。緯度経度に自動変換中...`,
+						"loading"
+					);
+					transformGeoJSON(geojson, targetZone);
+				} else {
+					updateStatus(
+						`座標系が特定できません。描画がずれる可能性があります。`,
+						"warning"
+					);
+				}
+			}
+
+			updateStatus(`地図に描画しています...`, "loading");
+
+			let parentG = window.svgImage.getElementById(
+				"shpGroup_" + window.layerID
+			);
+			if (!parentG) {
+				parentG = window.svgImage.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"g"
+				);
+				parentG.setAttribute("id", "shpGroup_" + window.layerID);
+				window.svgImage.documentElement.appendChild(parentG);
+			} else {
+				while (parentG.firstChild) parentG.removeChild(parentG.firstChild);
+			}
+
+			let schema = [];
+			let titleKey = "名称";
+			if (geojson.features && geojson.features.length > 0) {
+				schema = Object.keys(geojson.features[0].properties || {});
+				window.svgImage.documentElement.setAttribute(
+					"property",
+					schema.join(",")
+				);
+
+				let match = schema.find((k) =>
+					["名称", "名前", "施設名", "店舗名", "title", "name"].includes(k)
+				);
+				if (!match) {
+					match = schema.find((k) => {
+						const hl = k.toLowerCase();
+						return (
+							["名称", "施設", "名", "title", "name", "店舗"].some((word) =>
+								hl.includes(word)
+							) &&
+							!hl.includes("団体") &&
+							!hl.includes("都道府県") &&
+							!hl.includes("市区町村")
+						);
+					});
+				}
+				if (match) titleKey = match;
+				else if (schema.length > 0) titleKey = schema[0];
+
+				// 以下のスタイリングやUXメタデータ付与も、今後フレームワークのdrawGeoJsonで可能にすると良いと思います
+				geojson.features.forEach((f) => {
+					if (!f.properties) f.properties = {};
+					f.properties["stroke"] = "#0000ff";
+					f.properties["stroke-width"] = 0.5;
+
+					// drawGeoJson API仕様に則り、個別のタイトルを properties.title に設定する
+					if (titleKey && f.properties[titleKey]) {
+						f.properties["title"] = f.properties[titleKey];
+					}
+				});
+			}
+
+			if (
+				window.svgMapGIStool &&
+				typeof window.svgMapGIStool.drawGeoJson === "function"
+			) {
+				// 第7引数(poiTitle)は固定文字列になってしまうため null を渡し、properties.title に任せる
+				window.svgMapGIStool.drawGeoJson(
+					geojson,
+					window.layerID,
+					"#0056b3",
+					1.5,
+					"rgba(0, 36, 255, 0.5)",
+					DEFAULT_ICON,
+					null,
+					null,
+					parentG,
+					schema
+				);
+
+				try {
+					const layerCRS = window.svgImageProps
+						? window.svgImageProps.CRS
+						: null;
+					const currentZoom = window.svgMap.zoom || 1;
+					let geoSizePerPx = 0.0001;
+					if (window.svgMap.getViewBox && window.svgMap.scrW) {
+						const vb = window.svgMap.getViewBox();
+						geoSizePerPx = vb.width / window.svgMap.scrW;
+					}
+					drawGeoJsonLodAssist(
+						window.svgMap,
+						window.svgImage,
+						layerCRS,
+						geojson,
+						{
+							targetGroup: parentG,
+							currentZoom: currentZoom,
+							geoSizePerPx: geoSizePerPx,
+							rectStyle: { stroke: "#0056b3", strokeWidth: 4 },
+							pointIcon: "#p0",
+						}
+					);
+				} catch (err) {
+					console.warn("LODアシストの適用に失敗:", err);
+				}
+			} else throw new Error("描画メソッドが見つかりません。");
+
+			window.svgMap.refreshScreen();
+			updateStatus(
+				`地図に展開完了 (${displayName} / ${geojson.features.length}件)`,
+				"success"
+			);
+		}
+	</script>
+
+	<body>
+		<div class="header-container">
+			<h2 id="appTitle">BODIK ODCS レイヤ</h2>
+			<a
+				id="appSourceLink"
+				class="source-header"
+				href="https://odcs.bodik.jp/"
+				target="_blank"
+				>BODIKオープンデータカタログサイトを参照</a
+			>
+		</div>
+
+		<div class="search-box">
+			<label for="filterInput">🔍 キーワード検索 (名称・自治体・概要):</label>
+			<div class="search-row">
+				<input
+					type="text"
+					id="filterInput"
+					placeholder="例: 観光 避難所"
+					oninput="renderFilteredList()"
+					disabled
+				/>
+				<button class="btn-small" onclick="toggleAllTree(true)">全開</button>
+				<button class="btn-small" onclick="toggleAllTree(false)">全閉</button>
+			</div>
+
+			<label>データセット一覧 (↑↓で移動, ←→で開閉):</label>
+			<div id="treeContainer" class="tree-container" tabindex="0">
+				<div style="padding: 5px">メタデータロード中...</div>
+			</div>
+
+			<label for="resourceList">📂 対象ファイル:</label>
+			<select id="resourceList" onchange="handleResourceChange()" disabled>
+				<option>-- データセットを選択してください --</option>
+			</select>
+			<div
+				id="singleResourceText"
+				style="
+					display: none;
+					padding: 4px;
+					font-weight: bold;
+					color: #004085;
+					background: #e2e8f0;
+					border-radius: 3px;
+					font-size: 10px;
+					margin-bottom: 4px;
+				"
+			></div>
+
+			<div id="subResourceContainer" style="display: none; margin-top: 4px">
+				<label for="subResourceList">📄 ZIP内データ (孫):</label>
+				<select id="subResourceList" onchange="handleSubResourceChange()">
+					<option>-- ZIP内の空間データを選択 --</option>
+				</select>
+				<div
+					id="singleSubResourceText"
+					style="
+						display: none;
+						padding: 4px;
+						font-weight: bold;
+						color: #004085;
+						background: #e2e8f0;
+						border-radius: 3px;
+						font-size: 10px;
+						margin-bottom: 4px;
+					"
+				></div>
+			</div>
+		</div>
+
+		<div class="status-action-row">
+			<div id="status" class="loading">LaWA初期化中...</div>
+			<button id="cancelBtn" onclick="cancelDownload()" style="display: none">
+				中止
+			</button>
+			<button
+				id="downloadBtn"
+				onclick="handleResourceChange('download')"
+				disabled
+			>
+				CSVのDL
+			</button>
+		</div>
+
+		<div id="notesArea">
+			<div id="metaContent"></div>
+			<div class="notes-title">📄 レイヤー概要 (notes)</div>
+			<div id="notesContent"></div>
+		</div>
+	</body>
+</html>

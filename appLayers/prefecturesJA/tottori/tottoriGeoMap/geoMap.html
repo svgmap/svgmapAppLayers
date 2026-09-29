@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<title>とっとりGEOMAP LaWA Viewer</title>
+		<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+		<!-- PBFデコード + MVT→GeoJSON変換 -->
+		<script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js"></script>
+		<script src="./mbvt.js"></script>
+		<style>
+			body {
+				font-family: sans-serif;
+				font-size: 11px;
+				margin: 0;
+				padding: 0;
+				background: #fff;
+				height: 100vh;
+				display: flex;
+				flex-direction: column;
+				position: relative;
+			}
+
+			.header {
+				padding: 6px 8px;
+				background: #2980b9;
+				color: #fff;
+				font-size: 12px;
+				font-weight: bold;
+			}
+
+			.status {
+				padding: 4px 8px;
+				background: #ecf0f1;
+				color: #333;
+				font-size: 11px;
+				border-bottom: 1px solid #ccc;
+				font-weight: bold;
+				height: 36px;
+				box-sizing: border-box;
+				overflow: hidden;
+				display: flex;
+				align-items: center;
+			}
+
+			.toolbar {
+				padding: 4px 8px;
+				background: #f2f4f4;
+				border-bottom: 1px solid #ddd;
+				display: flex;
+				gap: 4px;
+				align-items: center;
+			}
+			.search-input {
+				flex: 1;
+				padding: 3px 6px;
+				font-size: 11px;
+				border: 1px solid #ccc;
+				border-radius: 3px;
+			}
+			.btn {
+				padding: 4px 8px;
+				font-size: 10px;
+				background: #7f8c8d;
+				color: #fff;
+				border: none;
+				border-radius: 3px;
+				cursor: pointer;
+				font-weight: bold;
+			}
+			.btn:hover {
+				background: #95a5a6;
+			}
+			.btn:disabled {
+				background: #bdc3c7;
+				cursor: not-allowed;
+			}
+
+			.content-container {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			.tree-container {
+				flex: 1;
+				overflow-y: auto;
+				padding: 5px;
+				outline: none;
+			}
+			.tree-node {
+				margin-left: 10px;
+			}
+			.tree-group {
+				font-weight: bold;
+				cursor: pointer;
+				padding: 3px 5px;
+				user-select: none;
+				color: #2c3e50;
+				border-radius: 3px;
+			}
+			.tree-group::before {
+				content: "▶ ";
+				font-size: 9px;
+				display: inline-block;
+				width: 12px;
+			}
+			.tree-group.open::before {
+				content: "▼ ";
+			}
+			.tree-children {
+				display: none;
+				margin-left: 8px;
+				border-left: 1px dotted #ccc;
+				padding-left: 4px;
+			}
+			.tree-children.open {
+				display: block;
+			}
+			.tree-item {
+				cursor: pointer;
+				padding: 3px 5px;
+				margin: 1px 0;
+				border-radius: 3px;
+				color: #444;
+			}
+			.tree-item:hover,
+			.tree-group:hover {
+				background: #e8f4f8;
+			}
+
+			.tree-item.active,
+			.tree-group.active {
+				background: #3498db !important;
+				color: #fff !important;
+				font-weight: bold;
+			}
+			.tree-item.hidden,
+			.tree-group.hidden {
+				display: none;
+			}
+			.badge {
+				font-size: 9px;
+				background: #e67e22;
+				color: #fff;
+				padding: 1px 4px;
+				border-radius: 3px;
+				margin-right: 4px;
+			}
+			.credit {
+				font-size: 10px;
+				line-height: 1.18;
+				background: #eef1ff;
+				color: #222;
+				padding: 4px 6px;
+				display: block;
+				border-bottom: 1px solid #c5ccff;
+			}
+			.credit a {
+				color: #0b57d0;
+				text-decoration: underline;
+				text-underline-offset: 2px;
+			}
+
+			.description-container {
+				height: 120px;
+				border-top: 2px solid #bdc3c7;
+				background: #fafafa;
+				padding: 6px 8px;
+				overflow-y: auto;
+			}
+			.desc-title {
+				font-weight: bold;
+				margin-bottom: 4px;
+				color: #2c3e50;
+				border-bottom: 1px solid #ddd;
+				padding-bottom: 2px;
+			}
+			.desc-meta-table {
+				width: 100%;
+				border-collapse: collapse;
+				margin-top: 4px;
+				font-size: 10px;
+				background: #fff;
+			}
+			.desc-meta-table td,
+			.desc-meta-table th {
+				border: 1px solid #ccc;
+				padding: 3px 6px;
+				word-break: break-all;
+			}
+			.desc-meta-label {
+				width: 90px;
+				background-color: #ecf0f1;
+				color: #333;
+				font-weight: bold;
+			}
+		</style>
+		<script>
+			// とっとりGEOMAPレイヤ
+			//
+			// License: (MPL v2)
+			// This Source Code Form is subject to the terms of the Mozilla Public
+			// License, v. 2.0. If a copy of the MPL was not distributed with this
+			// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+			//
+			// History:
+			// 2026/09/29 Initial Release
+
+			const TOP_URL = "https://tottori-geomap.jp/";
+			let selectTimeout = null;
+
+			// PBF描画用のモジュール関数
+			let initPbfTile = null;
+			let zoomPanMapFunction = null;
+
+			const cyrb53 = (str, byString, seed = 0) => {
+				let h1 = 0xdeadbeef ^ seed,
+					h2 = 0x41c6ce57 ^ seed;
+				for (let i = 0, ch; i < str.length; i++) {
+					ch = str.charCodeAt(i);
+					h1 = Math.imul(h1 ^ ch, 2654435761);
+					h2 = Math.imul(h2 ^ ch, 1597334677);
+				}
+				h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+				h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+				h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+				h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+				if (byString)
+					return (
+						(h2 >>> 0).toString(16).padStart(8, "0") +
+						(h1 >>> 0).toString(16).padStart(8, "0")
+					);
+				return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+			};
+
+			window.addEventListener("layerWebAppReady", function () {
+				setupUIEvents();
+				setupKeyboardNavigation();
+
+				if (typeof svgImageProps == "undefined") {
+					window.svgImageProps = { hash: "" };
+				}
+
+				// PBF描画モジュールの動的インポート
+				import("./tiledGeoJsonPbf.js")
+					.then((module) => {
+						initPbfTile = module.initPbfTile;
+						zoomPanMapFunction = module.zoomPanMapFunction;
+					})
+					.catch((e) => {
+						console.warn(
+							"PBF描画モジュール (tiledGeoJsonPbf.js) の読み込みに失敗しました。",
+							e
+						);
+					});
+
+				fetchAllGeoMapData();
+			});
+
+			function setupUIEvents() {
+				const searchInput = document.getElementById("searchInput");
+
+				document.getElementById("btnExpandAll").onclick = function () {
+					document
+						.querySelectorAll(".tree-group, .tree-children")
+						.forEach((el) => el.classList.add("open"));
+				};
+				document.getElementById("btnCollapseAll").onclick = function () {
+					document
+						.querySelectorAll(".tree-group, .tree-children")
+						.forEach((el) => el.classList.remove("open"));
+				};
+
+				searchInput.oninput = function (e) {
+					const query = e.target.value.trim().toLowerCase();
+					const items = document.querySelectorAll(".tree-item");
+
+					if (!query) {
+						items.forEach((el) => el.classList.remove("hidden"));
+						return;
+					}
+
+					items.forEach((el) => {
+						const text = el.textContent.toLowerCase();
+						const searchPath = (
+							el.getAttribute("data-search") || ""
+						).toLowerCase();
+
+						if (text.includes(query) || searchPath.includes(query)) {
+							el.classList.remove("hidden");
+							let parent = el.parentElement;
+							while (parent && !parent.classList.contains("tree-container")) {
+								if (parent.classList.contains("tree-children")) {
+									parent.classList.add("open");
+									if (parent.previousElementSibling)
+										parent.previousElementSibling.classList.add("open");
+								}
+								parent = parent.parentElement;
+							}
+						} else {
+							el.classList.add("hidden");
+						}
+					});
+				};
+			}
+
+			function addNodeToTree(currentLevel, pathParts, layerObj) {
+				if (pathParts.length === 1) {
+					layerObj.title = pathParts[0];
+					currentLevel.push(layerObj);
+				} else {
+					const groupName = pathParts[0];
+					let group = currentLevel.find(
+						(n) => n.type === "LayerGroup" && n.title === groupName
+					);
+					if (!group) {
+						group = { type: "LayerGroup", title: groupName, layers: [] };
+						currentLevel.push(group);
+					}
+					addNodeToTree(group.layers, pathParts.slice(1), layerObj);
+				}
+			}
+
+			function countLeafLayers(group) {
+				let count = 0;
+				if (group.type === "Layer") return 1;
+				if (group.layers) {
+					group.layers.forEach((child) => (count += countLeafLayers(child)));
+				}
+				return count;
+			}
+
+			async function fetchAllGeoMapData() {
+				const statusEl = document.getElementById("status");
+				const searchInput = document.getElementById("searchInput");
+				const treeContainer = document.getElementById("treeContainer");
+
+				treeContainer.innerHTML = "";
+				statusEl.textContent = "トップページから自治体リストを取得中...";
+
+				try {
+					const topRes = await fetch(svgMap.getCORSURL(TOP_URL));
+					if (!topRes.ok) throw new Error("トップページの取得に失敗");
+					const topHtml = await topRes.text();
+
+					const doc = new DOMParser().parseFromString(topHtml, "text/html");
+					const links = Array.from(
+						doc.querySelectorAll(".list-grid__cell")
+					).map((a) => ({
+						name: a.textContent.trim().replace(/\s+/g, " "),
+						url: a.getAttribute("href"),
+					}));
+
+					statusEl.textContent = `全${links.length}自治体のデータを並列取得中...`;
+
+					const fetchPromises = links.map(async (target) => {
+						const cityGroup = {
+							title: target.name,
+							type: "LayerGroup",
+							layers: [],
+						};
+						try {
+							const res = await fetch(svgMap.getCORSURL(target.url));
+							if (res.ok) {
+								let htmlText = await res.text();
+								htmlText = htmlText.replace(/\\"/g, '"');
+
+								const chunks = htmlText.split('"id":"');
+								const seenIds = new Set();
+
+								for (let j = 1; j < chunks.length; j++) {
+									const chunk = chunks[j];
+									if (!chunk.includes('"type":"data"')) continue;
+
+									const idMatch = chunk.match(/^([^"]+)"/);
+									if (!idMatch) continue;
+									const fullIdPath = idMatch[1];
+
+									const dataTypeMatch = chunk.match(/"dataType":"([^"]+)"/);
+									const tileUrlMatch = chunk.match(/"tileUrl":"([^"]+)"/);
+									const dataUrlMatch = chunk.match(/"dataUrl":"([^"]+)"/);
+
+									if (!dataTypeMatch) continue;
+									const dataType = dataTypeMatch[1];
+
+									let tileUrl = tileUrlMatch ? tileUrlMatch[1] : null;
+									let dataUrl = dataUrlMatch ? dataUrlMatch[1] : null;
+
+									if (tileUrl && tileUrl.endsWith("tiles.json")) {
+										tileUrl = tileUrl.replace("tiles.json", "{z}/{x}/{y}.pbf");
+									} else if (
+										tileUrl &&
+										tileUrl.endsWith("style.json") &&
+										dataType === "datapng"
+									) {
+										tileUrl = tileUrl.replace(
+											"style.json",
+											"tiles/{z}/{x}/{y}.png"
+										);
+									}
+
+									const finalUrl = dataUrl || tileUrl;
+									if (!finalUrl) continue;
+
+									if (seenIds.has(fullIdPath)) continue;
+									seenIds.add(fullIdPath);
+
+									const annoMatch = chunk.match(/"annotation":"([^"]+)"/);
+									const annotation = annoMatch ? annoMatch[1] : "説明なし";
+
+									const layerObj = {
+										id: fullIdPath,
+										dataType: dataType,
+										url: finalUrl,
+										tileUrl: tileUrl,
+										dataUrl: dataUrl,
+										annotation: annotation,
+										hash: cyrb53(fullIdPath, true),
+										type: "Layer",
+									};
+
+									const pathParts = fullIdPath.split("/");
+									addNodeToTree(cityGroup.layers, pathParts, layerObj);
+								}
+							}
+						} catch (e) {
+							console.warn(`${target.name}の取得に失敗:`, e);
+						}
+						return cityGroup;
+					});
+
+					const results = await Promise.all(fetchPromises);
+					const resultTree = results.filter((group) => group.layers.length > 0);
+
+					buildTreeUI(resultTree, treeContainer);
+
+					statusEl.textContent = "全レイヤーの抽出とツリー構築が完了しました。";
+					searchInput.disabled = false;
+					document.getElementById("btnExpandAll").disabled = false;
+					document.getElementById("btnCollapseAll").disabled = false;
+
+					if (typeof svgImageProps !== "undefined" && svgImageProps.hash) {
+						const targetHash = decodeURIComponent(svgImageProps.hash).replace(
+							/^#/,
+							""
+						);
+						const targetEl = document.querySelector(
+							`.tree-item[data-hash="${targetHash}"]`
+						);
+						if (targetEl) {
+							let parent = targetEl.parentElement;
+							while (parent && !parent.classList.contains("tree-container")) {
+								if (parent.classList.contains("tree-children")) {
+									parent.classList.add("open");
+									if (parent.previousElementSibling)
+										parent.previousElementSibling.classList.add("open");
+								}
+								parent = parent.parentElement;
+							}
+							focusNode(targetEl, true, 0);
+						}
+					}
+				} catch (e) {
+					statusEl.textContent = "エラー: " + e.message;
+				}
+			}
+
+			function buildTreeUI(dataArray, parentElement) {
+				dataArray.forEach((layer) => {
+					const node = document.createElement("div");
+					node.className = "tree-node";
+
+					if (layer.type === "LayerGroup") {
+						const groupEl = document.createElement("div");
+						groupEl.className = "tree-group";
+						groupEl.textContent = `${layer.title} (${countLeafLayers(layer)})`;
+
+						const childrenEl = document.createElement("div");
+						childrenEl.className = "tree-children";
+
+						groupEl.onclick = function (e) {
+							e.stopPropagation();
+							const isOpen = groupEl.classList.toggle("open");
+							childrenEl.classList.toggle("open");
+							focusNode(groupEl, false);
+
+							if (isOpen) {
+								const childGroups = childrenEl.querySelectorAll(
+									":scope > .tree-node > .tree-group"
+								);
+								childGroups.forEach((childGrp) => {
+									const childContainer = childGrp.nextElementSibling;
+									if (childContainer) {
+										const subGroups =
+											childContainer.querySelectorAll(".tree-group");
+										const items = childContainer.querySelectorAll(".tree-item");
+
+										if (
+											subGroups.length === 0 &&
+											items.length > 0 &&
+											items.length <= 3
+										) {
+											childGrp.classList.add("open");
+											childContainer.classList.add("open");
+										}
+									}
+								});
+							}
+						};
+
+						node.appendChild(groupEl);
+						node.appendChild(childrenEl);
+						buildTreeUI(layer.layers, childrenEl);
+					} else if (layer.type === "Layer") {
+						const itemEl = document.createElement("div");
+						itemEl.className = "tree-item";
+						itemEl.setAttribute("data-hash", layer.hash);
+						itemEl.setAttribute("data-search", layer.id);
+						itemEl.innerHTML = `<span class="badge">${layer.dataType}</span>${layer.title}`;
+
+						itemEl.layerObj = layer;
+
+						itemEl.onclick = function (e) {
+							e.stopPropagation();
+							if (itemEl.classList.contains("active")) {
+								clearSelection();
+							} else {
+								focusNode(itemEl, true, 0);
+							}
+						};
+
+						node.appendChild(itemEl);
+					}
+					parentElement.appendChild(node);
+				});
+			}
+
+			function clearSelection() {
+				document
+					.querySelectorAll(".tree-group, .tree-item")
+					.forEach((node) => node.classList.remove("active"));
+				clearGeoJsonLayer();
+				clearTimeout(selectTimeout);
+				if (typeof svgImageProps !== "undefined") {
+					svgImageProps.hash = "";
+				}
+				document.getElementById("status").textContent =
+					"選択を解除し、地図をクリアしました。";
+				document.getElementById("descriptionContainer").innerHTML = `
+        <div class="desc-title">説明欄</div>
+        <div style="color: #999;">レイヤーを選択するとここに詳細情報が表示されます。</div>
+    `;
+			}
+
+			function focusNode(el, autoLoad = false, delay = 400) {
+				if (!el) return;
+
+				document
+					.querySelectorAll(".tree-group, .tree-item")
+					.forEach((node) => node.classList.remove("active"));
+				el.classList.add("active");
+				el.scrollIntoView({ block: "nearest" });
+
+				if (el.classList.contains("tree-item") && autoLoad) {
+					clearTimeout(selectTimeout);
+					selectTimeout = setTimeout(() => {
+						selectLayer(el.layerObj);
+					}, delay);
+				}
+			}
+
+			async function selectLayer(layerObj) {
+				const statusEl = document.getElementById("status");
+
+				if (typeof svgImageProps !== "undefined") {
+					svgImageProps.hash = `#${layerObj.hash}`;
+				}
+
+				if (layerObj.dataType !== "vector" && layerObj.dataType !== "geojson") {
+					console.log(
+						`${layerObj.url} エンドポイントの描画は今のところサポート外です`
+					);
+					updateMetaTable(layerObj, "サポート外");
+					statusEl.textContent = `[ ${layerObj.title} ] の描画は今のところサポート外です（データタイプ: ${layerObj.dataType}）。`;
+					clearGeoJsonLayer();
+					return;
+				}
+
+				updateMetaTable(layerObj, "取得中...");
+				statusEl.textContent = `[ ${layerObj.title} ] を検証中...`;
+				clearGeoJsonLayer();
+
+				const controller = new AbortController();
+
+				try {
+					if (!layerObj.dataUrl) {
+						// GeoJSONがない場合は最初からPBF描画へ
+						if (layerObj.tileUrl) {
+							renderPbfTile(layerObj);
+						} else {
+							throw new Error("描画可能なURLがありません");
+						}
+						return;
+					}
+
+					// Content-Length確認のためヘッダのみを取得
+					const res = await fetch(svgMap.getCORSURL(layerObj.dataUrl), {
+						signal: controller.signal,
+					});
+					if (!res.ok) throw new Error("HTTP Status " + res.status);
+
+					const contentLength = res.headers.get("content-length");
+					if (contentLength) {
+						const sizeBytes = parseInt(contentLength, 10);
+						const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+
+						// 5MBを超える場合は直ちに通信を中断してPBFへフォールバック
+						if (sizeBytes > 5 * 1024 * 1024) {
+							console.log(
+								`[${layerObj.title}] GeoJSONサイズが5MBを超過 (${sizeMB} MB)。通信を中断しPBFベクトルタイルを描画します。`
+							);
+							controller.abort();
+							if (layerObj.tileUrl) {
+								renderPbfTile(layerObj);
+							} else {
+								statusEl.textContent = `[ ${layerObj.title} ] はサイズ超過(${sizeMB} MB)のため描画をスキップしました(PBF URLなし)。`;
+								updateMetaTable(layerObj, `サイズ超過 (${sizeMB}MB)`);
+							}
+							return;
+						}
+					}
+
+					// 5MB以下（あるいは不明）ならそのままGeoJSONをダウンロード
+					statusEl.textContent = `[ ${layerObj.title} ] GeoJSONデータをダウンロード中...`;
+					const geojson = await res.json();
+
+					let geomCounts = {};
+					if (geojson.features && geojson.features.length > 0) {
+						geojson.features.forEach((ft) => {
+							const type =
+								ft.geometry && ft.geometry.type ? ft.geometry.type : "Unknown";
+							geomCounts[type] = (geomCounts[type] || 0) + 1;
+						});
+					}
+
+					let geomTypeStr = "空データ";
+					if (Object.keys(geomCounts).length > 0) {
+						geomTypeStr = Object.entries(geomCounts)
+							.map(([type, count]) => `${type} ${count}個`)
+							.join(", ");
+					}
+
+					updateMetaTable(layerObj, geomTypeStr);
+
+					const targetLayerID =
+						typeof layerID !== "undefined" ? layerID : "geomap-lawa";
+
+					if (
+						typeof svgImage !== "undefined" &&
+						typeof svgMapGIStool !== "undefined"
+					) {
+						const grp = svgImage.createElement("g");
+						grp.setAttribute("id", "geomapSingleVector");
+						svgImage.documentElement.appendChild(grp);
+
+						let schemaMap = {};
+						geojson.features.forEach((ft) => {
+							if (ft.properties)
+								Object.keys(ft.properties).forEach(
+									(k) => (schemaMap[k] = true)
+								);
+						});
+						const schema = Object.keys(schemaMap);
+						svgImage.documentElement.setAttribute("property", schema.join(","));
+						// 各featureのpropertiesに描画用スタイルを直接付与
+						geojson.features.forEach((f) => {
+							if (!f.properties) f.properties = {};
+							f.properties["stroke"] = "#0000ff";
+							f.properties["stroke-width"] = 1;
+						});
+						svgMapGIStool.drawGeoJson(
+							geojson,
+							targetLayerID,
+							"#2980b9",
+							2,
+							"rgba(41, 128, 185, 0.4)",
+							"p0",
+							"title",
+							null,
+							grp,
+							schema
+						);
+						svgMap.refreshScreen();
+					}
+
+					statusEl.textContent = `[ ${layerObj.title} ] の取得・描画完了（GeoJSON / ${geomTypeStr}）。`;
+				} catch (e) {
+					if (e.name === "AbortError") {
+						console.log("Fetch aborted.");
+					} else {
+						console.error(e);
+						statusEl.textContent = "地図データの読み込みに失敗しました。";
+						updateMetaTable(layerObj, "取得エラー");
+					}
+				}
+			}
+
+			// Mapbox Vector Tile (PBF) の描画エントリー
+			function renderPbfTile(layerObj) {
+				const statusEl = document.getElementById("status");
+				updateMetaTable(layerObj, "VectorTile (PBF)");
+				statusEl.textContent = `[ ${layerObj.title} ] PBFベクトルタイルの描画を準備中...`;
+
+				if (
+					typeof svgImage !== "undefined" &&
+					initPbfTile &&
+					zoomPanMapFunction
+				) {
+					const grp = svgImage.createElement("g");
+					grp.setAttribute("id", "geomapSingleVector");
+					svgImage.documentElement.appendChild(grp);
+
+					// URLテンプレートの変数を置換 ({z}/{x}/{y} -> ${tz}/${tx}/${ty})
+					// プロキシ経由にするため svgMap.getCORSURL を付与
+					const templateUrl = svgMap.getCORSURL(
+						layerObj.tileUrl
+							.replace("{z}", "${tz}")
+							.replace("{x}", "${tx}")
+							.replace("{y}", "${ty}")
+					);
+
+					// メタデータとして出力したいプロパティ名を必要に応じて定義
+					//const metaArray = [];
+
+					initPbfTile(templateUrl, grp, null, { minLevel: 9, maxLevel: 14 });
+
+					// イベントリスナーを一度解除してから再登録して実行
+					removeEventListener("zoomPanMap", zoomPanMapFunction);
+					addEventListener("zoomPanMap", zoomPanMapFunction);
+					setTimeout(zoomPanMapFunction, 20);
+
+					statusEl.textContent = `[ ${layerObj.title} ] PBFベクトルタイルの描画を開始しました。`;
+				} else {
+					statusEl.textContent = `[ ${layerObj.title} ] PBF描画用のモジュールがロードされていません。`;
+				}
+			}
+
+			function clearGeoJsonLayer() {
+				if (typeof svgImage !== "undefined") {
+					const oldGrp = svgImage.getElementById("geomapSingleVector");
+					if (oldGrp) oldGrp.remove();
+
+					// PBF用のタイリングイベントがあれば解除
+					if (zoomPanMapFunction) {
+						removeEventListener("zoomPanMap", zoomPanMapFunction);
+					}
+					svgMap.refreshScreen();
+				}
+			}
+
+			function updateMetaTable(layerObj, geomTypeStr) {
+				const descContainer = document.getElementById("descriptionContainer");
+				const displayType = `${layerObj.dataType} (${geomTypeStr})`;
+
+				let endpointsHtml = "";
+				if (layerObj.dataUrl) {
+					endpointsHtml += `<div style="margin-bottom:2px;"><span style="color:#e67e22">[GeoJSON]</span> <a href="${layerObj.dataUrl}" target="_blank">${layerObj.dataUrl}</a></div>`;
+				}
+				if (layerObj.tileUrl) {
+					endpointsHtml += `<div><span style="color:#2980b9">[VecTile]</span> <a href="${layerObj.tileUrl}" target="_blank">${layerObj.tileUrl}</a></div>`;
+				}
+				if (!endpointsHtml && layerObj.url) {
+					endpointsHtml = `<a href="${layerObj.url}" target="_blank">${layerObj.url}</a>`;
+				}
+
+				const html = `
+        <div class="desc-title">${layerObj.title}</div>
+        <table class="desc-meta-table">
+            <tbody>
+                <tr><td class="desc-meta-label">フルパス</td><td>${layerObj.id}</td></tr>
+                <tr><td class="desc-meta-label">ファイル形式</td><td>${displayType}</td></tr>
+                <tr><td class="desc-meta-label">エンドポイント</td><td>${endpointsHtml}</td></tr>
+                <tr><td class="desc-meta-label">説明/注記</td><td>${layerObj.annotation}</td></tr>
+            </tbody>
+        </table>
+    `;
+				descContainer.innerHTML = html;
+			}
+
+			function setupKeyboardNavigation() {
+				const container = document.getElementById("treeContainer");
+				container.addEventListener("keydown", function (e) {
+					if (
+						![
+							"ArrowUp",
+							"ArrowDown",
+							"ArrowLeft",
+							"ArrowRight",
+							"Enter",
+							" ",
+						].includes(e.key)
+					)
+						return;
+
+					const visibleNodes = Array.from(
+						container.querySelectorAll(".tree-group, .tree-item")
+					).filter((el) => {
+						if (el.classList.contains("hidden")) return false;
+						let parent = el.parentElement;
+						while (parent && parent !== container) {
+							if (
+								parent.classList.contains("tree-children") &&
+								!parent.classList.contains("open")
+							)
+								return false;
+							parent = parent.parentElement;
+						}
+						return true;
+					});
+
+					if (visibleNodes.length === 0) return;
+
+					const currentActive = container.querySelector(".active");
+					const currentIndex = visibleNodes.indexOf(currentActive);
+					e.preventDefault();
+
+					if (e.key === "ArrowDown") {
+						const nextIndex =
+							currentIndex < visibleNodes.length - 1 ? currentIndex + 1 : 0;
+						focusNode(visibleNodes[nextIndex], true);
+					} else if (e.key === "ArrowUp") {
+						const prevIndex =
+							currentIndex > 0 ? currentIndex - 1 : visibleNodes.length - 1;
+						focusNode(visibleNodes[prevIndex], true);
+					} else if (e.key === "ArrowRight") {
+						if (
+							currentActive &&
+							currentActive.classList.contains("tree-group")
+						) {
+							currentActive.classList.add("open");
+							if (currentActive.nextElementSibling)
+								currentActive.nextElementSibling.classList.add("open");
+						}
+					} else if (e.key === "ArrowLeft") {
+						if (
+							currentActive &&
+							currentActive.classList.contains("tree-group")
+						) {
+							currentActive.classList.remove("open");
+							if (currentActive.nextElementSibling)
+								currentActive.nextElementSibling.classList.remove("open");
+						}
+					} else if (e.key === "Enter" || e.key === " ") {
+						if (currentActive) currentActive.click();
+					}
+				});
+			}
+		</script>
+	</head>
+	<body>
+		<div class="header">とっとりGEOMAP データセットビューア</div>
+		<div class="credit">
+			出典：<a href="https://tottori-geomap.jp/" target="_blank"
+				>とっとりジオマップ</a
+			>を加工して作成<br />
+			このレイヤーは、鳥取県内自治体が提供するとっとりジオマップの各情報及び機能を使用して提供していますが、サービスの提供内容は情報提供元の自治体によって保証されたものではありません。
+		</div>
+		<div class="toolbar">
+			<input
+				type="text"
+				id="searchInput"
+				class="search-input"
+				placeholder="レイヤー名・カテゴリ名で検索..."
+				disabled
+			/>
+			<button id="btnExpandAll" class="btn" disabled>全展開</button>
+			<button id="btnCollapseAll" class="btn" disabled>全折畳</button>
+		</div>
+		<div id="status" class="status">初期化中...</div>
+
+		<div class="content-container">
+			<div id="treeContainer" class="tree-container" tabindex="0"></div>
+			<div id="descriptionContainer" class="description-container">
+				<div class="desc-title">説明欄</div>
+				<div style="color: #999">
+					レイヤーを選択するとここに詳細情報が表示されます。
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

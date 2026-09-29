@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dynamic OpenSeaMap Layer</title>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+	// OpemSeaMap based on Dynamic OpemStreetMap Layer for SVGMap
+	//
+	// License: (MPL v2)
+	// This Source Code Form is subject to the terms of the Mozilla Public
+	// License, v. 2.0. If a copy of the MPL was not distributed with this
+	// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+	//
+	// 2013/01/24 : 1st ver.
+	// 2026/08/26: Modernized to S-LaWA architecture
+	
+	var tilePix = 256;
+	// HTTPだと現在のブラウザではMixed Contentエラーになるため、HTTPSに変更しています
+	var sva = ["https://t1.openseamap.org/seamark/"];
+	var svNumb = 0;
+	
+	// SVGMapのレイヤーとして読み込まれた際の初期化処理
+	addEventListener("layerWebAppReady", function(){
+		svgMap.refreshScreen();
+		putGlobalMessage("© OpenSeaMap contributors");
+	});
+	
+	// ズーム/スクロール等、再描画の直前に呼ばれるコールバック
+	function preRenderFunction() {
+		var level = Math.floor(Math.LOG2E * Math.log(svgImageProps.scale) + 7.5);
+		if (level > 18) {
+			level = 18;
+		} else if (level < 3) {
+			level = 3;
+		}
+		
+		var tileSet = getTileSet(svgMap.getGeoViewBox(), level);
+		
+		var currentTiles = svgImage.getElementsByTagName("image");
+		
+		for (var i = currentTiles.length - 1; i >= 0; i--) {
+			var oneTile = currentTiles[i];
+			var qkey = oneTile.getAttribute("metadata");
+			if (tileSet[qkey]) {
+				tileSet[qkey].exist = true;
+			} else {
+				oneTile.parentNode.removeChild(oneTile);
+			}
+		}
+		
+		for (var tkey in tileSet) {
+			if (!tileSet[tkey].exist) {
+				var addTile = getTile(tileSet[tkey].x, tileSet[tkey].y, level, this.CRS);
+				svgImage.getElementsByTagName("svg")[0].appendChild(addTile);
+			}
+		}
+	}
+	
+	function getTile(tileX, tileY, level, crs) {
+		var tileURL = getURL(tileX, tileY, level);
+		
+		var tLatLng = XY2latLng(tileX * tilePix, tileY * tilePix, level);
+		var tSvg = svgMap.transform(tLatLng.lng, tLatLng.lat, crs);
+		var tLatLngBR = XY2latLng(tileX * tilePix + tilePix, tileY * tilePix + tilePix, level);
+		var tSvgBR = svgMap.transform(tLatLngBR.lng, tLatLngBR.lat, crs);
+		
+		tSvg.width  = tSvgBR.x - tSvg.x;
+		tSvg.height = tSvgBR.y - tSvg.y;
+		
+		var cl = svgImage.createElement("image");
+		cl.setAttribute("x", tSvg.x);
+		cl.setAttribute("y", tSvg.y);
+		cl.setAttribute("width", tSvg.width);
+		cl.setAttribute("height", tSvg.height);
+		cl.setAttribute("xlink:href", tileURL.URL);
+		cl.setAttribute("metadata", tileURL.Key);
+		// Webメルカトル図法のタイルの歪みを補正するため、他のレイヤーと統一して属性を付与
+		cl.setAttribute("data-mercator-tile", "true");
+		
+		return cl;
+	}
+	
+	function getTileSet(geoViewBox, level) {
+		var TileSet = new Object();
+		if (geoViewBox.y + geoViewBox.height > 85.05113) {
+			geoViewBox.height = 85.05113 - geoViewBox.y;
+		}
+		if (geoViewBox.y < -85.05113) {
+			geoViewBox.y = -85.05113;
+		}
+		
+		var tlxy = latLng2XY(geoViewBox.y + geoViewBox.height, geoViewBox.x, level);
+		var tileTLxy = XY2TileXY(tlxy);
+		var brxy = latLng2XY(geoViewBox.y, geoViewBox.x + geoViewBox.width, level);
+		var tileBRxy = XY2TileXY(brxy);
+		
+		for (var i = tileTLxy.y; i <= tileBRxy.y; i++) {
+			for (var j = tileTLxy.x; j <= tileBRxy.x; j++) {
+				var qkey = getKey(j, i, level);
+				TileSet[qkey] = new Object();
+				TileSet[qkey].x = j;
+				TileSet[qkey].y = i;
+			}
+		}
+		return TileSet;
+	}
+	
+	function latLng2XY(lat, lng, lvl) {
+		var size = lvl2Res(lvl);
+		var sinLat = Math.sin(lat * Math.PI / 180.0);
+		var pixelX = ((lng + 180.0) / 360.0) * size;
+		var pixelY = (0.5 - Math.log((1 + sinLat) / (1.0 - sinLat)) / (4 * Math.PI)) * size;
+		return { x: pixelX, y: pixelY };
+	}
+	
+	function XY2TileXY(xy) {
+		var tileX = Math.floor(xy.x / tilePix);
+		var tileY = Math.floor(xy.y / tilePix);
+		return { x: tileX, y: tileY };
+	}
+	
+	function lvl2Res(lvl) {
+		var j = 1;
+		for (var i = 0; i < lvl; i++) {
+			j = j * 2;
+		}
+		return (j * tilePix);
+	}
+	
+	function XY2latLng(px, py, lvl) {
+		var size = lvl2Res(lvl);
+		var x = (px / size) - 0.5;
+		var y = 0.5 - (py / size);
+		var lat = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
+		var lng = 360 * x;
+		return { lat: lat, lng: lng };
+	}
+	
+	function getURL(tx, ty, lvl) {
+		var tile_ans = getKey(tx, ty, lvl);
+		var mapServerURL = sva[svNumb] + lvl + "/" + tx + "/" + ty + ".png";
+		return {
+			URL: mapServerURL,
+			Key: tile_ans
+		}
+	}
+	
+	function getKey(tx, ty, lvl) {
+		return (tx + "_" + ty + "_" + lvl);
+	}
+</script>
+</head>
+<body>
+<h3>OpenSeaMap Tile Layer</h3>
+<ul>
+	<li>Source: <a href="https://openseamap.org/" target="_blank">OpenSeaMap</a></li>
+	<li>© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a></li>
+</ul>
+</body>
+</html>
