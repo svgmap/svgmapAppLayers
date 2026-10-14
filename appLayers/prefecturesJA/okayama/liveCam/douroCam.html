@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+	<head>
+		<title>okayama bousai view</title>
+	</head>
+
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script src="./customShowPoiProperty.js"></script>
+	<script>
+		// 岡山県冬期道路気象情報ライブカメラレイヤー
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+		var intSrc = "https://road-camera.pref.okayama.jp/stations_internal.json";
+		var extSrc = "https://road-camera.pref.okayama.jp/stations_external.json";
+		var pxy = "https://service.svgmap.org/corsaw/";
+
+		// internalのプロパティをすべて網羅するように拡張
+		var metaDict = [
+			"title",
+			"short_name",
+			"office",
+			"route",
+			"snow",
+			"temp",
+			"snow_diff",
+			"data_time",
+			"image_time",
+			"suspended",
+			"img",
+			"link",
+		];
+
+		// トップページの index.html から抽出した県運営カメラの座標データ
+		const STATION_COORDS = {
+			po01: { lat: 35.095969, lng: 133.433445 },
+			po02: { lat: 35.177803, lng: 133.414273 },
+			po03: { lat: 35.157343, lng: 133.624314 },
+			po04: { lat: 35.179066, lng: 133.567979 },
+			po05: { lat: 35.183124, lng: 133.536787 },
+			po06: { lat: 35.22292, lng: 133.74981 },
+			po07: { lat: 35.269764, lng: 133.781521 },
+			po08: { lat: 35.299294, lng: 133.737242 },
+			po09: { lat: 35.28778, lng: 133.58563 },
+			po10: { lat: 35.19217, lng: 133.90803 },
+			po11: { lat: 35.22421944, lng: 133.9250972 },
+			po12: { lat: 35.30505833, lng: 133.9386333 },
+			po13: { lat: 35.295112, lng: 133.981868 },
+			po14: { lat: 35.17893, lng: 134.335923 },
+			po15: { lat: 35.176474, lng: 134.057319 },
+			po16: { lat: 35.23605, lng: 134.11083 },
+			po17: { lat: 35.0959, lng: 133.36616 },
+			po18: { lat: 35.201148, lng: 133.793821 },
+			po19: { lat: 35.2395331, lng: 133.577836 },
+			po20: { lat: 35.19827, lng: 134.2561 },
+		};
+
+		window.addEventListener("layerWebAppReady", async function () {
+			var dt = new Date().getTime();
+
+			// douroCam.svg 内の p0 閉じタグ抜けによる p1 ネスト問題をJSで動的に救済
+			var p0 = svgImage.getElementById("p0");
+			var p1 = svgImage.getElementById("p1");
+			if (p0 && p1 && p0.contains(p1)) {
+				p0.parentNode.appendChild(p1);
+			}
+
+			// キャッシュ無効化ハックを付与して新しいJSONを取得
+			var intJsStr = await getJsStr(intSrc + "?t=" + dt);
+			var intCam = JSON.parse(intJsStr);
+
+			var extJsStr = await getJsStr(extSrc + "?t=" + dt);
+			var extCam = JSON.parse(extJsStr);
+
+			var gjs = { type: "FeatureCollection", features: [] };
+
+			// 外部運営カメラのパース
+			for (var cam of extCam) {
+				if (!cam.lat || !cam.lng) continue;
+
+				var linkUrl = cam.link_url;
+				if (linkUrl) {
+					linkUrl += (linkUrl.indexOf("?") === -1 ? "?" : "&") + "t=" + dt;
+				}
+
+				var geom = {
+					type: "Feature",
+					geometry: {
+						type: "Point",
+						coordinates: [cam.lng, cam.lat],
+					},
+					properties: {
+						title: cam.name ? cam.name.trim() : "",
+						short_name: cam.short_name || "",
+						office: cam.office || "",
+						route: cam.road ? cam.road.trim() : "",
+						snow: "", // 外部カメラには存在しないため空
+						temp: "", // 外部カメラには存在しないため空
+						snow_diff: "", // 外部カメラには存在しないため空
+						data_time: "", // 外部カメラには存在しないため空
+						image_time: cam.image_time || "",
+						suspended: "",
+						link: linkUrl,
+						img: `${cam.image_url}?t=${dt}`,
+						"marker-symbol": "p1",
+					},
+				};
+				gjs.features.push(geom);
+			}
+
+			// 岡山県運営カメラのパース
+			for (var cam of intCam) {
+				var pos = STATION_COORDS[cam.id];
+				if (!pos) continue;
+
+				var link = `https://road-camera.pref.okayama.jp/detail.html?id=${cam.id}&t=${dt}`;
+				var imgLink = `https://road-camera.pref.okayama.jp/img/current_${cam.id}.jpg`;
+
+				var geom = {
+					type: "Feature",
+					geometry: {
+						type: "Point",
+						coordinates: [pos.lng, pos.lat],
+					},
+					properties: {
+						title: cam.name ? cam.name.trim() : "",
+						short_name: cam.short_name || "",
+						office: cam.office || "",
+						route: cam.road ? cam.road.trim() : "",
+						snow: cam.snow || "",
+						temp: cam.temp || "",
+						snow_diff: cam.snow_diff || "",
+						data_time: cam.data_time || "",
+						image_time: cam.image_time || "",
+						suspended: cam.suspended ? "true" : "false",
+						link: link,
+						img: `${imgLink}?t=${dt}`,
+						"marker-symbol": "p0",
+					},
+				};
+				gjs.features.push(geom);
+			}
+
+			if (typeof svgMapGIStool == "object") {
+				svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+				svgImage.documentElement.setAttribute("property", metaDict.join());
+
+				// 統合したFeatureCollectionを描画
+				svgMapGIStool.drawGeoJson(
+					gjs,
+					layerID,
+					"red",
+					2,
+					"orange",
+					"p0",
+					"title",
+					null,
+					null,
+					metaDict
+				);
+
+				svgMap.refreshScreen();
+			}
+		});
+
+		async function getJsStr(url) {
+			var res = await fetch(pxy + url);
+			var arrayBuffer = await res.arrayBuffer();
+			return new TextDecoder("utf-8").decode(arrayBuffer);
+		}
+	</script>
+
+	<body>
+		<h4>岡山県冬期道路気象情報ライブカメラ</h4>
+		<div style="font-size: 12px">
+			<li>
+				出典：<a
+					href="https://road-camera.pref.okayama.jp/index.html"
+					target="_blank"
+					>岡山県冬期道路気象情報システム</a
+				>（岡山県）
+			</li>
+			<li>ライセンス：公共データ利用規約（第1.0版）</li>
+			<li>画像：参照先の画像を直接表示</li>
+			<li>
+				アイコン：<img src="cameraFill3.png" width="18" height="18" /> (県運営),
+				<img src="cameraFill2.png" width="18" height="18" /> (外部運営)
+			</li>
+		</div>
+	</body>
+</html>

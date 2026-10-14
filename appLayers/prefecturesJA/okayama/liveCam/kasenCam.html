@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+	<head>
+		<title>tottori bousai view</title>
+	</head>
+
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script src="./customShowPoiProperty.js"></script>
+	<script>
+		// 岡山県防災ポータルライブカメラレイヤー
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+		//https://www.bousai.pref.okayama.jp/data/layer/data/187/cctv.geojson?request.preventCache=1760655443054
+		
+		var endPointUrl =
+			"https://www.bousai.pref.okayama.jp/data/layer/data/187/cctv.geojson?request.preventCache=";
+
+		var pxy = "https://service.svgmap.org/corsaw/";
+
+		var metaDict = ["title", "route", "img", "link"];
+		window.addEventListener("layerWebAppReady", async function () {
+			var orJs = await getJsStr(endPointUrl + new Date().getTime());
+			console.log(orJs);
+			var gjs = JSON.parse(orJs);
+			setTitle(gjs);
+			metaDict = Object.keys(gjs.features[0].properties);
+
+			/**
+			const index = metaDict.findIndex(s => s.includes("name"));
+			if (index > 0) {
+				metaDict.unshift(metaDict.splice(index, 1)[0]);
+			}
+			**/
+
+			/**
+			return;
+			var orCam = parseOcamInfo(orJs);
+			
+			var gjs=orCam2GeoJson(orCam);
+			**/
+			console.log(metaDict, gjs);
+			//	return;
+			if (typeof svgMapGIStool == "object") {
+				svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+				svgImage.documentElement.setAttribute("property", metaDict.join());
+				svgMapGIStool.drawGeoJson(
+					gjs,
+					layerID,
+					"red",
+					2,
+					"orange",
+					"p0",
+					"name",
+					null,
+					null,
+					metaDict
+				);
+				svgMap.refreshScreen();
+			}
+		});
+
+		// svgMapGIStool.drawGeoJson は、titleプロパティをティッカー表示するので・・・
+		function setTitle(gjs) {
+			gjs.features.forEach(function (item, idx) {
+				//console.log(item);
+				if (item.properties.name) {
+					item.properties.title = item.properties.name;
+					delete item.properties.name;
+				}
+			});
+		}
+
+		async function getJsStr(url) {
+			var res = await fetch(pxy + url);
+			var arrayBuffer = await res.arrayBuffer();
+			var jsString = new TextDecoder("utf-8").decode(arrayBuffer);
+			console.log(jsString);
+			return jsString;
+		}
+
+		function parseOcamInfo(jsTxt) {
+			var mks,
+				mki = -1,
+				mkj = -1;
+			var mki = jsTxt.indexOf("markers ");
+			mki = jsTxt.indexOf("[", mki);
+			mkj = jsTxt.indexOf("];", mki);
+			mks = jsTxt.substring(mki, mkj + 1);
+			mks = mks.split("\n");
+			console.log(mks);
+			var lines = [];
+			for (var line of mks) {
+				if (line.indexOf("//") != 0) {
+					lines.push(line.trim());
+				}
+			}
+			mks = lines.join("");
+			mks = mks.replaceAll("name:", '"name":');
+			mks = mks.replaceAll("pos:", '"pos":');
+			mks = mks.replaceAll("link:", '"link":');
+			mks = mks.replaceAll("route:", '"route":');
+			mks = mks.replaceAll("icon:", '"icon":');
+			mks = mks.replaceAll("shadow:", '"shadow":');
+			mks = mks.replaceAll("'", '"');
+			mks = mks.replaceAll("\t", "");
+			mks = mks.replaceAll("\n", "");
+			mks = mks.replaceAll("},]", "}]");
+			console.log(mks);
+
+			var poiJson = JSON.parse(mks);
+			console.log(poiJson);
+			return poiJson;
+		}
+
+		function orCam2GeoJson(js) {
+			var gjs = {
+				type: "FeatureCollection",
+				features: [],
+			};
+			var dt = new Date().getTime();
+			for (var cam of js) {
+				var geom = {
+					type: "Feature",
+					geometry: {
+						type: "Point",
+						coordinates: [cam.pos[1], cam.pos[0]],
+					},
+				};
+				var link = new URL(cam.link, "https://road-camera.pref.okayama.jp/")
+					.href;
+				var imgLink = link.replace("html", "jpg");
+				imgLink = imgLink.replace(".jp/", ".jp/livecam/");
+				geom.properties = {
+					title: cam.name.trim(),
+					link: `${link}?t=${dt}`,
+					img: `${pxy}${imgLink}?t=${dt}`,
+					route: cam.route.trim(),
+				};
+				// console.log(geom,id);
+				gjs.features.push(geom);
+			}
+			return gjs;
+		}
+	</script>
+
+	<body>
+		<h4>おかやま防災ポータル：河川・沿岸カメラ</h4>
+		<div style="font-size: 12px">
+			<li>
+				出典：<a href="https://www.bousai.pref.okayama.jp/" target="_blank"
+					>おかやま防災ポータル</a
+				>（岡山県）
+			</li>
+			<li>ライセンス：公共データ利用規約（第1.0版）</li>
+			<li>画像：参照先の画像を直接表示</li>
+			<li>アイコン：<img src="cameraFill3.png" width="18" height="18" /></li>
+		</div>
+	</body>
+</html>
