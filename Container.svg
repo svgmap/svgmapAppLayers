@@ -98,7 +98,6 @@
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=expressway" title="高速道路事前通行規制区間" data-cross-origin-proxy-required="true" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=jizenkisei" title="事前通行規制区間R" data-cross-origin-proxy-required="true" opacity="0.8" class="国交省道路情報 clickable batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=weather" title="時間雨量" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 clickable batch" visibility="hidden"/>
-  <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=camera" title="ライブカメラ" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
   <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg" title="通行規制" data-cross-origin-proxy-required="true" opacity="0.75" class="国交省道路情報 batch" visibility="hidden"/>
 
 <!-- 国土地理院 -->
@@ -199,6 +198,10 @@
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/yamaguchi/yamaguchi_lawa.svg" title="山口県オープンデータ" data-cross-origin-proxy-required="true" opacity="0.75" class="自治体 clickable" visibility="hidden"/>
 
 <!-- ライブカメラ -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okayama/liveCam/kasenCam.svg" title="岡山県防災ポータルライブカメラ" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/prefecturesJA/okayama/liveCam/douroCam.svg" title="岡山県冬期道路気象情報ライブカメラ" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable clickable" visibility="hidden"/>
+
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRoad/jpAll2023.svg#layer=camera" title="国交省道路ライブカメラ" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=road" title="道路(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/jice/CCTVcontainerB.svg#cat=river" title="河川(国土技術研究センター)" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ clickable" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./appLayers/mlitRiver/CCTV.svg" title="国交省川の防災情報" data-cross-origin-proxy-required="true" opacity="0.75" class="ライブカメラ" visibility="hidden"/>
