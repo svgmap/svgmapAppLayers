@@ -232,6 +232,7 @@ function drawIndexData(){
 		cr.setAttribute("transform",`ref(svg,${content.lon * 100},${ -content.lat * 100})`);
 		cr.setAttribute("r",content.mag*2);
 		cr.setAttribute("fill",icolor);
+		cr.setAttribute("fill-opacity",0.8);
 		cr.setAttribute("content", content.content);
 		cr.setAttribute("data-eventID",content.id);
 		window.svgImage.getElementById("quakes").appendChild(cr);
@@ -431,11 +432,11 @@ function showLegend(){
 function drawHanrei(){
 	const hm = document.getElementById("hanreiMag");
 	for ( let mag = 1 ; mag<10 ; mag+=2){
-		hm.insertAdjacentHTML("beforeend",`${mag}<svg style="vertical-align: top;" width="38" height="38" viewBox="0,0,38,38"><circle cx="19" cy="19" fill="blue" r="${mag*2}"/></svg>　`);
+		hm.insertAdjacentHTML("beforeend",`${mag}<svg style="vertical-align: top;" width="38" height="38" viewBox="0,0,38,38"><circle cx="19" cy="19" fill="blue" fill-opacity="0.8" r="${mag*2}"/></svg>　`);
 	}
 	const hi = document.getElementById("hanreiInt");
 	for ( const inten of intLegend){
-		hi.insertAdjacentHTML("beforeend",`<span>${inten[3]}<span style="color:${inten[4]}">●　</span></span>`);
+		hi.insertAdjacentHTML("beforeend",`<span>${inten[3]}<span style="color:${inten[4]};opacity:0.8">●　</span></span>`);
 	}
 }
 function showHanrei(magMode){

@@ -18,15 +18,15 @@
 <g id="qc" > 
 	<image xlink:href="quake_center.png" preserveAspectRatio="none" x="-12" y="-12" width="20" height="20"/>
 </g>
-<g id="q1v" ><circle cx="0" cy="0" r="5" fill="#f2f2ff" stroke="black" stroke-width="0.5"/></g>
-<g id="q2v" ><circle cx="0" cy="0" r="5" fill="#00aaff" stroke="black" stroke-width="0.5"/></g>
-<g id="q3v" ><circle cx="0" cy="0" r="5" fill="#0041ff" stroke="black" stroke-width="0.5"/></g>
-<g id="q4v" ><circle cx="0" cy="0" r="5" fill="#fae696" stroke="black" stroke-width="0.5"/></g>
-<g id="q5mv" ><circle cx="0" cy="0" r="5" fill="#ffe600" stroke="black" stroke-width="0.5"/></g>
-<g id="q5pv" ><circle cx="0" cy="0" r="5" fill="#ff9900" stroke="black" stroke-width="0.5"/></g>
-<g id="q6mv" ><circle cx="0" cy="0" r="5" fill="#ff2800" stroke="black" stroke-width="0.5"/></g>
-<g id="q6pv" ><circle cx="0" cy="0" r="5" fill="#a50021" stroke="black" stroke-width="0.5"/></g>
-<g id="q7v" ><circle cx="0" cy="0" r="5" fill="#b40068" stroke="black" stroke-width="0.5"/></g>
+<g id="q1v" ><circle cx="0" cy="0" r="5" fill="#f2f2ff" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q2v" ><circle cx="0" cy="0" r="5" fill="#00aaff" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q3v" ><circle cx="0" cy="0" r="5" fill="#0041ff" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q4v" ><circle cx="0" cy="0" r="5" fill="#fae696" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q5mv" ><circle cx="0" cy="0" r="5" fill="#ffe600" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q5pv" ><circle cx="0" cy="0" r="5" fill="#ff9900" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q6mv" ><circle cx="0" cy="0" r="5" fill="#ff2800" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q6pv" ><circle cx="0" cy="0" r="5" fill="#a50021" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
+<g id="q7v" ><circle cx="0" cy="0" r="5" fill="#b40068" fill-opacity="0.8" stroke="black" stroke-width="0.5"/></g>
 
 </defs>
 
