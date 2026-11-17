@@ -151,8 +151,9 @@ async function initLoad(){
 }
 
 async function autoUpdate(){
-	// 過去の災害記録を表示中(baseURLが切り替えられている)の場合や、前回の更新が終わっていない場合は更新しない
-	if ( baseURL !== currentBaseURL || autoUpdating ){
+	// 自動更新がOFFの場合や、過去の災害記録を表示中(baseURLが切り替えられている)の場合、前回の更新が終わっていない場合は更新しない
+	var autoUpdateCheck = document.getElementById("autoUpdateCheck");
+	if ( (autoUpdateCheck && !autoUpdateCheck.checked) || baseURL !== currentBaseURL || autoUpdating ){
 		return;
 	}
 	autoUpdating = true;
@@ -163,6 +164,16 @@ async function autoUpdate(){
 	} finally {
 		autoUpdating = false;
 	}
+}
+
+function showLastUpdated(){
+	// 最終更新日時（このレイヤーがデータを取得・描画した時刻）を表示する
+	var lastUpdatedSpan = document.getElementById("lastUpdated");
+	if ( !lastUpdatedSpan ){
+		return;
+	}
+	var formatOptions = { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" };
+	lastUpdatedSpan.innerText = `最終更新：${new Date().toLocaleString("ja-JP", formatOptions)}`;
 }
 
 function changeBaseURL(url){
@@ -211,6 +222,8 @@ async function init(){
 	initUI(); // UIの初期化
 	
 	changeTimeSpan(); // 現在のフィルタ条件を維持して描画
+
+	showLastUpdated();
 }
 
 
@@ -881,7 +894,8 @@ function drawView(filterObj){ // すべての描画処理(地図・表)はこれ
 <body>
 <h4>気象庁警報注意報レイヤー <span id="hasDatOnlySpan"></span></h4>
 <div style="font-size:12px">出典 <a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&elem=all&contents=warning">気象庁ホームページ　気象警報・注意報</a>を加工して作成</div>
- <span style="font-size:11px;"><input type="checkbox" id="highFilterCheck" onchange="warnFilter(event)"></input><label for="highFilterCheck">警報級のみ</label>　<select id="typeSelect"></select></span>
+<div style="font-size:11px;"><input type="checkbox" id="autoUpdateCheck" checked autocomplete="off"></input><label for="autoUpdateCheck">自動更新（</label><span id="lastUpdated"></span>）</div>
+<span style="font-size:11px;"><input type="checkbox" id="highFilterCheck" onchange="warnFilter(event)"></input><label for="highFilterCheck">警報級のみ</label>　<select id="typeSelect"></select></span>
 <table border="1" id="probTbl" style="font-size:10px;"></table>
 </body>
 </html>
