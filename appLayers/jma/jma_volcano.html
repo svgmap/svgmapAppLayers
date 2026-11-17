@@ -55,8 +55,8 @@ addEventListener("layerWebAppReady", async function(){
 });
 
 async function autoUpdate(){
-	// 前回の更新が終わっていない場合は更新しない
-	if ( autoUpdating ){
+	// 自動更新がOFFの場合、または前回の更新が終わっていない場合は更新しない
+	if ( !autoUpdateCheck.checked || autoUpdating ){
 		return;
 	}
 	autoUpdating = true;
@@ -101,6 +101,10 @@ async function refresh(){
 	} else {
 		showIrregularInfo(); // 定時予報を表示する（臨時情報が無くなった場合も定時予報に戻る）
 	}
+
+	// 最終更新日時（このレイヤーがデータを取得・描画した時刻）を表示する
+	const formatOptions = { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" };
+	lastUpdated.innerText = `（最終更新：${new Date().toLocaleString("ja-JP", formatOptions)}）`;
 }
 
 function selectTime(){
@@ -579,7 +583,8 @@ function removeChildren(element){
 <p style="font-size:12px" >出典：<a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=ashfall">気象庁ホームページ 降灰予報を加工して作成</a></p>
 <div id="scheduledInfo">
 	<p style="background-color:#ddf;font-size:12px;"><span style="color:gray">■</span>：降灰の範囲<br><span style="color:red">■</span>：小さな噴石の落下範囲</p>
-	<input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()"></input><label for="ashfallOnlyCheck">降灰予報がある火山のみ表示</label>
+	<div><input id="autoUpdateCheck" type="checkbox" checked autocomplete="off"></input><label for="autoUpdateCheck">自動更新<span id="lastUpdated"></span></label></div>
+	<div><input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()"></input><label for="ashfallOnlyCheck">降灰予報がある火山のみ表示</label></div>
 
 	<div>
 		予報時間帯：
