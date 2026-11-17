@@ -18,6 +18,7 @@
 // 2023/07 初期版
 // 2025/05/09 過去の情報対応
 // 2026/06/01 参照先の更改に対応
+// 2026/11/16 1分間隔の自動更新に対応
 
 var  hasDatOnly = true; // 情報があるエリアのみ表示
 
@@ -138,11 +139,41 @@ var appearedWarnings; // 現況・直近含め現在現出しているワーニ�
 
 var movieValuesMeta={"00":"None","10":"Low","30":"High"};
 
+const autoUpdateInterval = 60 * 1000; // 自動更新間隔(ms)
+var autoUpdating = false;
+
 addEventListener("layerWebAppReady",initLoad); // このソフトウェアの入り口
 
 async function initLoad(){
 	await loadLsMaps(); // これはbaseURLが変わっても常に同じなのだと思う
 	await init();
+	setInterval(autoUpdate, autoUpdateInterval);
+}
+
+async function autoUpdate(){
+	// 自動更新がOFFの場合や、過去の災害記録を表示中(baseURLが切り替えられている)の場合、前回の更新が終わっていない場合は更新しない
+	var autoUpdateCheck = document.getElementById("autoUpdateCheck");
+	if ( (autoUpdateCheck && !autoUpdateCheck.checked) || baseURL !== currentBaseURL || autoUpdating ){
+		return;
+	}
+	autoUpdating = true;
+	try {
+		await init();
+	} catch (error) {
+		console.error("autoUpdate failed:", error);
+	} finally {
+		autoUpdating = false;
+	}
+}
+
+function showLastUpdated(){
+	// 最終更新日時（このレイヤーがデータを取得・描画した時刻）を表示する
+	var lastUpdatedSpan = document.getElementById("lastUpdated");
+	if ( !lastUpdatedSpan ){
+		return;
+	}
+	var formatOptions = { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" };
+	lastUpdatedSpan.innerText = `最終更新：${new Date().toLocaleString("ja-JP", formatOptions)}`;
 }
 
 function changeBaseURL(url){
@@ -155,7 +186,12 @@ function changeBaseURL(url){
 }
 
 async function init(){
+	const targetBaseURL = baseURL;
 	await loadData();
+	// 読み込み中にbaseURLが切り替えられた場合は古い結果を捨てる
+	if ( targetBaseURL !== baseURL ){
+		return;
+	}
 	
 	appearedWarnings ={};
 	console.log({mainSrcData,landslideSrcData,catDict,mapData,areaStruct,areaNames});
@@ -185,8 +221,9 @@ async function init(){
 	
 	initUI(); // UIの初期化
 	
-	//changeTimeSpan();
-	drawView(-1, {});
+	changeTimeSpan(); // 現在のフィルタ条件を維持して描画
+
+	showLastUpdated();
 }
 
 
@@ -795,13 +832,22 @@ function getTypeFilter(filterType){
 	return ( typeConditions );
 }
 
-function initUI(){
-	if ( typeof svgMap == 'object'){
-		svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+var uiInitialized = false;
+function initUI(){ // 自動更新のたびに呼ばれる
+	var target = document.getElementById("typeSelect");
+	if ( !uiInitialized ){ // ハンドラ登録は初回のみ
+		if ( typeof svgMap == 'object'){
+			svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+		}
+		if (target) {
+			target.addEventListener("change", warnFilter);
+		}
+		uiInitialized = true;
 	}
 
-	var target = document.getElementById("typeSelect");
 	if (target) {
+		var prevValue = target.value; // 選択状態を引き継ぐ
+		removeChildren(target);
 		var opt = `<option value="ALL" selected>全て</option>`;
 		target.insertAdjacentHTML("beforeend",opt);
 		opt = `<option value="警報級">警報級のみ</option>`;
@@ -811,7 +857,10 @@ function initUI(){
 			opt = `<option value="${typeCode}">${warnName}</option>`;
 			target.insertAdjacentHTML("beforeend",opt);
 		}
-		target.addEventListener("change", warnFilter);
+		target.value = prevValue;
+		if ( target.selectedIndex < 0 ){ // 前回選択していた種別が無くなった場合は「全て」に戻す
+			target.value = "ALL";
+		}
 	}
 }
 
@@ -845,7 +894,8 @@ function drawView(filterObj){ // すべての描画処理(地図・表)はこれ
 <body>
 <h4>気象庁警報注意報レイヤー <span id="hasDatOnlySpan"></span></h4>
 <div style="font-size:12px">出典 <a target="_blank" href="https://www.jma.go.jp/bosai/map.html#5/34.5/137/&elem=all&contents=warning">気象庁ホームページ　気象警報・注意報</a>を加工して作成</div>
- <span style="font-size:11px;"><input type="checkbox" id="highFilterCheck" onchange="warnFilter(event)"></input><label for="highFilterCheck">警報級のみ</label>　<select id="typeSelect"></select></span>
+<div style="font-size:11px;"><input type="checkbox" id="autoUpdateCheck" checked autocomplete="off"></input><label for="autoUpdateCheck">自動更新（</label><span id="lastUpdated"></span>）</div>
+<span style="font-size:11px;"><input type="checkbox" id="highFilterCheck" onchange="warnFilter(event)"></input><label for="highFilterCheck">警報級のみ</label>　<select id="typeSelect"></select></span>
 <table border="1" id="probTbl" style="font-size:10px;"></table>
 </body>
 </html>
