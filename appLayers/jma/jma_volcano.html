@@ -30,6 +30,7 @@ table tr:nth-child(even){
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // History 2025/5/16 : async await に移行, 予報時間選択UI追加
+//         2026/11/16 : 1分間隔の自動更新に対応
 
 var proxyPath="https://www.jma.go.jp/bosai/";
 var volcanoSubPath="volcano/const/volcano_list.json";
@@ -43,22 +44,68 @@ let volcanos={}; // 火山リスト
 let afIndex={}; // 降灰(ashfall)火山リスト
 let afVolcanos={}; // 降灰火山の詳細情報
 let startTimes; // 降灰予報の時間に対し、各火山の該当する情報へのリンク情報
+let irregularVKey = null; // 臨時情報を表示中の火山のコード（定時予報の表示中はnull）
+
+const autoUpdateInterval = 60 * 1000; // 自動更新間隔(ms)
+let autoUpdating = false;
 
 addEventListener("layerWebAppReady", async function(){
-	volcanos = await loadJSON(proxyPath+volcanoSubPath);
-	afIndex = await loadJSON(proxyPath+ashFallSubPath+"japan.json");
-	const ps=[];
-	for ( var key in afIndex ){
-		ps.push(processEachVolcanos(proxyPath+ashFallSubPath+key+".json"));
+	await autoUpdate(); // 初回の読み込み（失敗しても自動更新は開始する）
+	setInterval(autoUpdate, autoUpdateInterval);
+});
+
+async function autoUpdate(){
+	// 自動更新がOFFの場合、または前回の更新が終わっていない場合は更新しない
+	if ( !autoUpdateCheck.checked || autoUpdating ){
+		return;
 	}
-	await Promise.all(ps);
+	autoUpdating = true;
+	try {
+		await refresh();
+	} catch (error) {
+		console.error("autoUpdate failed:", error);
+	} finally {
+		autoUpdating = false;
+	}
+}
+
+async function refresh(){
+	if ( !Array.isArray(volcanos) ){ // 火山リストは変わらないので、取得できるまで読み込む
+		volcanos = await loadJSON(proxyPath+volcanoSubPath);
+	}
+	const newAfIndex = await loadJSON(proxyPath+ashFallSubPath+"japan.json");
+	if ( !Array.isArray(volcanos) || !newAfIndex ){
+		console.warn("refresh: failed to load volcano data. keep previous view.");
+		return;
+	}
+	const newAfVolcanos = {};
+	const ps=[];
+	for ( var key in newAfIndex ){
+		ps.push(processEachVolcanos(proxyPath+ashFallSubPath+key+".json", newAfVolcanos));
+	}
+	const results = await Promise.all(ps);
+	if ( results.includes(false) ){
+		console.warn("refresh: failed to load ashfall data. keep previous view.");
+		return;
+	}
+	// 全て取得できた場合のみ差し替える（降灰予報が終わった火山を残さないため）
+	afIndex = newAfIndex;
+	afVolcanos = newAfVolcanos;
 	console.log("Load completed asgfallingVolcanos:",afVolcanos);
 	listAshfallVolcanos();
 	
 	checkTimes();
 	
-	showAshFalls();
-});
+	if ( irregularVKey && afVolcanos[irregularVKey]?.others?.length ){
+		showIrregularInfo(irregularVKey, true); // 臨時情報の表示中は、選択を引き継いで作り直す
+	} else {
+		showIrregularInfo(); // 定時予報を表示する（臨時情報が無くなった場合も定時予報に戻る）
+	}
+
+	// 最終更新日時（このレイヤーがデータを取得・描画した時刻）を表示する
+	const formatOptions = { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" };
+	lastUpdated.innerText = `（最終更新：${new Date().toLocaleString("ja-JP", formatOptions)}）`;
+}
 
 function selectTime(){
 //	const st = timeSel.options[timeSel.selectedIndex].value;
@@ -100,6 +147,8 @@ function checkTimes(){
 	const sortedStartTimesKeys = Object.keys(startTimes).sort();
 	console.log("checkTimes : ", startTimes,sortedStartTimesKeys);
 	
+	const prevTime = timeSel.value; // 選択状態を引き継ぐ
+	removeChildren(timeSel);
 	let firstRec = true;
 	for ( const t of sortedStartTimesKeys){
 		const ts =new Date(t).toLocaleString()
@@ -111,14 +160,24 @@ function checkTimes(){
 		const opt = `<option ${sel} value="${t}">${ts}</option>`;
 		timeSel.insertAdjacentHTML("beforeend",opt);
 	}
+	if ( prevTime ){
+		timeSel.value = prevTime;
+		if ( timeSel.selectedIndex < 0 ){ // 選択していた時間帯が無くなった場合は先頭に戻す
+			timeSel.selectedIndex = 0;
+		}
+	}
 }
 
-async function processEachVolcanos(url){
+async function processEachVolcanos(url, targetVolcanos){
 	const json = await loadJSON(url);
+	if ( !json ){
+		return false;
+	}
 	var code = json.scheduled.code;
-	afVolcanos[code]=json;
+	targetVolcanos[code]=json;
 //	afVolcanos[code]=json.scheduled;
 	console.log(json);
+	return true;
 }
 
 function showAshFalls(){
@@ -130,12 +189,25 @@ function showAshFalls(){
 	
 }
 
-function showIrregularInfo(vKey){
+function showIrregularInfo(vKey, keepSelection){
 	if (!vKey){
+		irregularVKey = null;
 		scheduledInfo.style.display="";
 		irregularInfo.style.display="none";
 		selectTime();
 		return;
+	}
+	irregularVKey = vKey;
+
+	// 自動更新で作り直す場合は、選択していた報と予報時間帯を引き継ぐ
+	let prevReportId = null;
+	let prevTimeIndex = null;
+	if ( keepSelection ){
+		const checkedRadio = irregularList.querySelector("input:checked");
+		if ( checkedRadio ){
+			prevReportId = checkedRadio.getAttribute("data-report-id");
+			prevTimeIndex = irregularInfoTimeSel.value;
+		}
 	}
 	
 	scheduledInfo.style.display="none";
@@ -147,18 +219,25 @@ function showIrregularInfo(vKey){
 	// 現在発表中の 速報・詳細 降灰予報をリストアップ
 	removeChildren(irregularList);
 	irregularList.insertAdjacentHTML("beforeend",`<tr><th>噴煙高</th><th>発表時刻</th><th>種別</th><th>図情報(PDF)</th><th></th></tr>`);
+	const reportIds = targetVolcano.others.map(irInfo => `${irInfo.reportDatetime}_${irInfo.type}`);
+	let checkedIndex = reportIds.indexOf(prevReportId);
+	const keepTime = checkedIndex >= 0;
+	// 選択していた報が無い場合は最新の報を選ぶ
+	if ( !keepTime ){
+		checkedIndex = reportIds.length - 1;
+	}
 	var index=0;
 	for ( var irInfo of targetVolcano.others){
 		var ck="";
-		if ( index == targetVolcano.others.length -1){ck="checked";}
-		var tr=`<tr><td>${irInfo.plumeHeight}m</td><td>${new Date(irInfo.reportDatetime).toLocaleString()}</td><td>${irInfo.type=="detail"?"詳細":"速報"}</td><td><a href="${pdfLinkHead}${irInfo.pdf}" target="_blank">${Math.floor(irInfo.pdfSize/1024)}KB</a></td><td><input type="radio" name="irregularListRadios" value="${index}" id="irl_${index}" data-volcano="${vKey}" ${ck} onclick="selectIrregularList(event)"></input><label for="irl_${index}">選択</label></td></tr>`;
+		if ( index == checkedIndex){ck="checked";}
+		var tr=`<tr><td>${irInfo.plumeHeight}m</td><td>${new Date(irInfo.reportDatetime).toLocaleString()}</td><td>${irInfo.type=="detail"?"詳細":"速報"}</td><td><a href="${pdfLinkHead}${irInfo.pdf}" target="_blank">${Math.floor(irInfo.pdfSize/1024)}KB</a></td><td><input type="radio" name="irregularListRadios" value="${index}" id="irl_${index}" data-volcano="${vKey}" data-report-id="${reportIds[index]}" ${ck} onclick="selectIrregularList(event)"></input><label for="irl_${index}">選択</label></td></tr>`;
 		irregularList.insertAdjacentHTML("beforeend",tr);
 		++index;
 	}
-	selectIrregularList();
+	selectIrregularList(null, keepTime ? prevTimeIndex : null);
 }
 
-function selectIrregularList(event){
+function selectIrregularList(event, keepTimeIndex){
 	var inps =irregularList.getElementsByTagName("input");
 	var target;
 	console.log(inps);
@@ -186,6 +265,13 @@ function selectIrregularList(event){
 		irregularInfoTimeSel.insertAdjacentHTML("beforeend",opt);
 		++index;
 	}
+	// 自動更新時は選択していた予報時間帯を引き継ぐ
+	if ( keepTimeIndex != null ){
+		irregularInfoTimeSel.value = keepTimeIndex;
+		if ( irregularInfoTimeSel.selectedIndex < 0 ){
+			irregularInfoTimeSel.selectedIndex = 0;
+		}
+	}
 	selectIrregularInfoTime();
 }
 
@@ -204,6 +290,12 @@ function selectIrregularInfoTime(event){
 
 function listAshfallVolcanos(){
 	// 降灰予報ある火山をhtmlリストをつくる
+	// 自動更新で作り直す場合は、各火山のチェック状態を引き継ぐ（新しく加わった火山はチェックあり）
+	const prevChecked = {};
+	for ( const ck of volcanosTable.querySelectorAll("input[type=checkbox]") ){
+		prevChecked[ck.getAttribute("data-vkey")] = ck.checked;
+	}
+	removeChildren(volcanosTable);
 	volcanosTable.insertAdjacentHTML("beforeend","<tr><th>山名</th><th>定時降灰予報発表時刻</th><th>臨時情報有無</th></tr>");
 	for ( var key in afIndex ){
 		const afv = afIndex[key];
@@ -211,7 +303,8 @@ function listAshfallVolcanos(){
 		if ( afVolcanos[key].others ){
 			irregularInfo =`<input style="font-size:12px"  type="button" value="臨時情報表示" onclick="showIrregularInfo(${key})"></input>`;
 		}
-		const tr =`<tr><td><input onchange="selectTime()" type="checkbox" checked data-vkey="${key}" id="vck_${key}"></input><label for="vck_${key}">${afv.name}<label></td><td>${new Date(afVolcanos[key].scheduled.reportDatetime).toLocaleString()}発表</td><td>${irregularInfo}</td></tr>`;
+		const checked = prevChecked[key] === false ? "" : "checked";
+		const tr =`<tr><td><input onchange="selectTime()" type="checkbox" ${checked} data-vkey="${key}" id="vck_${key}"></input><label for="vck_${key}">${afv.name}<label></td><td>${new Date(afVolcanos[key].scheduled.reportDatetime).toLocaleString()}発表</td><td>${irregularInfo}</td></tr>`;
 		volcanosTable.insertAdjacentHTML("beforeend",tr);
 	}
 }
@@ -473,7 +566,7 @@ function getPath(ps,color){
 
 async function loadJSON(url){
 	try{
-		const json = await ( await fetch(url) ).json();
+		const json = await ( await fetch(`${url}?t=${new Date().getTime()}`) ).json(); // キャッシュを避ける
 		return json;
 	} catch (e){
 		return null;
@@ -490,7 +583,8 @@ function removeChildren(element){
 <p style="font-size:12px" >出典：<a target="_blank" href="https://www.jma.go.jp/bosai/map.html#contents=ashfall">気象庁ホームページ 降灰予報を加工して作成</a></p>
 <div id="scheduledInfo">
 	<p style="background-color:#ddf;font-size:12px;"><span style="color:gray">■</span>：降灰の範囲<br><span style="color:red">■</span>：小さな噴石の落下範囲</p>
-	<input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()"></input><label for="ashfallOnlyCheck">降灰予報がある火山のみ表示</label>
+	<div><input id="autoUpdateCheck" type="checkbox" checked autocomplete="off"></input><label for="autoUpdateCheck">自動更新<span id="lastUpdated"></span></label></div>
+	<div><input id="ashfallOnlyCheck" type="checkbox" checked onclick="printVolcanos()"></input><label for="ashfallOnlyCheck">降灰予報がある火山のみ表示</label></div>
 
 	<div>
 		予報時間帯：
