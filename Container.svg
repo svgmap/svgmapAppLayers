@@ -4,7 +4,8 @@
 <globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1.0,0.0,0.0,-1.0,0.0,0.0)" />
 
 <!-- Basemap Layers -->
-<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicWMTS.svg" title="sentinel2_2018_WMTS" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicWMTS.svg" title="sentinel2_WMTS" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/pmtilesMercator/pmtilesMercator.svg" title="vectorTileBaseMaps" class="basemap switch" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=seamlessphoto" title="DenshiKokudo:orthoPhoto" class="basemap switch" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=pale" title="DenshiKokudo:淡色" class="basemap switch" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./basemaps/dynamicDenshiKokudo.svg#map=relief" title="DenshiKokudo:relief" class="basemap switch" visibility="hidden"/>
