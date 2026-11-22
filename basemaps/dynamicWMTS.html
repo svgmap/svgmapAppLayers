@@ -14,35 +14,112 @@
 	
 	// 2013/01/24 : 1st ver.
 	// 2026/8/26: Modernized to S-LaWA architecture
+	// 2026/10/31: Add ui, newer datasets, and improve projection.
 	
 	
 	var maxLevel = 18;
 	var minLevel = 3;
 	var tilePix = 256;
-	
-	// WMTSエンドポイントのリスト
-	var svAddrs = [
-		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2018_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/osm_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/terrain_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/graticules/default/WGS84/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/streets_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2017_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/blackmarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/hydrography_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/terrain-light_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/bluemarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
-		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/overlay_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png",
-		"https://tiles.maps.eox.at/wmts/1.0.0/coastline_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png"
+
+	var highPrecisionProjection = false; // 高精度図法の有効化
+
+	// 言語判定
+	var isJa = (navigator.language || navigator.userLanguage || "").toLowerCase().indexOf("ja") === 0;
+
+	// WMTSレイヤ定義（旧16件 + 先頭に2024〜2020年次）
+	var layers = [
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2024年 最新)", en: "Sentinel-2 Cloudless (2024 Latest)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2023年)", en: "Sentinel-2 Cloudless (2023)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2022_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2022年)", en: "Sentinel-2 Cloudless (2022)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2020年)", en: "Sentinel-2 Cloudless (2020)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2018_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2018年)", en: "Sentinel-2 Cloudless (2018)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/osm_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "OpenStreetMap (標準地図)", en: "OpenStreetMap" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2016年)", en: "Sentinel-2 Cloudless (2016)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/terrain_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Terrain (地形図 陰影)", en: "Terrain (Hillshading)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Overlay Base Bright (境界のみ 明色)", en: "Overlay Base Bright (Boundaries)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/graticules/default/WGS84/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Graticules (経緯度線)", en: "Graticules (Grid)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/overlay_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Overlay (地名・境界)", en: "Overlay (Labels & Boundaries)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/streets_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Streets (道路網)", en: "Streets Overlay" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2017_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Sentinel-2 雲なし衛星画像 (2017年)", en: "Sentinel-2 Cloudless (2017)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/blackmarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "BlackMarble (夜間の地球)", en: "BlackMarble (Night Lights)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/hydrography_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Hydrography (水系・河川・湖)", en: "Hydrography (Rivers & Lakes)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/terrain-light_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "Terrain Light (地形図 淡色)", en: "Terrain Light" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/bluemarble_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg", ja: "BlueMarble (NASA 地球画像)", en: "BlueMarble (NASA Earth)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/overlay_base_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Overlay Base (境界のみ)", en: "Overlay Base (Boundaries)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/overlay_bright_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Overlay Bright (地名・境界 明色)", en: "Overlay Bright (Labels & Boundaries)" },
+		{ url: "https://tiles.maps.eox.at/wmts/1.0.0/coastline_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.png", ja: "Coastline (海岸線)", en: "Coastline" }
 	];
+	var svAddrs = layers.map(function(l) { return l.url; });
 	var svAddr = svAddrs[0];
+	var currentLayerIdx = 0;
+
+	// サブレイヤ切り替え（タイル初期化 + hash更新）
+	function switchLayer(idx, updateHash) {
+		if (idx < 0 || idx >= layers.length) return;
+		currentLayerIdx = idx;
+		svAddr = svAddrs[idx];
+
+		// UI同期
+		var sel = document.getElementById("layerSelect");
+		if (sel && Number(sel.value) !== idx) {
+			sel.value = idx;
+		}
+
+		// 既存のタイル(image要素)をすべて消去して初期化
+		if (typeof svgImage !== "undefined" && svgImage) {
+			var currentTiles = svgImage.getElementsByTagName("image");
+			for (var i = currentTiles.length - 1; i >= 0; i--) {
+				currentTiles[i].parentNode.removeChild(currentTiles[i]);
+			}
+		}
+
+		// 再描画
+		if (typeof svgMap !== "undefined" && svgMap.refreshScreen) {
+			svgMap.refreshScreen();
+		}
+		if (typeof putGlobalMessage === "function") {
+			putGlobalMessage("© " + (isJa ? layers[idx].ja : layers[idx].en) + " by EOX");
+		}
+
+		// hash更新（先頭の '#' を維持）
+		if (updateHash) {
+			var h = (typeof svgImageProps !== "undefined" && svgImageProps && svgImageProps.hash) ? svgImageProps.hash : location.hash;
+			if (h && h.indexOf("#") === 0) h = h.substring(1);
+			var params = h ? h.split("&").filter(function(p) { return p.indexOf("map=") !== 0 && p.length > 0; }) : [];
+			params.push("map=" + idx);
+			var newHash = "#" + params.join("&");
+			if (typeof svgImageProps !== "undefined" && svgImageProps) {
+				svgImageProps.hash = newHash;
+			}
+			try { history.replaceState(null, "", newHash); } catch(e) {}
+		}
+	}
+
+	// UI初期化
+	function initUI() {
+		var sel = document.getElementById("layerSelect");
+		var lbl = document.getElementById("layerLabel");
+		if (lbl) {
+			lbl.textContent = isJa ? "背景レイヤ: " : "Layer: ";
+		}
+		if (!sel) return;
+		sel.innerHTML = "";
+		layers.forEach(function(l, i) {
+			var opt = document.createElement("option");
+			opt.value = i;
+			opt.textContent = isJa ? l.ja : l.en;
+			if (i === currentLayerIdx) opt.selected = true;
+			sel.appendChild(opt);
+		});
+		sel.addEventListener("change", function() {
+			switchLayer(Number(sel.value), true);
+		});
+	}
 
 	// SVGMapのレイヤーとして読み込まれた際の初期化処理
 	addEventListener("layerWebAppReady", function() {
+		var targetIdx = 0;
+
 		// URLフラグメントからレイヤー設定を引き継ぐ
 		if (svgImageProps && svgImageProps.hash) {
 			var hParams = getHashParams(svgImageProps.hash);
@@ -52,13 +129,13 @@
 					// インデックス指定の場合
 					var idx = Number(hParams.map);
 					if (idx >= 0 && idx < svAddrs.length) {
-						svAddr = svAddrs[idx];
+						targetIdx = idx;
 					}
 				} else {
 					// 文字列による部分一致指定の場合
 					for (var i = 0; i < svAddrs.length; i++) {
 						if (svAddrs[i].indexOf(hParams.map) >= 0) {
-							svAddr = svAddrs[i];
+							targetIdx = i;
 							break;
 						}
 					}
@@ -66,9 +143,8 @@
 			}
 		}
 		
-		// 初回レンダリング
-		svgMap.refreshScreen();
-		putGlobalMessage("© Sentinel-2 cloudless  by EOX IT Services GmbH");
+		initUI();
+		switchLayer(targetIdx, false);
 	});
 
 	// ハッシュパラメータの解析関数
@@ -114,35 +190,77 @@
 		
 		for (var tkey in tileSet) {
 			if (!tileSet[tkey].exist) {
-				var addTile = getTile(tileSet[tkey].x, tileSet[tkey].y, level, this.CRS);
-				svgImage.getElementsByTagName("svg")[0].appendChild(addTile);
+				var addTiles = getTile(tileSet[tkey].x, tileSet[tkey].y, level, this.CRS);
+				for ( var i = 0 ; i < addTiles.length ; i++ ){  
+					svgImage.getElementsByTagName("svg")[0].appendChild(addTiles[i]);
+				}
 			}
 		}
 	}
 
-	function getTile(tileX, tileY, level, crs) {
-		var tileURL = getWMTSURL(tileX, tileY, level);
-		
-		var tLatLng = XY2latLng(tileX * tilePix, tileY * tilePix, level);
-		var tSvg = svgMap.transform(tLatLng.lng, tLatLng.lat, crs);
-		var tLatLngBR = XY2latLng(tileX * tilePix + tilePix, tileY * tilePix + tilePix, level);
-		var tSvgBR = svgMap.transform(tLatLngBR.lng, tLatLngBR.lat, crs);
-		
-		tSvg.width  = tSvgBR.x - tSvg.x;
-		tSvg.height = tSvgBR.y - tSvg.y;
-		
-		var cl = svgImage.createElement("image");
-		cl.setAttribute("x", tSvg.x);
-		cl.setAttribute("y", tSvg.y);
-		cl.setAttribute("width", tSvg.width);
-		cl.setAttribute("height", tSvg.height);
-		cl.setAttribute("xlink:href", tileURL.URL);
-		cl.setAttribute("metadata", tileURL.Key);
-		cl.setAttribute("data-mercator-tile", "true");
-		
-		return cl;
+	// 歪み補正のためのパラメータ  
+	var maxSubdivideDepth = 3;      // 最大再帰深さ（最大8分割）  
+	var distortionThreshold = 0.01; // 区間高に対する中点ズレの許容率  
+	if ( !highPrecisionProjection ){
+		maxSubdivideDepth = 0;
 	}
-
+	
+	// 指定された場所のタイル(分割された地図イメージ)を取得  
+	// メルカトル由来の緯度方向の非線形歪みが大きい区間を再帰的に二等分し、  
+	// #xywh= によるクリップで各区間を正しい地理座標に配置する  
+	function getTile( tileX ,  tileY , level , crs ){  
+		var tileURL = getWMTSURL( tileX , tileY , level);  
+		var imgs = new Array();  
+		var pxLeft   = tileX * tilePix;  
+		var pxRight  = tileX * tilePix + tilePix;  
+  
+		// タイル全体のSVG座標高（判定の分母として固定）  
+		var tTop0 = XY2latLng( pxLeft , tileY * tilePix , level );  
+		var sTop0 = svgMap.transform( tTop0.lng , tTop0.lat , crs );  
+		var tBR0  = XY2latLng( pxRight , tileY * tilePix + tilePix , level );  
+		var sBR0  = svgMap.transform( tBR0.lng , tBR0.lat , crs );  
+		var tileHeight = Math.abs( sBR0.y - sTop0.y );  
+  
+		subdivideTile( tileY * tilePix , tileY * tilePix + tilePix , 0 );  
+		//console.log("tile:",{tileX ,  tileY , level},imgs.length);
+		return imgs;  
+  
+		function subdivideTile( pyTop , pyBottom , depth ){  
+			var tTop = XY2latLng( pxLeft , pyTop , level );  
+			var sTop = svgMap.transform( tTop.lng , tTop.lat , crs );  
+			var tBR  = XY2latLng( pxRight , pyBottom , level );  
+			var sBR  = svgMap.transform( tBR.lng , tBR.lat , crs );  
+  
+			var tMid = XY2latLng( pxLeft , (pyTop + pyBottom) / 2 , level );  
+			var sMid = svgMap.transform( tMid.lng , tMid.lat , crs );  
+			var deviation = Math.abs( sMid.y - (sTop.y + sBR.y) / 2 );  
+  
+			// タイル全体高に対する絶対的なズレ率で判定  
+			if ( depth < maxSubdivideDepth  
+				&& deviation > tileHeight * distortionThreshold ){  
+				var pyMid = (pyTop + pyBottom) / 2;  
+				subdivideTile( pyTop , pyMid , depth + 1 );  
+				subdivideTile( pyMid , pyBottom , depth + 1 );  
+				return;  
+			}
+			// 葉区間：<image>を生成し #xywh= で元タイルの該当ピクセル帯を指定  
+			var cl = svgImage.createElement("image");  
+			cl.setAttribute("x" , sTop.x);  
+			cl.setAttribute("y" , sTop.y);  
+			cl.setAttribute("width" , sBR.x - sTop.x);  
+			cl.setAttribute("height" , sBR.y - sTop.y);  
+			if ( depth == 0 ){  
+				cl.setAttribute("xlink:href" , tileURL.URL);  
+			} else {
+				cl.setAttribute("xlink:href" , tileURL.URL + "#xywh=0,"  
+					+ (pyTop - tileY * tilePix) + "," + tilePix + "," + (pyBottom - pyTop));  
+			}
+			cl.setAttribute("metadata" , tileURL.Key);  
+			cl.setAttribute("data-mercator-tile" , "true");  
+			imgs.push( cl );  
+		}  
+	}
+	
 	function getTileSet(geoViewBox, level) {
 		var TileSet = new Object();
 		
@@ -212,8 +330,6 @@
 		}
 	}
 	
-	// ObsoleteされたgetURLは削除し、getWMTSURLに一本化しています
-	
 	function getKey(tx, ty, lvl) {
 		return (tx + "_" + ty + "_" + lvl);
 	}
@@ -221,6 +337,7 @@
 </head>
 <body>
 <h3>Dynamic WMTS Layer (Sentinel-2 / EOX)</h3>
+<p><label><span id="layerLabel">Layer: </span><select id="layerSelect"></select></label></p>
 <ul>
 	<li>Source: <a href="https://s2maps.eu/" target="_blank">Sentinel-2 cloudless WMTS</a></li>
 	<li>© <a href="https://eox.at/" target="_blank">EOX IT Services GmbH</a></li>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<title>Vector Basemap (OSM / GSI)</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				margin: 12px;
+				font-size: 13px;
+			}
+			.selector {
+				margin-bottom: 10px;
+			}
+			select {
+				padding: 4px 6px;
+				font-size: 13px;
+			}
+		</style>
+		<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+		<link
+			href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+			rel="stylesheet"
+		/>
+		<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/pmtiles@3.2.0/dist/pmtiles.js"></script>
+	</head>
+	<body>
+		<h4 id="titleHead" style="margin: 0 0 6px 0">
+			ベクトルタイル背景地図 (OSM / 地理院)
+		</h4>
+		<div id="attribution" style="font-size: 11px; margin-bottom: 10px">
+			出典：<a
+				href="https://github.com/gsi-cyberjapan/optimal_bvmap"
+				target="_blank"
+				>国土地理院 最適化ベクトルタイル</a
+			>
+		</div>
+
+		<div class="selector">
+			<label for="styleSelect">地図スタイル：</label>
+			<select id="styleSelect">
+				<option value="gsi_std">国土地理院（標準地図）</option>
+				<option value="gsi_pale">国土地理院（淡色地図）</option>
+				<option value="osm_bright">OSM Bright（明るい配色）</option>
+				<option value="osm_positron">OSM Positron（グレー淡色）</option>
+				<option value="osm_liberty">OSM Liberty（カラフル・3D）</option>
+			</select>
+		</div>
+
+		<div id="status" style="color: #555; font-size: 12px">初期化待機中...</div>
+		<div style="color: #555; font-size: 12px">Rendered by MapLibre GL JS</div>
+
+		<script type="module">
+			// MapLibre GL JS + PMTiles を使用して、画面いっぱいの背景地図イメージを生成する LaWA / S-LaWA Layer
+			//
+			// License: (MPL v2)
+			// This Source Code Form is subject to the terms of the Mozilla Public
+			// License, v. 2.0. If a copy of the MPL was not distributed with this
+			// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+			import {
+				initPMTilesBasemap,
+				setBasemapStyle,
+			} from "./pmtilesMercator.js";
+
+			const STYLES = {
+				osm_liberty: {
+					url: "https://tiles.openfreemap.org/styles/liberty",
+					attr: '出典：<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> / <a href="https://openfreemap.org/" target="_blank">OpenFreeMap</a>',
+				},
+				osm_bright: {
+					url: "https://tiles.openfreemap.org/styles/bright",
+					attr: '出典：<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> / <a href="https://openfreemap.org/" target="_blank">OpenFreeMap</a>',
+				},
+				osm_positron: {
+					url: "https://tiles.openfreemap.org/styles/positron",
+					attr: '出典：<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> / <a href="https://openfreemap.org/" target="_blank">OpenFreeMap</a>',
+				},
+				gsi_std: {
+					url: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/std.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院 最適化ベクトルタイル</a>',
+				},
+				gsi_pale: {
+					url: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/pale.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院 最適化ベクトルタイル</a>',
+				},
+			};
+
+			const statusEl = document.getElementById("status");
+			const selectEl = document.getElementById("styleSelect");
+			const attrEl = document.getElementById("attribution");
+
+			const updateStatus = (msg) => {
+				statusEl.textContent = msg;
+			};
+
+			function applyStyle(key, isInit = false) {
+				const validKey = STYLES[key] ? key : "gsi_std";
+				const target = STYLES[validKey];
+
+				// 現在のスタイルを svgImageProps.hash に # 付きで保存
+				if (typeof svgImageProps !== "undefined") {
+					svgImageProps.hash = `#${validKey}`;
+				}
+
+				attrEl.innerHTML = target.attr;
+				if (isInit) {
+					initPMTilesBasemap(target.url, updateStatus);
+				} else {
+					updateStatus("スタイル切替中...");
+					setBasemapStyle(target.url, updateStatus);
+				}
+			}
+
+			window.addEventListener("layerWebAppReady", function () {
+				// 初期化時に svgImageProps.hash から # 付きの値を読み取る
+				let initialKey = "gsi_std";
+				if (typeof svgImageProps !== "undefined" && svgImageProps.hash) {
+					const rawHash = svgImageProps.hash.startsWith("#")
+						? svgImageProps.hash.substring(1)
+						: svgImageProps.hash;
+					if (STYLES[rawHash]) {
+						initialKey = rawHash;
+					}
+				}
+				selectEl.value = initialKey;
+				applyStyle(initialKey, true);
+			});
+
+			selectEl.addEventListener("change", () => {
+				applyStyle(selectEl.value, false);
+			});
+		</script>
+	</body>
+</html>
