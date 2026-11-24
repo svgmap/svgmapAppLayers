@@ -40,14 +40,23 @@
 		<div class="selector">
 			<label for="styleSelect">地図スタイル：</label>
 			<select id="styleSelect">
-				<option value="gsi_std">国土地理院（標準地図）</option>
-				<option value="gsi_skeleton">国土地理院（スケルトン・白地図風）</option>
-				<option value="osm_bright">OSM Bright（明るい配色）</option>
-				<option value="osm_positron">OSM Positron（グレー淡色）</option>
-				<option value="osm_liberty">OSM Liberty（カラフル・3D）</option>
-				<option value="osm_dark">OSM Dark（ダークモード）</option>
-				<option value="osm_fiord">OSM Fiord（ダークブルー）</option>
-			</select>
+				<optgroup label="国土地理院（最適化ベクトルタイル / PMTiles）">
+					<option value="gsi_std">地理院 最適化（標準地図）</option>
+					<option value="gsi_skeleton">地理院 最適化（スケルトン）</option>
+				</optgroup>
+				<optgroup label="国土地理院（従来版ベクトルタイル / MVT）">
+					<option value="gsi_trad_std">地理院 従来版（標準地図）</option>
+					<option value="gsi_trad_std_vertical">地理院 従来版（標準・縦書き）</option>
+					<option value="gsi_trad_pale">地理院 従来版（淡色地図）</option>
+					<option value="gsi_trad_blank">地理院 従来版（白地図）</option>
+				</optgroup>
+				<optgroup label="OpenStreetMap (OpenFreeMap)">
+					<option value="osm_bright">OSM Bright（明るい配色）</option>
+					<option value="osm_positron">OSM Positron（グレー淡色）</option>
+					<option value="osm_liberty">OSM Liberty（カラフル・3D）</option>
+					<option value="osm_dark">OSM Dark（ダークモード）</option>
+					<option value="osm_fiord">OSM Fiord（ダークブルー）</option>
+				</optgroup>			</select>
 		</div>
 
 		<div id="status" style="color: #555; font-size: 12px">初期化待機中...</div>
@@ -94,6 +103,22 @@
 				gsi_skeleton: {
 					url: "https://gsi-cyberjapan.github.io/optimal_bvmap/style/skeleton.json",
 					attr: '出典：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank">国土地理院 最適化ベクトルタイル</a>',
+				},
+				gsi_trad_std: {
+					url: "https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js" target="_blank">国土地理院ベクトルタイル</a>',
+				},
+				gsi_trad_std_vertical: {
+					url: "https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/std_vertical.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js" target="_blank">国土地理院ベクトルタイル</a>',
+				},
+				gsi_trad_pale: {
+					url: "https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/pale.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js" target="_blank">国土地理院ベクトルタイル</a>',
+				},
+				gsi_trad_blank: {
+					url: "https://gsi-cyberjapan.github.io/gsivectortile-mapbox-gl-js/blank.json",
+					attr: '出典：<a href="https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js" target="_blank">国土地理院ベクトルタイル</a>',
 				},
 			};
 
