@@ -33,6 +33,9 @@ var damJsonBaseURL;
 var tilePoints = 100;
 var colorEvaluatorCol;
 
+const autoUpdateInterval = 300000; // 自動更新間隔(ms)
+var autoUpdating = false; // 更新処理中かどうか
+
 addEventListener("layerWebAppReady",async function(){
 	svgMap = window.svgMap;
 	svgImage = window.svgImage;
@@ -52,11 +55,24 @@ addEventListener("layerWebAppReady",async function(){
 	}
 	
 	buildLegend();
-	await renderData();
 	
-	// 5分ごとの定期更新
-	window.setInterval(renderData,300000);
+	window.setInterval(autoUpdate,autoUpdateInterval);
+
+	await renderData();
 });
+
+async function autoUpdate(){
+	// 自動更新がOFFの場合、または前回の更新が終わっていない場合は更新しない
+	if ( !document.getElementById("autoUpdateCheck").checked || autoUpdating ){ return; }
+	autoUpdating = true;
+	try {
+		await renderData();
+	} catch (error) {
+		console.error("autoUpdate failed:", error);
+	} finally {
+		autoUpdating = false;
+	}
+}
 
 // [Refactor 2026] 描画フックの登録
 window.preRenderFunction = function(){
@@ -146,6 +162,10 @@ async function renderData(){
 	
 	window.preRenderFunction();
 	svgMap.refreshScreen();
+
+	// 最終更新日時（データの観測時刻）を表示する
+	const formatOptions = {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'};
+	document.getElementById("lastUpdated").innerText = `（最終更新：${processedData.timeStamp.toLocaleString('ja-JP', formatOptions)}）`;
 }
 
 window.renderData = renderData;
@@ -253,6 +273,9 @@ async function getPrefDamData(){
 	let timeStamp = getDateTimeStr(timeStampD);
 	var damJsonBase = damJsonPrefBaseURL.replace("[[datetime]]",timeStamp);
 	
+	// 既存のデータに追加しないよう、データを初期化しておく
+	damData={type:"FeatureCollection",features:[]};
+
 	var tjp =[];
 	for ( var i = 0 ; i < prefJson.prefs.length ; i++  ){
 		var pref = prefJson.prefs[i];
@@ -294,7 +317,7 @@ function buildFlatData(camData, timeStampDate){
 	
 	let prg = document.getElementById("prg");
 	if (prg) {
-		prg.innerHTML = `<span style="font-size:12px">${camData.features.length}レコードのデータがあります。 ${timeStampDate.toLocaleString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}更新</span>`;
+		prg.innerHTML = `<span style="font-size:12px">${camData.features.length}レコードのデータがあります。</span>`;
 	}
 
 	if (!camData.features || camData.features.length === 0) {
