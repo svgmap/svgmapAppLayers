@@ -456,6 +456,7 @@ function preRenderFunction(){
 	img.setAttribute("width",imgBox.geo.width*100);
 	img.setAttribute("height",imgBox.geo.height*100);
 	img.setAttribute("style","image-rendering:pixelated");
+	img.setAttribute("opacity","0.8");
 	img.setAttribute("content","testMeta0,testMeta1");
 	imgg.appendChild(img);
 	/**
